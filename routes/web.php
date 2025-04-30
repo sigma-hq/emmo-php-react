@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\DriveController;
+use App\Http\Controllers\InspectionController;
+use App\Http\Controllers\InspectionTemplateController;
 use App\Http\Controllers\PartController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +33,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('inspections', function () {
         return Inertia::render('inspections');
     })->name('inspections');
+    
+    // Inspection Templates API routes
+    Route::get('inspection-templates', [InspectionTemplateController::class, 'index'])->name('api.inspection-templates.index');
+    Route::post('inspection-templates', [InspectionTemplateController::class, 'store'])->name('api.inspection-templates.store');
+    Route::get('inspection-templates/{id}', [InspectionTemplateController::class, 'show'])->name('api.inspection-templates.show');
+    Route::put('inspection-templates/{id}', [InspectionTemplateController::class, 'update'])->name('api.inspection-templates.update');
+    Route::delete('inspection-templates/{id}', [InspectionTemplateController::class, 'destroy'])->name('api.inspection-templates.destroy');
+    
+    // Inspections API routes
+    Route::get('api/inspections', [InspectionController::class, 'index'])->name('api.inspections.index');
+    Route::post('api/inspections', [InspectionController::class, 'store'])->name('api.inspections.store');
+    Route::get('api/inspections/{id}', [InspectionController::class, 'show'])->name('api.inspections.show');
+    Route::put('api/inspections/{id}', [InspectionController::class, 'update'])->name('api.inspections.update');
+    Route::post('api/inspections/{id}/complete', [InspectionController::class, 'complete'])->name('api.inspections.complete');
+    Route::post('api/inspections/{id}/tasks/{taskId}/results', [InspectionController::class, 'recordTaskResult'])->name('api.inspections.record-task-result');
+    
+    // Scheduled inspection generation - admin only
+    Route::post('api/generate-inspections', [InspectionController::class, 'generateScheduledInspections'])
+        ->middleware('can:admin')
+        ->name('api.inspections.generate');
 
     Route::get('maintenances', function () {
         return Inertia::render('maintenances');
