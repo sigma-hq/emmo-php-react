@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DriveController;
 use App\Http\Controllers\PartController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -39,9 +40,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('view-items');
     })->name('view-items');
 
-    Route::get('users', function () {
-        return Inertia::render('users');
-    })->name('users');
+    // User management routes - only accessible to admins
+    Route::middleware(['can:manage,App\Models\User'])->group(function () {
+        Route::get('users', [UserController::class, 'index'])->name('users');
+        Route::post('users', [UserController::class, 'store'])->name('api.users.store');
+        Route::get('users/{user}', [UserController::class, 'show'])->name('api.users.show');
+        Route::put('users/{user}', [UserController::class, 'update'])->name('api.users.update');
+        Route::delete('users/{user}', [UserController::class, 'destroy'])->name('api.users.destroy');
+    });
 });
 
 require __DIR__.'/settings.php';
