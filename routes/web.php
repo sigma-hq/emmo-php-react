@@ -7,6 +7,8 @@ use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\InspectionTaskController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -60,6 +62,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('users/{user}', [UserController::class, 'update'])->name('api.users.update');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('api.users.destroy');
     });
+
+    // Debug route for inspection tasks
+    Route::post('debug-inspection-task', function (Request $request) {
+        Log::info('Debug inspection task - request data:', $request->all());
+        return response()->json([
+            'success' => true,
+            'message' => 'Debug endpoint called',
+            'request_data' => $request->all()
+        ]);
+    })->name('debug.inspection-task');
 });
 
 require __DIR__.'/settings.php';

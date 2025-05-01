@@ -6,6 +6,7 @@ use App\Models\Inspection;
 use App\Models\InspectionTask;
 use App\Models\InspectionResult;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class InspectionTaskController extends Controller
 {
@@ -14,12 +15,52 @@ class InspectionTaskController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate(InspectionTask::validationRules());
-        
-        $task = InspectionTask::create($validated);
-        
-        return redirect()->route('api.inspections.show', $validated['inspection_id'])
-            ->with('success', 'Task added successfully');
+        try {
+            Log::info('InspectionTask store - request data:', $request->all());
+            
+            $validated = $request->validate(InspectionTask::validationRules());
+            
+            // Handle 'none' value for target_type
+            if (isset($validated['target_type']) && $validated['target_type'] === 'none') {
+                $validated['target_type'] = null;
+                $validated['target_id'] = null;
+            }
+            
+            // Convert expected_value_boolean from string to actual boolean
+            if (isset($validated['type']) && $validated['type'] === 'yes_no' && isset($validated['expected_value_boolean'])) {
+                $validated['expected_value_boolean'] = filter_var(
+                    $validated['expected_value_boolean'], 
+                    FILTER_VALIDATE_BOOLEAN
+                );
+            }
+            
+            // Handle numeric values
+            if (isset($validated['type']) && $validated['type'] === 'numeric') {
+                // Convert empty strings to null
+                if (isset($validated['expected_value_min']) && $validated['expected_value_min'] === '') {
+                    $validated['expected_value_min'] = null;
+                }
+                if (isset($validated['expected_value_max']) && $validated['expected_value_max'] === '') {
+                    $validated['expected_value_max'] = null;
+                }
+            }
+            
+            Log::info('InspectionTask store - processed data:', $validated);
+            
+            $task = InspectionTask::create($validated);
+            
+            Log::info('InspectionTask store - task created:', ['id' => $task->id]);
+            
+            return redirect()->route('api.inspections.show', $validated['inspection_id'])
+                ->with('success', 'Task added successfully');
+        } catch (\Exception $e) {
+            Log::error('InspectionTask store - error:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            throw $e;
+        }
     }
 
     /**
@@ -27,12 +68,50 @@ class InspectionTaskController extends Controller
      */
     public function update(Request $request, InspectionTask $task)
     {
-        $validated = $request->validate(InspectionTask::validationRules());
-        
-        $task->update($validated);
-        
-        return redirect()->route('api.inspections.show', $task->inspection_id)
-            ->with('success', 'Task updated successfully');
+        try {
+            Log::info('InspectionTask update - request data:', $request->all());
+            
+            $validated = $request->validate(InspectionTask::validationRules());
+            
+            // Handle 'none' value for target_type
+            if (isset($validated['target_type']) && $validated['target_type'] === 'none') {
+                $validated['target_type'] = null;
+                $validated['target_id'] = null;
+            }
+            
+            // Convert expected_value_boolean from string to actual boolean
+            if (isset($validated['type']) && $validated['type'] === 'yes_no' && isset($validated['expected_value_boolean'])) {
+                $validated['expected_value_boolean'] = filter_var(
+                    $validated['expected_value_boolean'], 
+                    FILTER_VALIDATE_BOOLEAN
+                );
+            }
+            
+            // Handle numeric values
+            if (isset($validated['type']) && $validated['type'] === 'numeric') {
+                // Convert empty strings to null
+                if (isset($validated['expected_value_min']) && $validated['expected_value_min'] === '') {
+                    $validated['expected_value_min'] = null;
+                }
+                if (isset($validated['expected_value_max']) && $validated['expected_value_max'] === '') {
+                    $validated['expected_value_max'] = null;
+                }
+            }
+            
+            Log::info('InspectionTask update - processed data:', $validated);
+            
+            $task->update($validated);
+            
+            return redirect()->route('api.inspections.show', $task->inspection_id)
+                ->with('success', 'Task updated successfully');
+        } catch (\Exception $e) {
+            Log::error('InspectionTask update - error:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            throw $e;
+        }
     }
 
     /**

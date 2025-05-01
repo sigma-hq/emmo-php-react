@@ -191,16 +191,27 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
     const handleTaskSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Log submission for debugging
+        console.log('Submitting task form with data:', taskForm.data);
+        
         if (isEditTaskMode) {
             taskForm.put(route('api.inspection-tasks.update', taskForm.data.id), {
                 onSuccess: () => {
                     setIsTaskDialogOpen(false);
+                    window.location.reload(); // Force reload to see changes
+                },
+                onError: (errors) => {
+                    console.error('Form submission errors:', errors);
                 }
             });
         } else {
             taskForm.post(route('api.inspection-tasks.store'), {
                 onSuccess: () => {
                     setIsTaskDialogOpen(false);
+                    window.location.reload(); // Force reload to see changes
+                },
+                onError: (errors) => {
+                    console.error('Form submission errors:', errors);
                 }
             });
         }
@@ -487,7 +498,7 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                                         </Select>
                                     </div>
                                     
-                                    {taskForm.data.target_type && (
+                                    {taskForm.data.target_type && taskForm.data.target_type !== 'none' && (
                                         <div className="grid gap-2">
                                             <Label htmlFor="target_id" className={taskForm.errors.target_id ? "text-red-500" : ""}>
                                                 Select {taskForm.data.target_type === 'drive' ? 'Drive' : 'Part'}
@@ -611,6 +622,38 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                                     {isEditTaskMode ? 'Update Task' : 'Add Task'}
                                 </Button>
                             </DialogFooter>
+                            <div className="mt-4 border-t pt-4">
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={() => {
+                                        // For debugging only
+                                        const formData = { ...taskForm.data };
+                                        console.log('Debug form data:', formData);
+                                        
+                                        // Test with our debug endpoint
+                                        fetch('/debug-inspection-task', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                                            },
+                                            body: JSON.stringify(formData)
+                                        })
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            console.log('Debug response:', data);
+                                            alert('Check browser console for debug info');
+                                        })
+                                        .catch(error => {
+                                            console.error('Debug error:', error);
+                                            alert('Error: ' + error.message);
+                                        });
+                                    }}
+                                >
+                                    Debug Form
+                                </Button>
+                            </div>
                         </form>
                     </DialogContent>
                 </Dialog>
