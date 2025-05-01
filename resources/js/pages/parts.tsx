@@ -52,6 +52,22 @@ interface Part {
     updated_at: string;
 }
 
+interface PartAttachmentHistory {
+    id: number;
+    part_id: number;
+    drive_id: number | null;
+    action: 'attached' | 'detached';
+    notes: string | null;
+    user_id: number | null;
+    created_at: string;
+    updated_at: string;
+    drive?: Drive | null;
+    user?: {
+        id: number;
+        name: string;
+    } | null;
+}
+
 interface PaginationLinks {
     url: string | null;
     label: string;
@@ -81,6 +97,7 @@ interface PartsPageProps {
     flash?: {
         success?: string;
     };
+    editPart?: number;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -94,7 +111,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Parts({ parts, drives, flash }: PartsPageProps) {
+export default function Parts({ parts, drives, flash, editPart }: PartsPageProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [showSuccessNotification, setShowSuccessNotification] = useState(false);
@@ -104,6 +121,12 @@ export default function Parts({ parts, drives, flash }: PartsPageProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [driveComboboxOpen, setDriveComboboxOpen] = useState(false);
     
+    // Attachment history state
+    const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+    const [selectedPart, setSelectedPart] = useState<Part | null>(null);
+    const [attachmentHistory, setAttachmentHistory] = useState<PartAttachmentHistory[]>([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    
     const { data, setData, post, put, processing, errors, reset } = useForm({
         id: '',
         name: '',
@@ -111,6 +134,7 @@ export default function Parts({ parts, drives, flash }: PartsPageProps) {
         status: 'unattached',
         drive_id: '',
         notes: '',
+        attachment_notes: '',
     });
     
     // Handle flash messages from the backend
@@ -127,6 +151,16 @@ export default function Parts({ parts, drives, flash }: PartsPageProps) {
             return () => clearTimeout(timer);
         }
     }, [flash]);
+    
+    // Handle editPart parameter if provided
+    useEffect(() => {
+        if (editPart) {
+            const partToEdit = parts.data.find(part => part.id === editPart);
+            if (partToEdit) {
+                openEditDialog(partToEdit);
+            }
+        }
+    }, [editPart, parts.data]);
     
     // Handle search with debounce
     useEffect(() => {
@@ -156,6 +190,7 @@ export default function Parts({ parts, drives, flash }: PartsPageProps) {
             status: part.status,
             drive_id: part.drive_id ? part.drive_id.toString() : '',
             notes: part.notes || '',
+            attachment_notes: '',
         });
         setIsEditMode(true);
         setIsOpen(true);
@@ -210,6 +245,23 @@ export default function Parts({ parts, drives, flash }: PartsPageProps) {
         if (!data.drive_id) return null;
         const selectedDrive = drives.find(drive => drive.id.toString() === data.drive_id);
         return selectedDrive ? `${selectedDrive.name} (${selectedDrive.drive_ref})` : null;
+    };
+    
+    // Function to view attachment history
+    const viewAttachmentHistory = async (part: Part) => {
+        setSelectedPart(part);
+        setIsLoadingHistory(true);
+        setShowHistoryDialog(true);
+        
+        try {
+            const response = await fetch(route('api.parts.history', part.id));
+            const history = await response.json();
+            setAttachmentHistory(history);
+        } catch (error) {
+            console.error('Failed to load attachment history:', error);
+        } finally {
+            setIsLoadingHistory(false);
+        }
     };
     
     return (
@@ -297,12 +349,30 @@ export default function Parts({ parts, drives, flash }: PartsPageProps) {
                                         className={`relative group hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors ${index % 2 === 0 ? 'bg-gray-50/50 dark:bg-gray-900/20' : ''}`}
                                     >
                                         <td className="px-6 py-4 text-sm">
-                                            <span className="font-medium text-gray-900 dark:text-white">{part.name}</span>
+                                            <Link 
+                                                href={route('api.parts.show', part.id)} 
+                                                className="font-medium text-gray-900 dark:text-white hover:text-[var(--emmo-green-primary)] hover:underline transition-colors flex items-center gap-1"
+                                                title="View part details"
+                                            >
+                                                {part.name}
+                                                <span className="text-xs text-blue-500">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                                        <polyline points="15 3 21 3 21 9"></polyline>
+                                                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                                                    </svg>
+                                                </span>
+                                            </Link>
                                         </td>
                                         <td className="px-6 py-4 text-sm">
-                                            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 border border-gray-200 dark:border-gray-800">
-                                                {part.part_ref}
-                                            </div>
+                                            <Link 
+                                                href={route('api.parts.show', part.id)}
+                                                title="View part details"
+                                            >
+                                                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                                                    {part.part_ref}
+                                                </div>
+                                            </Link>
                                         </td>
                                         <td className="px-6 py-4 text-sm">
                                             {part.status === 'attached' ? (
@@ -318,7 +388,12 @@ export default function Parts({ parts, drives, flash }: PartsPageProps) {
                                         <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                             {part.drive ? (
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="text-[var(--emmo-green-primary)]">{part.drive.name}</span>
+                                                    <Link 
+                                                        href={route('api.drives.show', part.drive.id)} 
+                                                        className="text-[var(--emmo-green-primary)] hover:text-[var(--emmo-green-dark)] hover:underline transition-colors"
+                                                    >
+                                                        {part.drive.name}
+                                                    </Link>
                                                     <span className="text-xs text-gray-400 dark:text-gray-600">({part.drive.drive_ref})</span>
                                                 </div>
                                             ) : (
@@ -339,11 +414,31 @@ export default function Parts({ parts, drives, flash }: PartsPageProps) {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="invisible group-hover:visible flex justify-end gap-3 items-center">
+                                                <Link 
+                                                    href={route('api.parts.show', part.id)} 
+                                                    className="text-blue-500 hover:text-blue-700 transition-colors"
+                                                    title="View part details"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                                                        <circle cx="12" cy="12" r="3"></circle>
+                                                    </svg>
+                                                </Link>
                                                 <button 
                                                     onClick={() => openEditDialog(part)}
                                                     className="text-[var(--emmo-green-primary)] hover:text-[var(--emmo-green-dark)] transition-colors"
                                                 >
                                                     <Pencil className="h-4 w-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => viewAttachmentHistory(part)}
+                                                    className="text-blue-500 hover:text-blue-700 transition-colors"
+                                                    title="View attachment history"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                                        <path d="M12 8v4l3 3"></path>
+                                                        <circle cx="12" cy="12" r="9"></circle>
+                                                    </svg>
                                                 </button>
                                                 <button 
                                                     onClick={() => openDeleteDialog(part)}
@@ -555,6 +650,25 @@ export default function Parts({ parts, drives, flash }: PartsPageProps) {
                                         )}
                                     </div>
                                     
+                                    {/* Show attachment notes field when in edit mode and status has changed */}
+                                    {isEditMode && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="attachment_notes" className="text-sm font-medium block">
+                                                Attachment Change Notes
+                                            </Label>
+                                            <Input
+                                                id="attachment_notes"
+                                                value={data.attachment_notes}
+                                                onChange={(e) => setData('attachment_notes', e.target.value)}
+                                                className="w-full"
+                                                placeholder="Reason for attachment change (optional)"
+                                            />
+                                            <p className="text-xs text-gray-500">
+                                                Provide a note about why this part is being attached/detached
+                                            </p>
+                                        </div>
+                                    )}
+                                    
                                     {data.status === 'attached' && (
                                         <div className="space-y-2">
                                             <Label htmlFor="drive_id" className="text-sm font-medium block">
@@ -763,6 +877,135 @@ export default function Parts({ parts, drives, flash }: PartsPageProps) {
                         </div>
                     </AlertDialogContent>
                 </AlertDialog>
+                
+                {/* Attachment History Dialog */}
+                <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+                    <DialogContent className="sm:max-w-[650px] rounded-xl p-0 overflow-hidden">
+                        <div className="flex flex-col h-full">
+                            {/* Visual header */}
+                            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 text-white">
+                                <DialogTitle className="text-2xl font-bold mb-2">
+                                    Part Attachment History
+                                </DialogTitle>
+                                <DialogDescription className="text-white/80 max-w-sm">
+                                    {selectedPart && `Showing attachment history for ${selectedPart.name} (${selectedPart.part_ref})`}
+                                </DialogDescription>
+                            </div>
+                            
+                            {/* History content */}
+                            <div className="p-6 overflow-y-auto max-h-[500px]">
+                                {isLoadingHistory ? (
+                                    <div className="flex items-center justify-center py-12">
+                                        <svg className="animate-spin h-8 w-8 text-[var(--emmo-green-primary)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </div>
+                                ) : attachmentHistory.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <p className="text-gray-500 dark:text-gray-400">No attachment history found for this part.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                                                History Timeline
+                                            </h3>
+                                            <div className="text-sm text-gray-500">
+                                                {attachmentHistory.length} {attachmentHistory.length === 1 ? 'record' : 'records'}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="relative border-l-2 border-gray-200 dark:border-gray-800 pl-6 pt-2 pb-6 ml-4">
+                                            {attachmentHistory.map((record, index) => (
+                                                <div key={record.id} className="mb-6 relative">
+                                                    {/* Timeline dot */}
+                                                    <div className={`absolute w-4 h-4 rounded-full -left-[25px] ${
+                                                        record.action === 'attached' 
+                                                            ? 'bg-green-500 dark:bg-green-600' 
+                                                            : 'bg-red-500 dark:bg-red-600'
+                                                        }`}>
+                                                    </div>
+                                                    
+                                                    {/* Record card */}
+                                                    <div className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm p-4">
+                                                        <div className="flex justify-between mb-2">
+                                                            <div className="flex items-center">
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                                    record.action === 'attached'
+                                                                        ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-100 dark:border-green-800'
+                                                                        : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-100 dark:border-red-800'
+                                                                }`}>
+                                                                    {record.action === 'attached' ? (
+                                                                        <>
+                                                                            <Link2Icon className="h-3 w-3" /> 
+                                                                            Attached
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <UnlinkIcon className="h-3 w-3" /> 
+                                                                            Detached
+                                                                        </>
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                            <time className="text-xs text-gray-500 dark:text-gray-400">
+                                                                {new Date(record.created_at).toLocaleString()}
+                                                            </time>
+                                                        </div>
+                                                        
+                                                        <div className="mb-2">
+                                                            <p className="text-sm text-gray-700 dark:text-gray-300">
+                                                                {record.action === 'attached' 
+                                                                    ? (
+                                                                        <>
+                                                                            Part was attached to 
+                                                                            <span className="font-medium text-[var(--emmo-green-primary)]"> {record.drive?.name}</span>
+                                                                            <span className="text-xs text-gray-500 dark:text-gray-400"> ({record.drive?.drive_ref})</span>
+                                                                        </>
+                                                                    ) 
+                                                                    : (
+                                                                        <>
+                                                                            Part was detached from 
+                                                                            <span className="font-medium text-[var(--emmo-green-primary)]"> {record.drive?.name}</span>
+                                                                            <span className="text-xs text-gray-500 dark:text-gray-400"> ({record.drive?.drive_ref})</span>
+                                                                        </>
+                                                                    )
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                        
+                                                        {record.notes && (
+                                                            <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-900 rounded border border-gray-100 dark:border-gray-800">
+                                                                <p className="text-sm text-gray-600 dark:text-gray-400">{record.notes}</p>
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {record.user && (
+                                                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                                                Action performed by: {record.user.name}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Footer */}
+                            <div className="border-t border-gray-100 dark:border-gray-800 p-4 flex justify-end gap-3 bg-gray-50 dark:bg-gray-950">
+                                <Button 
+                                    onClick={() => setShowHistoryDialog(false)} 
+                                    className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] transition-colors"
+                                >
+                                    Close
+                                </Button>
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
     );
