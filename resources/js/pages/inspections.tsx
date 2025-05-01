@@ -32,7 +32,10 @@ import {
     ClipboardCheck,
     ClipboardX,
     Clock,
-    Archive
+    Archive,
+    BarChart3,
+    ArrowUp,
+    ArrowDown
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -283,52 +286,90 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                     </p>
                 </div>
                 
-                {/* Dashboard Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="bg-white hover:bg-gray-50 cursor-pointer border-l-4 border-l-gray-400" onClick={() => setStatusFilter('all')}>
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">All Inspections</p>
-                                <p className="text-2xl font-bold mt-1">{statusCounts.all}</p>
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <Card className="shadow-sm border-gray-200" onClick={() => setStatusFilter('all')}>
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-500">Total Inspections</CardTitle>
+                                <div className="rounded-md p-1 bg-gray-50">
+                                    <BarChart3 className="h-4 w-4 text-gray-700" />
+                                </div>
                             </div>
-                            <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                                <ClipboardList className="h-5 w-5 text-gray-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold">{statusCounts.all}</div>
+                                <div className="text-xs text-gray-500">100%</div>
                             </div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card className="bg-white hover:bg-gray-50 cursor-pointer border-l-4 border-l-gray-400" onClick={() => setStatusFilter('draft')}>
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Draft</p>
-                                <p className="text-2xl font-bold mt-1">{statusCounts.draft}</p>
-                            </div>
-                            <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                                <Clock className="h-5 w-5 text-gray-600" />
+                            <div className="h-1 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-gray-300 rounded-full" style={{ width: '100%' }}></div>
                             </div>
                         </CardContent>
                     </Card>
                     
-                    <Card className="bg-white hover:bg-gray-50 cursor-pointer border-l-4 border-l-blue-400" onClick={() => setStatusFilter('active')}>
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Active</p>
-                                <p className="text-2xl font-bold mt-1">{statusCounts.active}</p>
+                    <Card className="shadow-sm border-gray-200" onClick={() => setStatusFilter('draft')}>
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-500">Draft</CardTitle>
+                                <div className="rounded-md p-1 bg-gray-50">
+                                    <Clock className="h-4 w-4 text-gray-700" />
+                                </div>
                             </div>
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                <ClipboardList className="h-5 w-5 text-blue-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold">{statusCounts.draft}</div>
+                                <div className="text-xs text-gray-500">
+                                    {statusCounts.all > 0 ? Math.round((statusCounts.draft / statusCounts.all) * 100) : 0}%
+                                </div>
+                            </div>
+                            <div className="h-1 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-gray-300 rounded-full" style={{ width: `${statusCounts.all > 0 ? (statusCounts.draft / statusCounts.all) * 100 : 0}%` }}></div>
                             </div>
                         </CardContent>
                     </Card>
                     
-                    <Card className="bg-white hover:bg-gray-50 cursor-pointer border-l-4 border-l-green-400" onClick={() => setStatusFilter('completed')}>
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Completed</p>
-                                <p className="text-2xl font-bold mt-1">{statusCounts.completed}</p>
+                    <Card className="shadow-sm border-gray-200" onClick={() => setStatusFilter('active')}>
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-500">Active</CardTitle>
+                                <div className="rounded-md p-1 bg-gray-50">
+                                    <ClipboardList className="h-4 w-4 text-gray-700" />
+                                </div>
                             </div>
-                            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                                <ClipboardCheck className="h-5 w-5 text-green-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold">{statusCounts.active}</div>
+                                <div className="text-xs text-gray-500">
+                                    {statusCounts.all > 0 ? Math.round((statusCounts.active / statusCounts.all) * 100) : 0}%
+                                </div>
+                            </div>
+                            <div className="h-1 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-gray-300 rounded-full" style={{ width: `${statusCounts.all > 0 ? (statusCounts.active / statusCounts.all) * 100 : 0}%` }}></div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    
+                    <Card className="shadow-sm border-gray-200" onClick={() => setStatusFilter('completed')}>
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-500">Completed</CardTitle>
+                                <div className="rounded-md p-1 bg-gray-50">
+                                    <ClipboardCheck className="h-4 w-4 text-gray-700" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold">{statusCounts.completed}</div>
+                                <div className="text-xs text-gray-500">
+                                    {statusCounts.all > 0 ? Math.round((statusCounts.completed / statusCounts.all) * 100) : 0}%
+                                </div>
+                            </div>
+                            <div className="h-1 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-gray-300 rounded-full" style={{ width: `${statusCounts.all > 0 ? (statusCounts.completed / statusCounts.all) * 100 : 0}%` }}></div>
                             </div>
                         </CardContent>
                     </Card>
@@ -365,10 +406,10 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                 </div>
                 
                 {/* View Options */}
-                <Tabs defaultValue="grid" className="w-full">
+                <Tabs defaultValue="list" className="w-full">
                     <div className="flex justify-between items-center mb-4">
                         <TabsList>
-                            <TabsTrigger value="grid">Grid View</TabsTrigger>
+                            <TabsTrigger value="list">List View</TabsTrigger>
                             <TabsTrigger value="table">Table View</TabsTrigger>
                         </TabsList>
                         <div className="text-sm text-gray-500">
@@ -376,64 +417,127 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                         </div>
                     </div>
                     
-                    {/* Grid View */}
-                    <TabsContent value="grid" className="mt-0">
+                    {/* List View */}
+                    <TabsContent value="list" className="mt-0">
                         {filteredInspections.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="space-y-3">
                                 {filteredInspections.map((inspection) => (
-                                    <Card key={inspection.id} className="overflow-hidden hover:shadow-md transition-shadow duration-300">
-                                        <CardHeader className="pb-2">
-                                            <div className="flex justify-between items-start">
-                                                <Badge className={getStatusBadgeClasses(inspection.status)} variant="outline">
-                                                    <span className="flex items-center gap-1">
-                                                        {getStatusIcon(inspection.status)}
-                                                        {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
-                                                    </span>
-                                                </Badge>
-                                                <div className="text-xs text-gray-500">
-                                                    {new Date(inspection.created_at).toLocaleDateString()}
+                                    <div key={inspection.id} 
+                                        className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200"
+                                    >
+                                        <div className="flex flex-col md:flex-row">
+                                            {/* Status indicator */}
+                                            <div className={`w-full md:w-1 ${
+                                                inspection.status === 'draft' ? 'bg-gray-400' : 
+                                                inspection.status === 'active' ? 'bg-blue-400' : 
+                                                inspection.status === 'completed' ? 'bg-green-400' : 
+                                                'bg-amber-400'
+                                            } md:h-auto`}>
+                                            </div>
+                                            
+                                            <div className="flex-grow p-4">
+                                                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-y-4">
+                                                    {/* Left section: Title, description, metadata */}
+                                                    <div className="flex-grow">
+                                                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                                                            <h3 className="text-lg font-medium text-gray-900 mr-2">{inspection.name}</h3>
+                                                            <Badge className={getStatusBadgeClasses(inspection.status)}>
+                                                                <span className="flex items-center gap-1">
+                                                                    {getStatusIcon(inspection.status)}
+                                                                    {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
+                                                                </span>
+                                                            </Badge>
+                                                        </div>
+                                                        
+                                                        {inspection.description && (
+                                                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">{inspection.description}</p>
+                                                        )}
+                                                        
+                                                        <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500">
+                                                            <div className="flex items-center gap-1">
+                                                                <Clock className="h-3.5 w-3.5" />
+                                                                <span>{new Date(inspection.created_at).toLocaleDateString(undefined, {
+                                                                    year: 'numeric',
+                                                                    month: 'short',
+                                                                    day: 'numeric'
+                                                                })}</span>
+                                                            </div>
+                                                            
+                                                            <span className="hidden md:inline-block">•</span>
+                                                            
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="font-medium">Created by:</span>
+                                                                <span>{inspection.creator?.name || 'Unknown'}</span>
+                                                            </div>
+                                                            
+                                                            <span className="hidden md:inline-block">•</span>
+                                                            
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="font-medium">ID:</span>
+                                                                <span>#{inspection.id}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Right section: Actions */}
+                                                    <div className="flex items-center space-x-2 mt-3 md:mt-0 md:ml-4 md:self-start">
+                                                        <Link href={route('api.inspections.show', inspection.id)}>
+                                                            <Button variant="outline" size="sm" className="h-9 px-3 font-medium text-sm">
+                                                                <Eye className="h-4 w-4 mr-2" />
+                                                                View Details
+                                                            </Button>
+                                                        </Link>
+                                                        <div className="flex gap-1">
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="sm"
+                                                                className="h-9 w-9 p-0"
+                                                                onClick={() => openEditDialog(inspection)}
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="sm"
+                                                                className="h-9 w-9 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                                onClick={() => openDeleteDialog(inspection)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Progress indicator */}
+                                                <div className="mt-4 pt-3 border-t border-gray-100">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="text-xs font-medium text-gray-500">
+                                                            {inspection.status === 'draft' ? 'Not Started' : 
+                                                             inspection.status === 'active' ? 'In Progress' : 
+                                                             inspection.status === 'completed' ? 'Completed' : 
+                                                             'Archived'}
+                                                        </span>
+                                                        <span className="text-xs font-medium text-gray-500">
+                                                            {inspection.status === 'draft' ? '0%' : 
+                                                             inspection.status === 'active' ? '50%' : 
+                                                             inspection.status === 'completed' ? '100%' : 
+                                                             'N/A'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1">
+                                                        <div 
+                                                            className={`h-1.5 rounded-full ${
+                                                                inspection.status === 'draft' ? 'bg-gray-400 w-0' : 
+                                                                inspection.status === 'active' ? 'bg-blue-400 w-1/2' : 
+                                                                inspection.status === 'completed' ? 'bg-green-400 w-full' : 
+                                                                'bg-amber-400 w-full'
+                                                            }`}
+                                                        ></div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <CardTitle className="mt-2 text-lg">{inspection.name}</CardTitle>
-                                            {inspection.description && (
-                                                <CardDescription className="line-clamp-2">
-                                                    {inspection.description}
-                                                </CardDescription>
-                                            )}
-                                        </CardHeader>
-                                        <CardContent className="pb-2 text-sm">
-                                            <p className="text-gray-500">
-                                                Created by {inspection.creator?.name || 'Unknown'}
-                                            </p>
-                                        </CardContent>
-                                        <CardFooter className="flex justify-between pt-2 border-t">
-                                            <Link href={route('api.inspections.show', inspection.id)}>
-                                                <Button variant="outline" size="sm">
-                                                    <Eye className="h-4 w-4 mr-1" />
-                                                    View
-                                                </Button>
-                                            </Link>
-                                            <div className="flex gap-2">
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm"
-                                                    onClick={() => openEditDialog(inspection)}
-                                                >
-                                                    <Pencil className="h-4 w-4 mr-1" />
-                                                    Edit
-                                                </Button>
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm"
-                                                    className="text-red-500 border-red-200 hover:bg-red-50"
-                                                    onClick={() => openDeleteDialog(inspection)}
-                                                >
-                                                    <Trash2 className="h-4 w-4 mr-1" />
-                                                    Delete
-                                                </Button>
-                                            </div>
-                                        </CardFooter>
-                                    </Card>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         ) : (

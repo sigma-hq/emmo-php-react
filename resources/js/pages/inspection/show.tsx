@@ -19,9 +19,32 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, Link } from '@inertiajs/react';
-import { PlusIcon, Pencil, Trash2, CheckCircle, ClipboardList, ArrowLeft, CheckIcon, XIcon, AlertTriangle } from 'lucide-react';
+import { 
+    PlusIcon, 
+    Pencil, 
+    Trash2, 
+    CheckCircle, 
+    ClipboardList, 
+    ArrowLeft, 
+    CheckIcon, 
+    XIcon, 
+    AlertTriangle, 
+    Clock, 
+    ClipboardCheck, 
+    ClipboardX,
+    Archive,
+    BarChart3,
+    FileSpreadsheet,
+    Info,
+    FileText,
+    CheckSquare,
+    ChevronRight,
+    Clipboard
+} from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 interface User {
     id: number;
@@ -89,6 +112,16 @@ interface InspectionShowProps {
         success?: string;
     };
 }
+
+// Simple Progress component since we don't have the UI component
+const Progress = ({ value, className = "" }: { value: number, className?: string }) => (
+    <div className={`w-full bg-gray-100 rounded-full overflow-hidden ${className}`}>
+        <div 
+            className="h-full bg-gray-500 rounded-full transition-all duration-500 ease-out" 
+            style={{ width: `${value}%` }}
+        />
+    </div>
+);
 
 export default function InspectionShow({ inspection, drives, parts, flash }: InspectionShowProps) {
     const [showSuccessNotification, setShowSuccessNotification] = useState(false);
@@ -264,11 +297,35 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
         }
     };
     
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'draft':
+                return <Clock className="h-4 w-4" />;
+            case 'active':
+                return <ClipboardList className="h-4 w-4" />;
+            case 'completed':
+                return <ClipboardCheck className="h-4 w-4" />;
+            case 'archived':
+                return <Archive className="h-4 w-4" />;
+            default:
+                return <ClipboardList className="h-4 w-4" />;
+        }
+    };
+    
+    // Calculate inspection summary data
+    const tasksCount = inspection.tasks?.length || 0;
+    const resultsCount = inspection.tasks?.reduce((acc, task) => acc + (task.results?.length || 0), 0) || 0;
+    const passedCount = inspection.tasks?.reduce((acc, task) => {
+        return acc + (task.results?.filter(r => r.is_passing)?.length || 0);
+    }, 0) || 0;
+    const failedCount = resultsCount - passedCount;
+    const completionPercentage = tasksCount > 0 ? Math.round((resultsCount / tasksCount) * 100) : 0;
+    
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Inspection: ${inspection.name}`} />
             
-            <div className="flex h-full flex-1 flex-col gap-8 p-6">
+            <div className="flex h-full flex-1 flex-col gap-6 p-6">
                 {/* Success Notification */}
                 {showSuccessNotification && (
                     <div className="fixed top-6 right-6 z-50 transform transition-all duration-500 ease-in-out">
@@ -280,140 +337,393 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                 )}
                 
                 {/* Page Header */}
-                <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-4">
-                        <Link href={route('inspections')}>
-                            <Button variant="outline" size="sm">
-                                <ArrowLeft className="h-4 w-4 mr-2" />
-                                Back to Inspections
-                            </Button>
-                        </Link>
-                        
-                        <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClasses(inspection.status)}`}>
-                                {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight">{inspection.name}</h1>
-                            {inspection.description && (
-                                <p className="text-sm text-gray-500 mt-1">{inspection.description}</p>
-                            )}
-                        </div>
-                        
-                        <Button 
-                            onClick={openCreateTaskDialog}
-                            className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
-                        >
-                            <PlusIcon className="h-4 w-4 mr-2" />
-                            Add Task
+                <div className="flex items-center gap-4">
+                    <Link href={route('inspections')}>
+                        <Button variant="outline" size="sm" className="h-9">
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Back to Inspections
                         </Button>
-                    </div>
+                    </Link>
                     
-                    <div className="text-sm text-gray-500">
-                        Created by {inspection.creator?.name || 'Unknown'} on {new Date(inspection.created_at).toLocaleDateString()}
+                    <Badge className={getStatusBadgeClasses(inspection.status)}>
+                        <span className="flex items-center gap-1">
+                            {getStatusIcon(inspection.status)}
+                            {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
+                        </span>
+                    </Badge>
+                </div>
+                
+                {/* Inspection Info Card */}
+                <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="flex flex-col lg:flex-row">
+                        <div className="flex-grow p-6">
+                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-y-4">
+                                {/* Left section: Title, description, metadata */}
+                                <div className="flex-grow">
+                                    <h1 className="text-2xl font-bold tracking-tight">{inspection.name}</h1>
+                                    {inspection.description && (
+                                        <p className="text-sm text-gray-600 mt-2 max-w-2xl">{inspection.description}</p>
+                                    )}
+                                    
+                                    <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-gray-500">
+                                        <div className="flex items-center gap-1">
+                                            <Clock className="h-4 w-4" />
+                                            <span>Created: {new Date(inspection.created_at).toLocaleDateString(undefined, {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric'
+                                            })}</span>
+                                        </div>
+                                        
+                                        <span>•</span>
+                                        
+                                        <div className="flex items-center gap-1">
+                                            <span>By: {inspection.creator?.name || 'Unknown'}</span>
+                                        </div>
+                                        
+                                        <span>•</span>
+                                        
+                                        <div className="flex items-center gap-1">
+                                            <span>ID: #{inspection.id}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Right section: Actions */}
+                                <div className="flex items-center gap-2 mt-3 md:mt-0 md:ml-4">
+                                    <Button 
+                                        onClick={openCreateTaskDialog}
+                                        className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
+                                    >
+                                        <PlusIcon className="h-4 w-4 mr-2" />
+                                        Add Task
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                {/* Tasks Section */}
-                <div className="grid gap-6">
-                    <h2 className="text-xl font-semibold">Inspection Tasks</h2>
+                {/* Summary Dashboard */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="shadow-sm border-gray-200">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-500">Tasks</CardTitle>
+                                <div className="rounded-md p-1 bg-gray-50">
+                                    <ClipboardList className="h-4 w-4 text-gray-700" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold">{tasksCount}</div>
+                                <div className="text-xs text-gray-500">total</div>
+                            </div>
+                        </CardContent>
+                    </Card>
                     
-                    {inspection.tasks && inspection.tasks.length > 0 ? (
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {inspection.tasks.map((task) => (
-                                <Card key={task.id}>
-                                    <CardHeader className="pb-2">
-                                        <div className="flex justify-between items-start">
-                                            <CardTitle className="text-lg">{task.name}</CardTitle>
-                                            <div className="flex gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0"
-                                                    onClick={() => openEditTaskDialog(task)}
-                                                >
-                                                    <span className="sr-only">Edit</span>
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0 text-red-500"
-                                                    onClick={() => openDeleteTaskDialog(task)}
-                                                >
-                                                    <span className="sr-only">Delete</span>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                        <CardDescription>
-                                            {task.description || 'No description'}
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="pb-2">
-                                        <div className="grid gap-2 text-sm">
-                                            <div className="flex justify-between">
-                                                <span className="text-gray-500">Type:</span>
-                                                <span>{task.type === 'yes_no' ? 'Yes/No' : 'Numeric'}</span>
-                                            </div>
-                                            
-                                            {task.target_type && (
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-500">Applies to:</span>
-                                                    <span className="capitalize">{task.target_type}</span>
-                                                </div>
-                                            )}
-                                            
-                                            {task.type === 'yes_no' && task.expected_value_boolean !== null && (
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-500">Expected value:</span>
-                                                    <span>{task.expected_value_boolean ? 'Yes' : 'No'}</span>
-                                                </div>
-                                            )}
-                                            
-                                            {task.type === 'numeric' && (
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-500">Expected range:</span>
-                                                    <span>
-                                                        {task.expected_value_min} - {task.expected_value_max} 
-                                                        {task.unit_of_measure ? ` ${task.unit_of_measure}` : ''}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                    <CardFooter className="pt-0">
-                                        <Button 
-                                            className="w-full bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
-                                            onClick={() => openRecordResultDialog(task)}
-                                        >
-                                            Record Result
-                                        </Button>
-                                    </CardFooter>
-                                </Card>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center p-8 border rounded-md bg-muted/10">
-                            <ClipboardList className="h-10 w-10 mx-auto text-gray-400" />
-                            <h3 className="mt-4 text-lg font-medium">No tasks yet</h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Get started by adding your first inspection task.
-                            </p>
-                            <Button 
-                                onClick={openCreateTaskDialog} 
-                                className="mt-4 bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
-                            >
-                                <PlusIcon className="h-4 w-4 mr-2" />
-                                Add Your First Task
-                            </Button>
-                        </div>
-                    )}
+                    <Card className="shadow-sm border-gray-200">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-500">Completion</CardTitle>
+                                <div className="rounded-md p-1 bg-gray-50">
+                                    <BarChart3 className="h-4 w-4 text-gray-700" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold">{completionPercentage}%</div>
+                                <div className="text-xs text-gray-500">
+                                    {resultsCount} of {tasksCount} tasks
+                                </div>
+                            </div>
+                            <Progress className="h-1 mt-2" value={completionPercentage} />
+                        </CardContent>
+                    </Card>
+                    
+                    <Card className="shadow-sm border-gray-200">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-500">Passed</CardTitle>
+                                <div className="rounded-md p-1 bg-green-50">
+                                    <CheckIcon className="h-4 w-4 text-green-700" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold">{passedCount}</div>
+                                <div className="text-xs text-gray-500">
+                                    {resultsCount > 0 ? Math.round((passedCount / resultsCount) * 100) : 0}% pass rate
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    
+                    <Card className="shadow-sm border-gray-200">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-500">Failed</CardTitle>
+                                <div className="rounded-md p-1 bg-red-50">
+                                    <XIcon className="h-4 w-4 text-red-700" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold">{failedCount}</div>
+                                <div className="text-xs text-gray-500">
+                                    {resultsCount > 0 ? Math.round((failedCount / resultsCount) * 100) : 0}% fail rate
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
+                
+                {/* Inspection Content Tabs */}
+                <Tabs defaultValue="tasks" className="mt-2">
+                    <TabsList>
+                        <TabsTrigger value="tasks" className="flex items-center gap-1">
+                            <ClipboardList className="h-4 w-4" />
+                            Tasks ({tasksCount})
+                        </TabsTrigger>
+                        <TabsTrigger value="results" className="flex items-center gap-1">
+                            <FileSpreadsheet className="h-4 w-4" />
+                            Results ({resultsCount})
+                        </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="tasks" className="mt-4">
+                        {/* Tasks Section */}
+                        <div className="grid gap-4">
+                            {/* Tasks Filter + Actions Row */}
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <h2 className="text-xl font-semibold flex items-center gap-2">
+                                    <ClipboardList className="h-5 w-5 text-[var(--emmo-green-primary)]" />
+                                    Inspection Tasks
+                                </h2>
+                                
+                                <Button 
+                                    onClick={openCreateTaskDialog}
+                                    className="sm:self-end bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
+                                >
+                                    <PlusIcon className="h-4 w-4 mr-2" />
+                                    Add Task
+                                </Button>
+                            </div>
+                            
+                            {inspection.tasks && inspection.tasks.length > 0 ? (
+                                <div className="space-y-4">
+                                    {inspection.tasks.map((task) => (
+                                        <div key={task.id} 
+                                            className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200"
+                                        >
+                                            <div className="p-4">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <h3 className="text-lg font-medium text-gray-900">{task.name}</h3>
+                                                        
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            {task.description || 'No description provided'}
+                                                        </p>
+                                                        
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 mt-3">
+                                                            <div className="flex items-center gap-2 text-sm">
+                                                                <Badge variant="outline" className="h-6">
+                                                                    {task.type === 'yes_no' ? 'Yes/No' : 'Numeric'}
+                                                                </Badge>
+                                                            </div>
+                                                            
+                                                            {task.target_type && (
+                                                                <div className="flex items-center text-sm text-gray-500">
+                                                                    <span className="mr-1">Target:</span>
+                                                                    <span className="capitalize font-medium">{task.target_type}</span>
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {task.type === 'yes_no' && task.expected_value_boolean !== null && (
+                                                                <div className="flex items-center text-sm text-gray-500">
+                                                                    <span className="mr-1">Expected:</span>
+                                                                    <span className="font-medium">{task.expected_value_boolean ? 'Yes' : 'No'}</span>
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {task.type === 'numeric' && (
+                                                                <div className="flex items-center text-sm text-gray-500">
+                                                                    <span className="mr-1">Range:</span>
+                                                                    <span className="font-medium">
+                                                                        {task.expected_value_min} - {task.expected_value_max} 
+                                                                        {task.unit_of_measure ? ` ${task.unit_of_measure}` : ''}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="flex items-start gap-2">
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm"
+                                                            className="h-9 text-sm"
+                                                            onClick={() => openRecordResultDialog(task)}
+                                                        >
+                                                            <ClipboardCheck className="h-4 w-4 mr-1" />
+                                                            Record Result
+                                                        </Button>
+                                                        
+                                                        <div className="flex gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-9 w-9 p-0"
+                                                                onClick={() => openEditTaskDialog(task)}
+                                                            >
+                                                                <span className="sr-only">Edit</span>
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-9 w-9 p-0 text-red-500 hover:bg-red-50"
+                                                                onClick={() => openDeleteTaskDialog(task)}
+                                                            >
+                                                                <span className="sr-only">Delete</span>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Results summary for this task */}
+                                                {task.results && task.results.length > 0 && (
+                                                    <div className="mt-4 pt-3 border-t">
+                                                        <div className="flex items-center justify-between">
+                                                            <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                                                                <FileSpreadsheet className="h-3.5 w-3.5 mr-1" />
+                                                                Latest Results
+                                                            </h4>
+                                                            <span className="text-xs text-gray-500">
+                                                                {task.results.length} {task.results.length === 1 ? 'result' : 'results'}
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        <div className="mt-2 bg-gray-50 p-2 rounded-md">
+                                                            {task.results.slice(0, 1).map((result) => (
+                                                                <div key={result.id} className="flex items-center justify-between text-sm">
+                                                                    <div className="flex items-center gap-1">
+                                                                        {result.is_passing ? (
+                                                                            <CheckIcon className="h-4 w-4 text-green-500" />
+                                                                        ) : (
+                                                                            <XIcon className="h-4 w-4 text-red-500" />
+                                                                        )}
+                                                                        <span>
+                                                                            {task.type === 'yes_no' 
+                                                                                ? (result.value_boolean ? 'Yes' : 'No')
+                                                                                : `${result.value_numeric} ${task.unit_of_measure || ''}`
+                                                                            }
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500">
+                                                                        {result.performer?.name || 'Unknown'} • {new Date(result.created_at).toLocaleDateString()}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center p-8 border rounded-md bg-muted/10">
+                                    <ClipboardList className="h-10 w-10 mx-auto text-gray-400" />
+                                    <h3 className="mt-4 text-lg font-medium">No tasks yet</h3>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        Get started by adding your first inspection task.
+                                    </p>
+                                    <Button 
+                                        onClick={openCreateTaskDialog} 
+                                        className="mt-4 bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
+                                    >
+                                        <PlusIcon className="h-4 w-4 mr-2" />
+                                        Add Your First Task
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="results" className="mt-4">
+                        {/* Results Section */}
+                        <div className="grid gap-4">
+                            <h2 className="text-xl font-semibold flex items-center gap-2">
+                                <FileSpreadsheet className="h-5 w-5 text-[var(--emmo-green-primary)]" />
+                                Inspection Results
+                            </h2>
+                            
+                            {resultsCount > 0 ? (
+                                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                                    <div className="p-4">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b text-left">
+                                                    <th className="pb-3 font-medium">Task</th>
+                                                    <th className="pb-3 font-medium">Result</th>
+                                                    <th className="pb-3 font-medium">Status</th>
+                                                    <th className="pb-3 font-medium">Performed By</th>
+                                                    <th className="pb-3 font-medium">Date</th>
+                                                    <th className="pb-3 font-medium">Notes</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {inspection.tasks?.flatMap(task => 
+                                                    task.results?.map(result => (
+                                                        <tr key={result.id} className="border-b hover:bg-gray-50">
+                                                            <td className="py-3 pr-4">{task.name}</td>
+                                                            <td className="py-3 pr-4">
+                                                                {task.type === 'yes_no' 
+                                                                    ? (result.value_boolean ? 'Yes' : 'No')
+                                                                    : `${result.value_numeric} ${task.unit_of_measure || ''}`
+                                                                }
+                                                            </td>
+                                                            <td className="py-3 pr-4">
+                                                                {result.is_passing ? (
+                                                                    <Badge className="bg-green-100 text-green-800">
+                                                                        <CheckIcon className="h-3 w-3 mr-1" />
+                                                                        Pass
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge className="bg-red-100 text-red-800">
+                                                                        <XIcon className="h-3 w-3 mr-1" />
+                                                                        Fail
+                                                                    </Badge>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3 pr-4">{result.performer?.name || 'Unknown'}</td>
+                                                            <td className="py-3 pr-4">{new Date(result.created_at).toLocaleDateString()}</td>
+                                                            <td className="py-3 pr-4 max-w-xs truncate">{result.notes || '-'}</td>
+                                                        </tr>
+                                                    )) || []
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center p-8 border rounded-md bg-muted/10">
+                                    <FileSpreadsheet className="h-10 w-10 mx-auto text-gray-400" />
+                                    <h3 className="mt-4 text-lg font-medium">No results yet</h3>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        Results will appear here once you start recording them for tasks.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </TabsContent>
+                </Tabs>
                 
                 {/* Task Form Dialog */}
                 <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
