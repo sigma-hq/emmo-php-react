@@ -45,6 +45,7 @@ import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import axios from 'axios';
 
 interface User {
     id: number;
@@ -260,12 +261,25 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
     
     const openRecordResultDialog = (task: InspectionTask) => {
         resultForm.reset();
-        resultForm.setData({
-            task_type: task.type,
-            value_boolean: 'true',
-            value_numeric: '',
-            notes: '',
-        });
+        
+        // Set default value for yes/no tasks based on expected value
+        if (task.type === 'yes_no' && task.expected_value_boolean !== null) {
+            resultForm.setData({
+                task_type: task.type,
+                // Default to the expected value for convenience
+                value_boolean: task.expected_value_boolean.toString(),
+                value_numeric: '',
+                notes: '',
+            });
+        } else {
+            resultForm.setData({
+                task_type: task.type,
+                value_boolean: 'true',
+                value_numeric: '',
+                notes: '',
+            });
+        }
+        
         setSelectedTask(task);
         setIsResultDialogOpen(true);
     };
@@ -273,12 +287,46 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
     const handleResultSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Log submission for debugging
+        console.log('Submitting result form with data:', resultForm.data);
+        console.log('Selected task:', selectedTask);
+        
         if (selectedTask) {
-            resultForm.post(route('api.inspection-tasks.record-result', selectedTask.id), {
-                onSuccess: () => {
+            // Manual data preparation
+            const formData = new FormData();
+            formData.append('task_type', resultForm.data.task_type);
+            formData.append('notes', resultForm.data.notes);
+            
+            // Always send both fields, but set appropriate values based on task type
+            if (resultForm.data.task_type === 'yes_no') {
+                // Convert string to boolean for the server
+                // The backend expects a boolean value that will be compared with the task's expected_value_boolean
+                const boolValue = resultForm.data.value_boolean === 'true';
+                
+                // Send as actual boolean - the Laravel controller will validate and process it correctly
+                formData.append('value_boolean', boolValue ? '1' : '0');
+                formData.append('value_numeric', ''); // Send empty string for numeric value
+                
+                console.log('Sending boolean value:', boolValue ? '1' : '0', 'Original value:', resultForm.data.value_boolean);
+            } else {
+                formData.append('value_boolean', ''); // Send empty string for boolean value
+                formData.append('value_numeric', resultForm.data.value_numeric || ''); // Send numeric value or empty string
+            }
+            
+            // Always create a new result record instead of updating
+            // This ensures the latest result is always the most recent one
+            
+            // Use axios directly for better control
+            axios.post(route('api.inspection-tasks.record-result', selectedTask.id), formData)
+                .then((response) => {
+                    console.log('Result submission successful:', response.data);
                     setIsResultDialogOpen(false);
-                }
-            });
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('Result submission errors:', error.response?.data?.errors || error);
+                    // You may want to handle these errors in the UI
+                });
         }
     };
     
@@ -336,38 +384,62 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                     </div>
                 )}
                 
-                {/* Page Header */}
-                <div className="flex items-center gap-4">
-                    <Link href={route('inspections')}>
-                        <Button variant="outline" size="sm" className="h-9">
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back to Inspections
-                        </Button>
-                    </Link>
-                    
-                    <Badge className={getStatusBadgeClasses(inspection.status)}>
-                        <span className="flex items-center gap-1">
-                            {getStatusIcon(inspection.status)}
-                            {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
-                        </span>
-                    </Badge>
-                </div>
-                
-                {/* Inspection Info Card */}
-                <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="flex flex-col lg:flex-row">
-                        <div className="flex-grow p-6">
-                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-y-4">
-                                {/* Left section: Title, description, metadata */}
-                                <div className="flex-grow">
-                                    <h1 className="text-2xl font-bold tracking-tight">{inspection.name}</h1>
+                {/* Hero Header with Background */}
+                <div className="relative bg-gradient-to-r from-[var(--emmo-green-primary)] to-[var(--emmo-green-secondary)] rounded-xl overflow-hidden shadow-lg">
+                    <div className="absolute inset-0 bg-grid-white/[0.05] [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5),transparent)]"></div>
+                    <div className="relative p-6 sm:p-8 text-white">
+                        <div className="mb-4 flex justify-between items-start">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className="rounded-full h-8 gap-1 bg-white/20 border-transparent hover:bg-white/30 text-white backdrop-blur-sm"
+                            >
+                                <Link href={route('inspections')}>
+                                    <ArrowLeft className="h-4 w-4" />
+                                    <span>Back</span>
+                                </Link>
+                            </Button>
+                            
+                            <Button
+                                onClick={openCreateTaskDialog}
+                                className="rounded-full h-8 gap-1 bg-white/20 hover:bg-white/30 border-transparent text-white backdrop-blur-sm"
+                            >
+                                <PlusIcon className="h-4 w-4 mr-1" />
+                                <span>Add Task</span>
+                            </Button>
+                        </div>
+                        
+                        <div className="sm:flex items-start justify-between">
+                            <div className="flex items-start gap-4">
+                                <div className="hidden sm:flex items-center justify-center w-16 h-16 rounded-xl bg-white/20 backdrop-blur-sm shrink-0">
+                                    <ClipboardList className="h-8 w-8 text-white" />
+                                </div>
+                                
+                                <div>
+                                    <div className="mb-1">
+                                        <h1 className="text-2xl sm:text-3xl font-bold">{inspection.name}</h1>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Badge className="bg-white/30 hover:bg-white/40 text-white">
+                                                ID: #{inspection.id}
+                                            </Badge>
+                                            
+                                            <Badge className="bg-white/30 hover:bg-white/40 text-white">
+                                                <span className="flex items-center gap-1">
+                                                    {getStatusIcon(inspection.status)}
+                                                    {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
+                                                </span>
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    
                                     {inspection.description && (
-                                        <p className="text-sm text-gray-600 mt-2 max-w-2xl">{inspection.description}</p>
+                                        <p className="mt-3 text-white/90 max-w-2xl">{inspection.description}</p>
                                     )}
                                     
-                                    <div className="flex flex-wrap items-center gap-3 mt-4 text-sm text-gray-500">
-                                        <div className="flex items-center gap-1">
-                                            <Clock className="h-4 w-4" />
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm">
+                                            <Clock className="h-4 w-4 mr-2" />
                                             <span>Created: {new Date(inspection.created_at).toLocaleDateString(undefined, {
                                                 year: 'numeric',
                                                 month: 'short',
@@ -375,29 +447,10 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                                             })}</span>
                                         </div>
                                         
-                                        <span>•</span>
-                                        
-                                        <div className="flex items-center gap-1">
+                                        <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm">
                                             <span>By: {inspection.creator?.name || 'Unknown'}</span>
                                         </div>
-                                        
-                                        <span>•</span>
-                                        
-                                        <div className="flex items-center gap-1">
-                                            <span>ID: #{inspection.id}</span>
-                                        </div>
                                     </div>
-                                </div>
-                                
-                                {/* Right section: Actions */}
-                                <div className="flex items-center gap-2 mt-3 md:mt-0 md:ml-4">
-                                    <Button 
-                                        onClick={openCreateTaskDialog}
-                                        className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
-                                    >
-                                        <PlusIcon className="h-4 w-4 mr-2" />
-                                        Add Task
-                                    </Button>
                                 </div>
                             </div>
                         </div>
@@ -515,69 +568,120 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                             </div>
                             
                             {inspection.tasks && inspection.tasks.length > 0 ? (
-                                <div className="space-y-4">
-                                    {inspection.tasks.map((task) => (
-                                        <div key={task.id} 
-                                            className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200"
-                                        >
-                                            <div className="p-4">
-                                                <div className="flex items-start justify-between">
-                                                    <div>
-                                                        <h3 className="text-lg font-medium text-gray-900">{task.name}</h3>
-                                                        
-                                                        <p className="text-sm text-gray-600 mt-1">
-                                                            {task.description || 'No description provided'}
-                                                        </p>
-                                                        
-                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 mt-3">
-                                                            <div className="flex items-center gap-2 text-sm">
-                                                                <Badge variant="outline" className="h-6">
+                                <div className="overflow-hidden">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Latest Result</th>
+                                                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {inspection.tasks.map((task) => (
+                                                <tr key={task.id} className="hover:bg-gray-50">
+                                                    {/* Task Name & Type */}
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex flex-col">
+                                                            <div className="flex items-center">
+                                                                <span className="font-medium text-gray-900">{task.name}</span>
+                                                            </div>
+                                                            <div className="mt-1 flex items-center">
+                                                                <Badge variant="outline" className="h-5 mr-2">
                                                                     {task.type === 'yes_no' ? 'Yes/No' : 'Numeric'}
                                                                 </Badge>
+                                                                {task.results && task.results.length > 0 && (
+                                                                    <Badge className="bg-green-100 text-green-800 h-5">
+                                                                        {task.results.length} {task.results.length === 1 ? 'result' : 'results'}
+                                                                    </Badge>
+                                                                )}
                                                             </div>
-                                                            
+                                                        </div>
+                                                    </td>
+                                                    
+                                                    {/* Task Details */}
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-sm text-gray-600 max-w-sm line-clamp-2">
+                                                            {task.description || 'No description provided'}
+                                                        </div>
+                                                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                                                             {task.target_type && (
-                                                                <div className="flex items-center text-sm text-gray-500">
-                                                                    <span className="mr-1">Target:</span>
-                                                                    <span className="capitalize font-medium">{task.target_type}</span>
+                                                                <div className="flex items-center">
+                                                                    <span className="font-medium mr-1">Target:</span>
+                                                                    <span className="capitalize">{task.target_type}</span>
                                                                 </div>
                                                             )}
                                                             
                                                             {task.type === 'yes_no' && task.expected_value_boolean !== null && (
-                                                                <div className="flex items-center text-sm text-gray-500">
-                                                                    <span className="mr-1">Expected:</span>
-                                                                    <span className="font-medium">{task.expected_value_boolean ? 'Yes' : 'No'}</span>
+                                                                <div className="flex items-center">
+                                                                    <span className="font-medium mr-1">Expected:</span>
+                                                                    <span>{task.expected_value_boolean ? 'Yes' : 'No'}</span>
                                                                 </div>
                                                             )}
                                                             
                                                             {task.type === 'numeric' && (
-                                                                <div className="flex items-center text-sm text-gray-500">
-                                                                    <span className="mr-1">Range:</span>
-                                                                    <span className="font-medium">
+                                                                <div className="flex items-center">
+                                                                    <span className="font-medium mr-1">Range:</span>
+                                                                    <span>
                                                                         {task.expected_value_min} - {task.expected_value_max} 
                                                                         {task.unit_of_measure ? ` ${task.unit_of_measure}` : ''}
                                                                     </span>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    </div>
+                                                    </td>
                                                     
-                                                    <div className="flex items-start gap-2">
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm"
-                                                            className="h-9 text-sm"
-                                                            onClick={() => openRecordResultDialog(task)}
-                                                        >
-                                                            <ClipboardCheck className="h-4 w-4 mr-1" />
-                                                            Record Result
-                                                        </Button>
-                                                        
-                                                        <div className="flex gap-1">
+                                                    {/* Latest Result */}
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {task.results && task.results.length > 0 ? (
+                                                            <div className="text-sm">
+                                                                <div className="flex items-center">
+                                                                    {task.results[0].is_passing ? (
+                                                                        <span className="flex items-center text-green-600">
+                                                                            <CheckIcon className="h-4 w-4 mr-1" />
+                                                                            <span className="font-medium">Pass</span>
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="flex items-center text-red-600">
+                                                                            <XIcon className="h-4 w-4 mr-1" />
+                                                                            <span className="font-medium">Fail</span>
+                                                                        </span>
+                                                                    )}
+                                                                    <span className="mx-2 text-gray-400">•</span>
+                                                                    <span>
+                                                                        {task.type === 'yes_no' 
+                                                                            ? (task.results[0].value_boolean ? 'Yes' : 'No')
+                                                                            : `${task.results[0].value_numeric} ${task.unit_of_measure || ''}`
+                                                                        }
+                                                                    </span>
+                                                                </div>
+                                                                <div className="mt-1 text-xs text-gray-500">
+                                                                    {task.results[0].performer?.name || 'Unknown'} on {new Date(task.results[0].created_at).toLocaleDateString()}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-500 italic">No results yet</span>
+                                                        )}
+                                                    </td>
+                                                    
+                                                    {/* Actions */}
+                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="sm"
+                                                                className="h-8"
+                                                                onClick={() => openRecordResultDialog(task)}
+                                                            >
+                                                                <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
+                                                                Record
+                                                            </Button>
+                                                            
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                className="h-9 w-9 p-0"
+                                                                className="h-8 w-8 p-0"
                                                                 onClick={() => openEditTaskDialog(task)}
                                                             >
                                                                 <span className="sr-only">Edit</span>
@@ -586,56 +690,18 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                className="h-9 w-9 p-0 text-red-500 hover:bg-red-50"
+                                                                className="h-8 w-8 p-0 text-red-500"
                                                                 onClick={() => openDeleteTaskDialog(task)}
                                                             >
                                                                 <span className="sr-only">Delete</span>
                                                                 <Trash2 className="h-4 w-4" />
                                                             </Button>
                                                         </div>
-                                                    </div>
-                                                </div>
-                                                
-                                                {/* Results summary for this task */}
-                                                {task.results && task.results.length > 0 && (
-                                                    <div className="mt-4 pt-3 border-t">
-                                                        <div className="flex items-center justify-between">
-                                                            <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                                                                <FileSpreadsheet className="h-3.5 w-3.5 mr-1" />
-                                                                Latest Results
-                                                            </h4>
-                                                            <span className="text-xs text-gray-500">
-                                                                {task.results.length} {task.results.length === 1 ? 'result' : 'results'}
-                                                            </span>
-                                                        </div>
-                                                        
-                                                        <div className="mt-2 bg-gray-50 p-2 rounded-md">
-                                                            {task.results.slice(0, 1).map((result) => (
-                                                                <div key={result.id} className="flex items-center justify-between text-sm">
-                                                                    <div className="flex items-center gap-1">
-                                                                        {result.is_passing ? (
-                                                                            <CheckIcon className="h-4 w-4 text-green-500" />
-                                                                        ) : (
-                                                                            <XIcon className="h-4 w-4 text-red-500" />
-                                                                        )}
-                                                                        <span>
-                                                                            {task.type === 'yes_no' 
-                                                                                ? (result.value_boolean ? 'Yes' : 'No')
-                                                                                : `${result.value_numeric} ${task.unit_of_measure || ''}`
-                                                                            }
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="text-xs text-gray-500">
-                                                                        {result.performer?.name || 'Unknown'} • {new Date(result.created_at).toLocaleDateString()}
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             ) : (
                                 <div className="text-center p-8 border rounded-md bg-muted/10">
@@ -995,7 +1061,9 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                 <Dialog open={isResultDialogOpen} onOpenChange={setIsResultDialogOpen}>
                     <DialogContent className="sm:max-w-[500px]">
                         <DialogHeader>
-                            <DialogTitle>Record Result</DialogTitle>
+                            <DialogTitle>
+                                Record Result
+                            </DialogTitle>
                             <DialogDescription>
                                 {selectedTask && `Record the result for: ${selectedTask.name}`}
                             </DialogDescription>

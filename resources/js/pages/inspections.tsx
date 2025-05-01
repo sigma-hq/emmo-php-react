@@ -405,128 +405,78 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                     </div>
                 </div>
                 
-                {/* View Options */}
-                <Tabs defaultValue="list" className="w-full">
-                    <div className="flex justify-between items-center mb-4">
-                        <TabsList>
-                            <TabsTrigger value="list">List View</TabsTrigger>
-                            <TabsTrigger value="table">Table View</TabsTrigger>
-                        </TabsList>
-                        <div className="text-sm text-gray-500">
-                            {filteredInspections.length} {filteredInspections.length === 1 ? 'inspection' : 'inspections'} found
-                        </div>
+                {/* Result Count */}
+                <div className="flex justify-between items-center mb-4">
+                    <div className="text-sm text-gray-500">
+                        {filteredInspections.length} {filteredInspections.length === 1 ? 'inspection' : 'inspections'} found
                     </div>
-                    
-                    {/* List View */}
-                    <TabsContent value="list" className="mt-0">
-                        {filteredInspections.length > 0 ? (
-                            <div className="space-y-3">
-                                {filteredInspections.map((inspection) => (
-                                    <div key={inspection.id} 
-                                        className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200"
-                                    >
-                                        <div className="flex flex-col md:flex-row">
+                </div>
+                
+                {/* Inspections List */}
+                {filteredInspections.length > 0 ? (
+                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-200">
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-6"></th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Inspection</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Status</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Created</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Creator</th>
+                                        <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {filteredInspections.map((inspection) => (
+                                        <tr key={inspection.id} className="hover:bg-gray-50">
                                             {/* Status indicator */}
-                                            <div className={`w-full md:w-1 ${
-                                                inspection.status === 'draft' ? 'bg-gray-400' : 
-                                                inspection.status === 'active' ? 'bg-blue-400' : 
-                                                inspection.status === 'completed' ? 'bg-green-400' : 
-                                                'bg-amber-400'
-                                            } md:h-auto`}>
-                                            </div>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-block w-3 h-3 rounded-full ${
+                                                    inspection.status === 'draft' ? 'bg-gray-400' : 
+                                                    inspection.status === 'active' ? 'bg-blue-400' : 
+                                                    inspection.status === 'completed' ? 'bg-green-400' : 
+                                                    'bg-amber-400'
+                                                }`}></span>
+                                            </td>
                                             
-                                            <div className="flex-grow p-4">
-                                                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-y-4">
-                                                    {/* Left section: Title, description, metadata */}
-                                                    <div className="flex-grow">
-                                                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                                                            <h3 className="text-lg font-medium text-gray-900 mr-2">{inspection.name}</h3>
-                                                            <Badge className={getStatusBadgeClasses(inspection.status)}>
-                                                                <span className="flex items-center gap-1">
-                                                                    {getStatusIcon(inspection.status)}
-                                                                    {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
-                                                                </span>
-                                                            </Badge>
-                                                        </div>
-                                                        
-                                                        {inspection.description && (
-                                                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">{inspection.description}</p>
-                                                        )}
-                                                        
-                                                        <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500">
-                                                            <div className="flex items-center gap-1">
-                                                                <Clock className="h-3.5 w-3.5" />
-                                                                <span>{new Date(inspection.created_at).toLocaleDateString(undefined, {
-                                                                    year: 'numeric',
-                                                                    month: 'short',
-                                                                    day: 'numeric'
-                                                                })}</span>
-                                                            </div>
-                                                            
-                                                            <span className="hidden md:inline-block">•</span>
-                                                            
-                                                            <div className="flex items-center gap-1">
-                                                                <span className="font-medium">Created by:</span>
-                                                                <span>{inspection.creator?.name || 'Unknown'}</span>
-                                                            </div>
-                                                            
-                                                            <span className="hidden md:inline-block">•</span>
-                                                            
-                                                            <div className="flex items-center gap-1">
-                                                                <span className="font-medium">ID:</span>
-                                                                <span>#{inspection.id}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    {/* Right section: Actions */}
-                                                    <div className="flex items-center space-x-2 mt-3 md:mt-0 md:ml-4 md:self-start">
-                                                        <Link href={route('api.inspections.show', inspection.id)}>
-                                                            <Button variant="outline" size="sm" className="h-9 px-3 font-medium text-sm">
-                                                                <Eye className="h-4 w-4 mr-2" />
-                                                                View Details
-                                                            </Button>
-                                                        </Link>
-                                                        <div className="flex gap-1">
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="sm"
-                                                                className="h-9 w-9 p-0"
-                                                                onClick={() => openEditDialog(inspection)}
-                                                            >
-                                                                <Pencil className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="sm"
-                                                                className="h-9 w-9 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                                onClick={() => openDeleteDialog(inspection)}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
+                                            {/* Inspection details */}
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <Link 
+                                                        href={route('api.inspections.show', inspection.id)}
+                                                        className="text-base font-medium text-gray-900 hover:text-[var(--emmo-green-primary)] transition-colors"
+                                                    >
+                                                        {inspection.name}
+                                                    </Link>
+                                                    {inspection.description && (
+                                                        <p className="text-sm text-gray-500 mt-1 line-clamp-1 max-w-md">{inspection.description}</p>
+                                                    )}
+                                                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 md:hidden">
+                                                        <span>ID: #{inspection.id}</span>
+                                                        <span>•</span>
+                                                        <span>{new Date(inspection.created_at).toLocaleDateString(undefined, {
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            year: 'numeric'
+                                                        })}</span>
                                                     </div>
                                                 </div>
+                                            </td>
+                                            
+                                            {/* Status badge */}
+                                            <td className="px-6 py-4">
+                                                <Badge className={`${getStatusBadgeClasses(inspection.status)} h-6 px-2.5`}>
+                                                    <span className="flex items-center gap-1">
+                                                        {getStatusIcon(inspection.status)}
+                                                        <span>{inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}</span>
+                                                    </span>
+                                                </Badge>
                                                 
-                                                {/* Progress indicator */}
-                                                <div className="mt-4 pt-3 border-t border-gray-100">
-                                                    <div className="flex justify-between items-center mb-1">
-                                                        <span className="text-xs font-medium text-gray-500">
-                                                            {inspection.status === 'draft' ? 'Not Started' : 
-                                                             inspection.status === 'active' ? 'In Progress' : 
-                                                             inspection.status === 'completed' ? 'Completed' : 
-                                                             'Archived'}
-                                                        </span>
-                                                        <span className="text-xs font-medium text-gray-500">
-                                                            {inspection.status === 'draft' ? '0%' : 
-                                                             inspection.status === 'active' ? '50%' : 
-                                                             inspection.status === 'completed' ? '100%' : 
-                                                             'N/A'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1">
+                                                <div className="w-full mt-2">
+                                                    <div className="w-full bg-gray-100 rounded-full h-1">
                                                         <div 
-                                                            className={`h-1.5 rounded-full ${
+                                                            className={`h-1 rounded-full ${
                                                                 inspection.status === 'draft' ? 'bg-gray-400 w-0' : 
                                                                 inspection.status === 'active' ? 'bg-blue-400 w-1/2' : 
                                                                 inspection.status === 'completed' ? 'bg-green-400 w-full' : 
@@ -535,131 +485,91 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                         ></div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                                <ClipboardList className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900">No inspections found</h3>
-                                <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
-                                    {searchTerm ? 
-                                        `No inspections match your search term "${searchTerm}"` : 
-                                        "Get started by creating your first inspection using the 'New Inspection' button above."
-                                    }
-                                </p>
-                                {searchTerm && (
-                                    <Button 
-                                        variant="outline" 
-                                        className="mt-4"
-                                        onClick={() => setSearchTerm('')}
-                                    >
-                                        Clear Search
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-                    </TabsContent>
-                    
-                    {/* Table View */}
-                    <TabsContent value="table" className="mt-0">
-                        {filteredInspections.length > 0 ? (
-                            <div className="rounded-md border">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b bg-[var(--emmo-light-bg)] text-left text-sm font-medium">
-                                            <th className="px-4 py-3">Name</th>
-                                            <th className="px-4 py-3">Status</th>
-                                            <th className="hidden px-4 py-3 md:table-cell">Created By</th>
-                                            <th className="hidden px-4 py-3 md:table-cell">Date Created</th>
-                                            <th className="px-4 py-3 text-center">Actions</th>
+                                            </td>
+                                            
+                                            {/* Created date */}
+                                            <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap hidden lg:table-cell">
+                                                <div className="flex flex-col">
+                                                    <span>{new Date(inspection.created_at).toLocaleDateString(undefined, {
+                                                        month: 'short',
+                                                        day: 'numeric',
+                                                        year: 'numeric'
+                                                    })}</span>
+                                                    <span className="text-xs text-gray-400">
+                                                        {new Date(inspection.created_at).toLocaleTimeString(undefined, {
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            
+                                            {/* Creator */}
+                                            <td className="px-6 py-4 text-sm text-gray-500 hidden md:table-cell">
+                                                <div className="flex items-center">
+                                                    <div className="h-7 w-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 mr-2">
+                                                        {(inspection.creator?.name || 'U').charAt(0)}
+                                                    </div>
+                                                    <span>{inspection.creator?.name || 'Unknown'}</span>
+                                                </div>
+                                            </td>
+                                            
+                                            {/* Actions */}
+                                            <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                <div className="flex items-center justify-end space-x-3">
+                                                    <Link href={route('api.inspections.show', inspection.id)}>
+                                                        <Button variant="outline" size="sm" className="h-8 gap-1">
+                                                            <Eye className="h-3.5 w-3.5" />
+                                                            <span className="sm:hidden lg:inline">View</span>
+                                                        </Button>
+                                                    </Link>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0"
+                                                        onClick={() => openEditDialog(inspection)}
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                        <span className="sr-only">Edit</span>
+                                                    </Button>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0 text-red-500"
+                                                        onClick={() => openDeleteDialog(inspection)}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                        <span className="sr-only">Delete</span>
+                                                    </Button>
+                                                </div>
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredInspections.map((inspection) => (
-                                            <tr key={inspection.id} className="border-b hover:bg-muted/50">
-                                                <td className="px-4 py-3 font-medium">
-                                                    <div className="flex flex-col">
-                                                        <span>{inspection.name}</span>
-                                                        {inspection.description && (
-                                                            <span className="text-sm text-gray-500 line-clamp-1">
-                                                                {inspection.description}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <Badge className={getStatusBadgeClasses(inspection.status)}>
-                                                        <span className="flex items-center gap-1">
-                                                            {getStatusIcon(inspection.status)}
-                                                            {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
-                                                        </span>
-                                                    </Badge>
-                                                </td>
-                                                <td className="hidden px-4 py-3 md:table-cell">
-                                                    {inspection.creator?.name || 'Unknown'}
-                                                </td>
-                                                <td className="hidden px-4 py-3 text-gray-500 md:table-cell">
-                                                    {new Date(inspection.created_at).toLocaleDateString()}
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <div className="flex justify-center gap-2">
-                                                        <Link href={route('api.inspections.show', inspection.id)}>
-                                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                                <span className="sr-only">View</span>
-                                                                <Eye className="h-4 w-4" />
-                                                            </Button>
-                                                        </Link>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="sm" 
-                                                            className="h-8 w-8 p-0"
-                                                            onClick={() => openEditDialog(inspection)}
-                                                        >
-                                                            <span className="sr-only">Edit</span>
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="sm" 
-                                                            className="h-8 w-8 p-0 text-red-500"
-                                                            onClick={() => openDeleteDialog(inspection)}
-                                                        >
-                                                            <span className="sr-only">Delete</span>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                                <ClipboardList className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900">No inspections found</h3>
-                                <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
-                                    {searchTerm ? 
-                                        `No inspections match your search term "${searchTerm}"` : 
-                                        "Get started by creating your first inspection using the 'New Inspection' button above."
-                                    }
-                                </p>
-                                {searchTerm && (
-                                    <Button 
-                                        variant="outline" 
-                                        className="mt-4"
-                                        onClick={() => setSearchTerm('')}
-                                    >
-                                        Clear Search
-                                    </Button>
-                                )}
-                            </div>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                        <ClipboardList className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900">No inspections found</h3>
+                        <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
+                            {searchTerm ? 
+                                `No inspections match your search term "${searchTerm}"` : 
+                                "Get started by creating your first inspection using the 'New Inspection' button above."
+                            }
+                        </p>
+                        {searchTerm && (
+                            <Button 
+                                variant="outline" 
+                                className="mt-4"
+                                onClick={() => setSearchTerm('')}
+                            >
+                                Clear Search
+                            </Button>
                         )}
-                    </TabsContent>
-                </Tabs>
+                    </div>
+                )}
                 
                 {/* Pagination (conditional, only show when needed) */}
                 {inspections.last_page > 1 && (

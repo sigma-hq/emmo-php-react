@@ -31,6 +31,17 @@ class InspectionTask extends Model
     ];
 
     /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'expected_value_boolean' => 'boolean',
+        'expected_value_min' => 'float',
+        'expected_value_max' => 'float',
+    ];
+
+    /**
      * Get the inspection that this task belongs to.
      */
     public function inspection(): BelongsTo
@@ -57,7 +68,7 @@ class InspectionTask extends Model
      */
     public function results(): HasMany
     {
-        return $this->hasMany(InspectionResult::class, 'task_id');
+        return $this->hasMany(InspectionResult::class, 'task_id')->orderBy('created_at', 'desc');
     }
 
     /**
