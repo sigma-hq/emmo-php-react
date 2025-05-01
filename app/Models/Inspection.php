@@ -22,6 +22,30 @@ class Inspection extends Model
         'description',
         'status',
         'created_by',
+        // Scheduling related fields
+        'is_template',
+        'parent_inspection_id',
+        'schedule_frequency',
+        'schedule_interval',
+        'schedule_start_date',
+        'schedule_end_date',
+        'schedule_next_due_date',
+        'schedule_last_created_at'
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'is_template' => 'boolean',
+        'schedule_start_date' => 'datetime',
+        'schedule_end_date' => 'datetime',
+        'schedule_next_due_date' => 'datetime',
+        'schedule_last_created_at' => 'datetime',
     ];
 
     /**
@@ -75,5 +99,21 @@ class Inspection extends Model
             'description' => 'nullable|string',
             'status' => 'required|in:draft,active,completed,archived',
         ];
+    }
+
+    /**
+     * Get the parent template for this inspection instance.
+     */
+    public function parentTemplate(): BelongsTo
+    {
+        return $this->belongsTo(Inspection::class, 'parent_inspection_id');
+    }
+
+    /**
+     * Get the instances generated from this inspection template.
+     */
+    public function instances(): HasMany
+    {
+        return $this->hasMany(Inspection::class, 'parent_inspection_id');
     }
 }

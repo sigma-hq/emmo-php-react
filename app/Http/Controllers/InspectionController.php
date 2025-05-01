@@ -7,9 +7,78 @@ use App\Models\Inspection;
 use App\Models\Part;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Validation\Rule;
+use Carbon\Carbon;
 
 class InspectionController extends Controller
 {
+    /**
+     * Define validation rules for storing/updating inspections.
+     */
+    protected function validationRules(bool $isUpdate = false, ?int $inspectionId = null): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'status' => ['required', Rule::in(['draft', 'active', 'completed', 'archived'])],
+            // Scheduling fields (conditional validation)
+            'is_template' => ['sometimes', 'boolean'],
+            'schedule_frequency' => ['nullable', 'required_if:is_template,true', Rule::in(['daily', 'weekly', 'monthly', 'yearly'])],
+            'schedule_interval' => ['nullable', 'required_if:is_template,true', 'integer', 'min:1'],
+            'schedule_start_date' => ['nullable', 'required_if:is_template,true', 'date'],
+            'schedule_end_date' => ['nullable', 'date', 'after_or_equal:schedule_start_date'],
+        ];
+    }
+    
+    /**
+     * Calculate the next due date based on schedule settings.
+     */
+    protected function calculateNextDueDate(?string $frequency, ?int $interval, ?string $startDate, ?string $lastCreated = null): ?Carbon
+    {
+        if (!$frequency || !$interval || !$startDate) {
+            return null;
+        }
+
+        $current = $lastCreated ? Carbon::parse($lastCreated) : Carbon::parse($startDate);
+        $startDateCarbon = Carbon::parse($startDate);
+
+        // Ensure the starting point is at least the schedule_start_date
+        if ($current->lt($startDateCarbon)) {
+            $current = $startDateCarbon;
+        }
+        
+        // If it's the first run (no lastCreated) and start date is in the future, schedule for the start date
+        if (!$lastCreated && $current->isFuture()) {
+            return $current; 
+        }
+
+        // If it's the first run and start date is in the past/today, calculate the next occurrence *from* the start date
+        // that is >= today
+        if (!$lastCreated) {
+            $nextDate = $startDateCarbon;
+            while ($nextDate->isPast()) {
+                switch ($frequency) {
+                    case 'daily': $nextDate->addDays($interval); break;
+                    case 'weekly': $nextDate->addWeeks($interval); break;
+                    case 'monthly': $nextDate->addMonths($interval); break;
+                    case 'yearly': $nextDate->addYears($interval); break;
+                }
+            }
+            return $nextDate;
+        }
+        
+        // If it's not the first run, calculate based on the last creation date
+        $nextDate = $current;
+        switch ($frequency) {
+            case 'daily': $nextDate->addDays($interval); break;
+            case 'weekly': $nextDate->addWeeks($interval); break;
+            case 'monthly': $nextDate->addMonths($interval); break;
+            case 'yearly': $nextDate->addYears($interval); break;
+        }
+        
+        return $nextDate;
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -18,8 +87,13 @@ class InspectionController extends Controller
         $inspections = Inspection::with('creator:id,name')
             ->when($request->input('search'), function($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
+                      ->orWhere('description', 'like', "%{$search}%");
             })
+            // Add filtering for templates/instances if needed via request param
+            // ->when($request->input('type'), function($query, $type) {
+            //     if ($type === 'templates') $query->where('is_template', true);
+            //     if ($type === 'instances') $query->where('is_template', false);
+            // })
             ->latest()
             ->paginate(10)
             ->withQueryString();
@@ -34,10 +108,28 @@ class InspectionController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate(Inspection::validationRules());
+        $validated = $request->validate($this->validationRules());
         
-        // Add the current user as creator
         $validated['created_by'] = auth()->id();
+        $validated['is_template'] = $request->boolean('is_template');
+
+        // Clear schedule fields if not a template
+        if (!$validated['is_template']) {
+            $validated['schedule_frequency'] = null;
+            $validated['schedule_interval'] = null;
+            $validated['schedule_start_date'] = null;
+            $validated['schedule_end_date'] = null;
+            $validated['schedule_next_due_date'] = null;
+            $validated['schedule_last_created_at'] = null;
+        } else {
+            // Calculate initial next due date for templates
+            $validated['schedule_next_due_date'] = $this->calculateNextDueDate(
+                $validated['schedule_frequency'] ?? null,
+                $validated['schedule_interval'] ?? null,
+                $validated['schedule_start_date'] ?? null
+            );
+            $validated['schedule_last_created_at'] = null; // Ensure null on creation
+        }
         
         $inspection = Inspection::create($validated);
         
@@ -51,6 +143,7 @@ class InspectionController extends Controller
     {
         $inspection->load([
             'creator:id,name',
+            'parentTemplate:id,name', // Load parent if it's an instance
             'tasks' => function($query) {
                 $query->with(['results' => function($query) {
                     $query->with('performer:id,name');
@@ -58,7 +151,6 @@ class InspectionController extends Controller
             }
         ]);
         
-        // Get drives and parts for task creation/editing
         $drives = Drive::select('id', 'name', 'drive_ref')->get();
         $parts = Part::select('id', 'name', 'part_ref')->get();
         
@@ -74,11 +166,64 @@ class InspectionController extends Controller
      */
     public function update(Request $request, Inspection $inspection)
     {
-        $validated = $request->validate(Inspection::updateValidationRules($inspection->id));
+        $validated = $request->validate($this->validationRules(true, $inspection->id));
+
+        $validated['is_template'] = $request->boolean('is_template');
+
+        // Logic to handle changes between template/non-template and schedule updates
+        $isCurrentlyTemplate = $inspection->is_template;
+        $willBeTemplate = $validated['is_template'];
+
+        if (!$willBeTemplate) {
+            // Becoming (or staying) a non-template
+            $validated['schedule_frequency'] = null;
+            $validated['schedule_interval'] = null;
+            $validated['schedule_start_date'] = null;
+            $validated['schedule_end_date'] = null;
+            $validated['schedule_next_due_date'] = null;
+            $validated['schedule_last_created_at'] = null;
+            $validated['parent_inspection_id'] = $validated['parent_inspection_id'] ?? $inspection->parent_inspection_id; // Keep parent if exists
+        } else {
+            // Becoming (or staying) a template
+            $validated['parent_inspection_id'] = null; // Templates cannot have parents
+
+            // Recalculate next due date if schedule changes or if it became a template
+            $scheduleChanged = $validated['schedule_frequency'] !== $inspection->schedule_frequency ||
+                               $validated['schedule_interval'] !== $inspection->schedule_interval ||
+                               $validated['schedule_start_date'] !== ($inspection->schedule_start_date ? $inspection->schedule_start_date->format('Y-m-d H:i:s') : null);
+            
+            if (!$isCurrentlyTemplate || $scheduleChanged) {
+                 // Use current last_created_at if schedule changed but it was already a template
+                 $lastCreatedAt = $isCurrentlyTemplate && $scheduleChanged ? $inspection->schedule_last_created_at : null;
+                 $validated['schedule_next_due_date'] = $this->calculateNextDueDate(
+                    $validated['schedule_frequency'] ?? null,
+                    $validated['schedule_interval'] ?? null,
+                    $validated['schedule_start_date'] ?? null,
+                    $lastCreatedAt?->format('Y-m-d H:i:s')
+                );
+                 // If converting to template, reset last created at
+                 if (!$isCurrentlyTemplate) {
+                     $validated['schedule_last_created_at'] = null;
+                 }
+            } else {
+                // Keep existing dates if schedule didn't change
+                 $validated['schedule_next_due_date'] = $inspection->schedule_next_due_date;
+                 $validated['schedule_last_created_at'] = $inspection->schedule_last_created_at;
+            }
+             // Ensure end date is null if empty string is passed
+             if (empty($validated['schedule_end_date'])) {
+                $validated['schedule_end_date'] = null;
+             }
+        }
         
         $inspection->update($validated);
         
-        return redirect()->route('inspections')->with('success', 'Inspection updated successfully');
+        // Use inspection detail route if available, otherwise fallback
+        $routeName = $inspection->is_template ? 'inspections' : 'api.inspections.show';
+        $routeParams = $inspection->is_template ? [] : ['inspection' => $inspection->id];
+        
+        return redirect()->route($routeName, $routeParams)->with('success', 'Inspection updated successfully');
+
     }
 
     /**
@@ -86,6 +231,8 @@ class InspectionController extends Controller
      */
     public function destroy(Inspection $inspection)
     {
+        // If deleting a template, consider deleting instances? Or orphan them?
+        // Current: Cascading delete handled by DB constraint if desired.
         $inspection->delete();
         
         return redirect()->route('inspections')->with('success', 'Inspection deleted successfully');

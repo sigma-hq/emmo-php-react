@@ -35,13 +35,17 @@ import {
     Archive,
     BarChart3,
     ArrowUp,
-    ArrowDown
+    ArrowDown,
+    RefreshCcw,
+    Copy
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from "@/components/ui/checkbox";
+import { format } from "date-fns";
 
 interface User {
     id: number;
@@ -57,6 +61,14 @@ interface Inspection {
     created_at: string;
     updated_at: string;
     creator?: User;
+    is_template: boolean;
+    parent_inspection_id?: number | null;
+    schedule_frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
+    schedule_interval?: number | null;
+    schedule_start_date?: string | Date | null;
+    schedule_end_date?: string | Date | null;
+    schedule_next_due_date?: string | null;
+    schedule_last_created_at?: string | null;
 }
 
 interface PaginationLinks {
@@ -89,6 +101,19 @@ interface InspectionsPageProps {
     };
 }
 
+interface InspectionFormData {
+    [key: string]: any; // Add index signature
+    id: string;
+    name: string;
+    description: string;
+    status: 'draft' | 'active' | 'completed' | 'archived';
+    is_template: boolean;
+    schedule_frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    schedule_interval: string;
+    schedule_start_date: string | null;
+    schedule_end_date: string | null;
+}
+
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
@@ -99,6 +124,19 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/inspections',
     },
 ];
+
+// Helper function to format schedule frequency
+const formatFrequency = (freq: string | null | undefined, interval: number | null | undefined): string => {
+    if (!freq || !interval) return 'Non-repeating';
+    const intervalText = interval > 1 ? `Every ${interval}` : 'Every';
+    switch (freq) {
+        case 'daily': return `${intervalText} ${interval > 1 ? 'days' : 'day'}`;
+        case 'weekly': return `${intervalText} ${interval > 1 ? 'weeks' : 'week'}`;
+        case 'monthly': return `${intervalText} ${interval > 1 ? 'months' : 'month'}`;
+        case 'yearly': return `${intervalText} ${interval > 1 ? 'years' : 'year'}`;
+        default: return 'Invalid Schedule';
+    }
+};
 
 export default function Inspections({ inspections, flash }: InspectionsPageProps) {
     const [isOpen, setIsOpen] = useState(false);
@@ -111,11 +149,16 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
     const [activeView, setActiveView] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
     
-    const { data, setData, post, put, processing, errors, reset } = useForm({
+    const { data, setData, post, put, processing, errors, reset } = useForm<InspectionFormData>({
         id: '',
         name: '',
         description: '',
         status: 'draft',
+        is_template: false,
+        schedule_frequency: 'weekly',
+        schedule_interval: '1',
+        schedule_start_date: null,
+        schedule_end_date: null,
     });
     
     // Handle flash messages from the backend
@@ -159,6 +202,15 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
             name: inspection.name,
             description: inspection.description || '',
             status: inspection.status,
+            is_template: inspection.is_template,
+            schedule_frequency: inspection.schedule_frequency || 'weekly',
+            schedule_interval: inspection.schedule_interval ? inspection.schedule_interval.toString() : '1',
+            schedule_start_date: inspection.schedule_start_date 
+                ? format(new Date(inspection.schedule_start_date), 'yyyy-MM-dd') 
+                : null,
+            schedule_end_date: inspection.schedule_end_date 
+                ? format(new Date(inspection.schedule_end_date), 'yyyy-MM-dd') 
+                : null,
         });
         setIsEditMode(true);
         setIsOpen(true);
@@ -172,17 +224,27 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (isEditMode) {
-            put(route('api.inspections.update', data.id), {
-                onSuccess: () => {
-                    setIsOpen(false);
-                }
+        const payload = {
+            ...data,
+            schedule_interval: data.is_template ? parseInt(data.schedule_interval, 10) || 1 : null,
+            schedule_frequency: data.is_template ? data.schedule_frequency : null,
+            schedule_start_date: data.is_template ? data.schedule_start_date : null,
+            schedule_end_date: data.is_template ? data.schedule_end_date : null,
+        };
+
+        console.log("Submitting inspection data:", payload);
+
+        if (isEditMode && data.id) {
+            router.put(route('api.inspections.update', data.id), payload, {
+                preserveScroll: true,
+                onSuccess: () => { setIsOpen(false); },
+                onError: (err) => { console.error("Update Error:", err); }
             });
-        } else {
-            post(route('api.inspections.store'), {
-                onSuccess: () => {
-                    setIsOpen(false);
-                }
+        } else if (!isEditMode) {
+            router.post(route('api.inspections.store'), payload, {
+                preserveScroll: true,
+                onSuccess: () => { setIsOpen(false); },
+                onError: (err) => { console.error("Create Error:", err); }
             });
         }
     };
@@ -388,7 +450,7 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                     </div>
                     <div className="flex items-center gap-2">
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className={`${errors.status ? 'border-red-500' : ''} ${data.is_template ? 'disabled:opacity-50' : ''}`.trim()}>
                                 <div className="flex items-center gap-2">
                                     <Filter className="h-4 w-4 text-gray-500" />
                                     <span>Status: {statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}</span>
@@ -419,9 +481,9 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                             <table className="w-full">
                                 <thead>
                                     <tr className="bg-gray-50 border-b border-gray-200">
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-6"></th>
+                                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-6"></th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Inspection</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Status</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Status / Schedule</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Created</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Creator</th>
                                         <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -430,14 +492,13 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                 <tbody className="divide-y divide-gray-200">
                                     {filteredInspections.map((inspection) => (
                                         <tr key={inspection.id} className="hover:bg-gray-50">
-                                            {/* Status indicator */}
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-block w-3 h-3 rounded-full ${
-                                                    inspection.status === 'draft' ? 'bg-gray-400' : 
-                                                    inspection.status === 'active' ? 'bg-blue-400' : 
-                                                    inspection.status === 'completed' ? 'bg-green-400' : 
-                                                    'bg-amber-400'
-                                                }`}></span>
+                                            {/* Type indicator Icon */}
+                                            <td className="px-4 py-4 text-center">
+                                                {inspection.is_template ? (
+                                                    <span title="Template"><RefreshCcw className="h-4 w-4 text-purple-600" /></span>
+                                                ) : (
+                                                    <span title="Instance"><Copy className="h-4 w-4 text-gray-500" /></span>
+                                                )}
                                             </td>
                                             
                                             {/* Inspection details */}
@@ -452,6 +513,15 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                     {inspection.description && (
                                                         <p className="text-sm text-gray-500 mt-1 line-clamp-1 max-w-md">{inspection.description}</p>
                                                     )}
+                                                    {/* Show parent link for instances */}
+                                                    {!inspection.is_template && inspection.parent_inspection_id && (
+                                                        <Link 
+                                                            href={route('api.inspections.show', inspection.parent_inspection_id)} 
+                                                            className="mt-1 text-xs text-blue-600 hover:underline"
+                                                        >
+                                                            (From Template #{inspection.parent_inspection_id})
+                                                        </Link>
+                                                    )}
                                                     <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 md:hidden">
                                                         <span>ID: #{inspection.id}</span>
                                                         <span>•</span>
@@ -464,27 +534,50 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                 </div>
                                             </td>
                                             
-                                            {/* Status badge */}
+                                            {/* Status / Schedule Column */}
                                             <td className="px-6 py-4">
-                                                <Badge className={`${getStatusBadgeClasses(inspection.status)} h-6 px-2.5`}>
-                                                    <span className="flex items-center gap-1">
-                                                        {getStatusIcon(inspection.status)}
-                                                        <span>{inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}</span>
-                                                    </span>
-                                                </Badge>
-                                                
-                                                <div className="w-full mt-2">
-                                                    <div className="w-full bg-gray-100 rounded-full h-1">
-                                                        <div 
-                                                            className={`h-1 rounded-full ${
-                                                                inspection.status === 'draft' ? 'bg-gray-400 w-0' : 
-                                                                inspection.status === 'active' ? 'bg-blue-400 w-1/2' : 
-                                                                inspection.status === 'completed' ? 'bg-green-400 w-full' : 
-                                                                'bg-amber-400 w-full'
-                                                            }`}
-                                                        ></div>
+                                                {inspection.is_template ? (
+                                                    // Display Schedule Info for Templates
+                                                    <div className="text-sm">
+                                                        <div className="flex items-center gap-1 font-medium text-purple-700">
+                                                            <RefreshCcw className="h-3.5 w-3.5" />
+                                                            <span>Template</span>
+                                                        </div>
+                                                        <div className="mt-1 text-xs text-gray-600">
+                                                             {formatFrequency(inspection.schedule_frequency, inspection.schedule_interval)}
+                                                        </div>
+                                                        {inspection.schedule_next_due_date && (
+                                                             <div className="mt-1 text-xs text-gray-500">
+                                                                Next due: {format(new Date(inspection.schedule_next_due_date), "MMM d, yyyy")}
+                                                            </div>
+                                                        )}
+                                                         {inspection.schedule_end_date && (
+                                                             <div className="mt-1 text-xs text-red-500">
+                                                                Ends: {format(new Date(inspection.schedule_end_date), "MMM d, yyyy")}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                </div>
+                                                ) : (
+                                                    // Display Status & Progress for Instances
+                                                    <div>
+                                                        <Badge className={`${getStatusBadgeClasses(inspection.status)} h-6 px-2.5`}>
+                                                            <span className="flex items-center gap-1">
+                                                                {getStatusIcon(inspection.status)}
+                                                                <span>{inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}</span>
+                                                            </span>
+                                                        </Badge>
+                                                        {/* Optional: Add back progress bar if needed for instances */}
+                                                        {/* <div className="w-full mt-2">
+                                                            <div className="w-full bg-gray-100 rounded-full h-1">
+                                                                <div 
+                                                                    className={`h-1 rounded-full ${
+                                                                        // ... progress logic based on tasks/results counts for instance ...
+                                                                    }`}
+                                                                ></div>
+                                                            </div>
+                                                        </div> */}
+                                                    </div>
+                                                )}
                                             </td>
                                             
                                             {/* Created date */}
@@ -613,7 +706,7 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                 
                 {/* Create/Edit Inspection Dialog */}
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                    <DialogContent className="sm:max-w-[500px]">
+                    <DialogContent className="sm:max-w-[600px]">
                         <DialogHeader>
                             <DialogTitle>{isEditMode ? 'Edit Inspection' : 'Create New Inspection'}</DialogTitle>
                             <DialogDescription>
@@ -657,9 +750,10 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                     </Label>
                                     <Select
                                         value={data.status}
-                                        onValueChange={(value) => setData('status', value)}
+                                        onValueChange={(value) => setData('status', value as any)}
+                                        disabled={data.is_template}
                                     >
-                                        <SelectTrigger className={errors.status ? "border-red-500" : ""}>
+                                        <SelectTrigger className={`${errors.status ? 'border-red-500' : ''} ${data.is_template ? 'disabled:opacity-50' : ''}`.trim()}>
                                             <SelectValue placeholder="Select status" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -673,6 +767,92 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                         <p className="text-sm text-red-500">{errors.status}</p>
                                     )}
                                 </div>
+                                
+                                <div className="items-center flex space-x-2 border-t pt-4 mt-2">
+                                     <Checkbox 
+                                        id="is_template" 
+                                        checked={data.is_template}
+                                        onCheckedChange={(checked) => setData('is_template', checked === true)}
+                                    />
+                                    <label
+                                        htmlFor="is_template"
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                        Make this a recurring inspection template
+                                    </label>
+                                </div>
+
+                                {data.is_template && (
+                                    <div className="grid gap-4 border p-4 rounded-md mt-2 bg-gray-50/50">
+                                        <h4 className="text-sm font-medium text-gray-600 mb-0">Scheduling Options</h4>
+                                        <div className="grid sm:grid-cols-[1fr_100px] gap-4">
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="schedule_frequency">Frequency</Label>
+                                                <Select
+                                                    value={data.schedule_frequency}
+                                                    onValueChange={(value) => setData('schedule_frequency', value as any)}
+                                                >
+                                                    <SelectTrigger className={errors.schedule_frequency ? "border-red-500" : ""}>
+                                                        <SelectValue placeholder="Select frequency" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="daily">Daily</SelectItem>
+                                                        <SelectItem value="weekly">Weekly</SelectItem>
+                                                        <SelectItem value="monthly">Monthly</SelectItem>
+                                                        <SelectItem value="yearly">Yearly</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors.schedule_frequency && (
+                                                    <p className="text-sm text-red-500">{errors.schedule_frequency}</p>
+                                                )}
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="schedule_interval">Every</Label>
+                                                <Input
+                                                    id="schedule_interval"
+                                                    type="number"
+                                                    min="1"
+                                                    value={data.schedule_interval}
+                                                    onChange={(e) => setData('schedule_interval', e.target.value)}
+                                                    className={errors.schedule_interval ? "border-red-500" : ""}
+                                                />
+                                            </div>
+                                        </div>
+                                        {errors.schedule_interval && (
+                                            <p className="text-sm text-red-500 -mt-2">{errors.schedule_interval}</p>
+                                        )}
+
+                                        <div className="grid sm:grid-cols-2 gap-4">
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="schedule_start_date">Start Date</Label>
+                                                <Input 
+                                                    type="date"
+                                                    id="schedule_start_date"
+                                                    value={data.schedule_start_date || ''}
+                                                    onChange={(e) => setData('schedule_start_date', e.target.value || null)}
+                                                    className={errors.schedule_start_date ? "border-red-500" : ""}
+                                                />
+                                                {errors.schedule_start_date && (
+                                                    <p className="text-sm text-red-500">{errors.schedule_start_date}</p>
+                                                )}
+                                            </div>
+                                             <div className="grid gap-2">
+                                                <Label htmlFor="schedule_end_date">End Date (Optional)</Label>
+                                                <Input 
+                                                    type="date"
+                                                    id="schedule_end_date"
+                                                    value={data.schedule_end_date || ''}
+                                                    onChange={(e) => setData('schedule_end_date', e.target.value || null)}
+                                                    min={data.schedule_start_date || undefined}
+                                                    className={errors.schedule_end_date ? "border-red-500" : ""}
+                                                />
+                                                {errors.schedule_end_date && (
+                                                    <p className="text-sm text-red-500">{errors.schedule_end_date}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <DialogFooter>
                                 <Button 
