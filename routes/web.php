@@ -3,6 +3,8 @@
 use App\Http\Controllers\DriveController;
 use App\Http\Controllers\PartController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\InspectionController;
+use App\Http\Controllers\InspectionTaskController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -30,9 +32,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('parts/{part}', [PartController::class, 'destroy'])->name('api.parts.destroy');
     Route::get('parts/{part}/history', [PartController::class, 'getAttachmentHistory'])->name('api.parts.history');
 
-    Route::get('inspections', function () {
-        return Inertia::render('inspections');
-    })->name('inspections');
+    Route::get('inspections', [InspectionController::class, 'index'])->name('inspections');
+    Route::post('inspections', [InspectionController::class, 'store'])->name('api.inspections.store');
+    Route::get('inspections/{inspection}', [InspectionController::class, 'show'])->name('api.inspections.show');
+    Route::put('inspections/{inspection}', [InspectionController::class, 'update'])->name('api.inspections.update');
+    Route::delete('inspections/{inspection}', [InspectionController::class, 'destroy'])->name('api.inspections.destroy');
+
+    // Inspection Tasks routes
+    Route::post('inspection-tasks', [InspectionTaskController::class, 'store'])->name('api.inspection-tasks.store');
+    Route::put('inspection-tasks/{task}', [InspectionTaskController::class, 'update'])->name('api.inspection-tasks.update');
+    Route::delete('inspection-tasks/{task}', [InspectionTaskController::class, 'destroy'])->name('api.inspection-tasks.destroy');
+    Route::post('inspection-tasks/{task}/results', [InspectionTaskController::class, 'recordResult'])->name('api.inspection-tasks.record-result');
 
     Route::get('maintenances', function () {
         return Inertia::render('maintenances');

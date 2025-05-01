@@ -370,8 +370,8 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
                                                 title="View part details"
                                             >
                                                 <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                                                    {part.part_ref}
-                                                </div>
+                                                {part.part_ref}
+                                            </div>
                                             </Link>
                                         </td>
                                         <td className="px-6 py-4 text-sm">

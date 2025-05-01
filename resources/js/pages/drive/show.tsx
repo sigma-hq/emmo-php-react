@@ -145,21 +145,23 @@ export default function DriveShow({ drive }: DriveShowProps) {
                         </TabsTrigger>
                     </TabsList>
                     
-                    <TabsContent value="overview" className="mt-6 flex-1">
-                        <OverviewTab drive={drive} />
-                    </TabsContent>
-                    
-                    <TabsContent value="parts" className="mt-6 flex-1">
-                        <PartsTab drive={drive} />
-                    </TabsContent>
-                    
-                    <TabsContent value="inspections" className="mt-6 flex-1">
-                        <InspectionsTab drive={drive} />
-                    </TabsContent>
-                    
-                    <TabsContent value="maintenance" className="mt-6 flex-1">
-                        <MaintenanceTab drive={drive} />
-                    </TabsContent>
+                    <div className="mt-6 flex-1">
+                        <TabsContent value="overview" className="h-full">
+                            <OverviewTab drive={drive} />
+                        </TabsContent>
+                        
+                        <TabsContent value="parts" className="h-full">
+                            <PartsTab drive={drive} />
+                        </TabsContent>
+                        
+                        <TabsContent value="inspections" className="h-full">
+                            <InspectionsTab drive={drive} />
+                        </TabsContent>
+                        
+                        <TabsContent value="maintenance" className="h-full">
+                            <MaintenanceTab drive={drive} />
+                        </TabsContent>
+                    </div>
                 </Tabs>
             </div>
         </AppLayout>
