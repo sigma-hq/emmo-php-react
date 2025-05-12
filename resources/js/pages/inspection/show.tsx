@@ -88,6 +88,20 @@ export interface InspectionResult {
     performer?: User;
 }
 
+export interface InspectionSubTask {
+    id: number;
+    inspection_task_id: number;
+    name: string;
+    description: string | null;
+    status: 'pending' | 'completed';
+    completed_by: number | null;
+    completed_at: string | null;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+    completedBy?: User;
+}
+
 export interface InspectionTask {
     id: number;
     inspection_id: number;
@@ -101,6 +115,7 @@ export interface InspectionTask {
     expected_value_max: number | null;
     unit_of_measure: string | null;
     results?: InspectionResult[];
+    subTasks?: InspectionSubTask[];
 }
 
 export interface Inspection {
@@ -251,7 +266,8 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
             taskForm.put(route('api.inspection-tasks.update', taskForm.data.id), {
                 onSuccess: () => {
                     setIsTaskDialogOpen(false);
-                    window.location.reload(); // Force reload to see changes
+                    // Use reload with the 'only' option to refresh just the inspection data
+                    router.reload({ only: ['inspection'] });
                 },
                 onError: (errors) => {
                     console.error('Form submission errors:', errors);
@@ -261,7 +277,8 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
             taskForm.post(route('api.inspection-tasks.store'), {
                 onSuccess: () => {
                     setIsTaskDialogOpen(false);
-                    window.location.reload(); // Force reload to see changes
+                    // Use reload with the 'only' option to refresh just the inspection data
+                    router.reload({ only: ['inspection'] });
                 },
                 onError: (errors) => {
                     console.error('Form submission errors:', errors);
@@ -272,9 +289,16 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
     
     const handleTaskDelete = () => {
         if (taskToDelete) {
-            router.delete(route('api.inspection-tasks.destroy', taskToDelete.id));
-            setShowDeleteTaskDialog(false);
-            setTaskToDelete(null);
+            router.delete(route('api.inspection-tasks.destroy', taskToDelete.id), {
+                onSuccess: () => {
+                    setShowDeleteTaskDialog(false);
+                    setTaskToDelete(null);
+                    router.reload({ only: ['inspection'] });
+                },
+                onError: (errors) => {
+                    console.error('Task deletion error:', errors);
+                }
+            });
         }
     };
     
@@ -311,41 +335,22 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
         console.log('Selected task:', selectedTask);
         
         if (selectedTask) {
-            // Manual data preparation
-            const formData = new FormData();
-            formData.append('task_type', resultForm.data.task_type);
-            formData.append('notes', resultForm.data.notes);
-            
-            // Always send both fields, but set appropriate values based on task type
-            if (resultForm.data.task_type === 'yes_no') {
-                // Convert string to boolean for the server
-                // The backend expects a boolean value that will be compared with the task's expected_value_boolean
-                const boolValue = resultForm.data.value_boolean === 'true';
-                
-                // Send as actual boolean - the Laravel controller will validate and process it correctly
-                formData.append('value_boolean', boolValue ? '1' : '0');
-                formData.append('value_numeric', ''); // Send empty string for numeric value
-                
-                console.log('Sending boolean value:', boolValue ? '1' : '0', 'Original value:', resultForm.data.value_boolean);
-            } else {
-                formData.append('value_boolean', ''); // Send empty string for boolean value
-                formData.append('value_numeric', resultForm.data.value_numeric || ''); // Send numeric value or empty string
-            }
-            
-            // Always create a new result record instead of updating
-            // This ensures the latest result is always the most recent one
-            
-            // Use axios directly for better control
-            axios.post(route('api.inspection-tasks.record-result', selectedTask.id), formData)
-                .then((response) => {
-                    console.log('Result submission successful:', response.data);
+            router.post(route('api.inspection-tasks.record-result', selectedTask.id), {
+                ...resultForm.data,
+                // Convert string to boolean for yes/no tasks
+                value_boolean: resultForm.data.task_type === 'yes_no' 
+                    ? (resultForm.data.value_boolean === 'true') 
+                    : undefined
+            }, {
+                onSuccess: () => {
                     setIsResultDialogOpen(false);
-                    window.location.reload();
-                })
-                .catch(error => {
-                    console.error('Result submission errors:', error.response?.data?.errors || error);
-                    // You may want to handle these errors in the UI
-                });
+                    // Use reload with the 'only' option to refresh just the inspection data
+                    router.reload({ only: ['inspection'] });
+                },
+                onError: (errors) => {
+                    console.error('Result submission errors:', errors);
+                }
+            });
         }
     };
     

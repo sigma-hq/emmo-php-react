@@ -37,7 +37,8 @@ import {
     ArrowUp,
     ArrowDown,
     RefreshCcw,
-    Copy
+    Copy,
+    Calendar
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -483,7 +484,9 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                     <tr className="bg-gray-50 border-b border-gray-200">
                                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-6"></th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Inspection</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Status / Schedule</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                        <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tasks</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Status</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Created</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Creator</th>
                                         <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -491,17 +494,21 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
                                     {filteredInspections.map((inspection) => (
-                                        <tr key={inspection.id} className="hover:bg-gray-50">
+                                        <tr key={inspection.id} className="hover:bg-gray-50 transition-colors duration-150">
                                             {/* Type indicator Icon */}
                                             <td className="px-4 py-4 text-center">
                                                 {inspection.is_template ? (
-                                                    <span title="Template"><RefreshCcw className="h-4 w-4 text-purple-600" /></span>
+                                                    <span title="Template" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-purple-100">
+                                                        <RefreshCcw className="h-4 w-4 text-purple-600" />
+                                                    </span>
                                                 ) : (
-                                                    <span title="Instance"><Copy className="h-4 w-4 text-gray-500" /></span>
+                                                    <span title="Instance" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100">
+                                                        <Copy className="h-4 w-4 text-gray-500" />
+                                                    </span>
                                                 )}
                                             </td>
                                             
-                                            {/* Inspection details */}
+                                            {/* Inspection name */}
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <Link 
@@ -510,16 +517,15 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                     >
                                                         {inspection.name}
                                                     </Link>
-                                                    {inspection.description && (
-                                                        <p className="text-sm text-gray-500 mt-1 line-clamp-1 max-w-md">{inspection.description}</p>
-                                                    )}
+                                                    
                                                     {/* Show parent link for instances */}
                                                     {!inspection.is_template && inspection.parent_inspection_id && (
                                                         <Link 
                                                             href={route('api.inspections.show', inspection.parent_inspection_id)} 
-                                                            className="mt-1 text-xs text-blue-600 hover:underline"
+                                                            className="mt-1 text-xs text-blue-600 hover:underline inline-flex items-center"
                                                         >
-                                                            (From Template #{inspection.parent_inspection_id})
+                                                            <ArrowRight className="h-3 w-3 mr-1" />
+                                                            From Template #{inspection.parent_inspection_id}
                                                         </Link>
                                                     )}
                                                     <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 md:hidden">
@@ -534,26 +540,43 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                 </div>
                                             </td>
                                             
+                                            {/* Description */}
+                                            <td className="px-6 py-4">
+                                                {inspection.description ? (
+                                                    <p className="text-sm text-gray-500 line-clamp-2 max-w-xs">{inspection.description}</p>
+                                                ) : (
+                                                    <p className="text-sm text-gray-400 italic">No description</p>
+                                                )}
+                                            </td>
+                                            
+                                            {/* Tasks Count - New Column */}
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-[var(--emmo-green-light)] text-[var(--emmo-green-primary)] font-medium text-sm">
+                                                    {/* Since we don't have tasks count in the data, we'll display a placeholder.
+                                                        In a real implementation, you'd fetch and display the actual task count */}
+                                                    0
+                                                </span>
+                                            </td>
+                                            
                                             {/* Status / Schedule Column */}
                                             <td className="px-6 py-4">
                                                 {inspection.is_template ? (
                                                     // Display Schedule Info for Templates
                                                     <div className="text-sm">
-                                                        <div className="flex items-center gap-1 font-medium text-purple-700">
-                                                            <RefreshCcw className="h-3.5 w-3.5" />
-                                                            <span>Template</span>
-                                                        </div>
-                                                        <div className="mt-1 text-xs text-gray-600">
-                                                             {formatFrequency(inspection.schedule_frequency, inspection.schedule_interval)}
+                                                        <Badge className="bg-purple-100 text-purple-800 h-6 px-2.5">
+                                                            <span className="flex items-center gap-1">
+                                                                <RefreshCcw className="h-3.5 w-3.5" />
+                                                                <span>Template</span>
+                                                            </span>
+                                                        </Badge>
+                                                        <div className="mt-1 text-xs text-gray-600 flex items-center gap-1">
+                                                            <Clock className="h-3 w-3 text-gray-400" />
+                                                            {formatFrequency(inspection.schedule_frequency, inspection.schedule_interval)}
                                                         </div>
                                                         {inspection.schedule_next_due_date && (
-                                                             <div className="mt-1 text-xs text-gray-500">
-                                                                Next due: {format(new Date(inspection.schedule_next_due_date), "MMM d, yyyy")}
-                                                            </div>
-                                                        )}
-                                                         {inspection.schedule_end_date && (
-                                                             <div className="mt-1 text-xs text-red-500">
-                                                                Ends: {format(new Date(inspection.schedule_end_date), "MMM d, yyyy")}
+                                                             <div className="mt-1 text-xs text-gray-500 flex items-center gap-1">
+                                                                <Calendar className="h-3 w-3 text-gray-400" />
+                                                                Next: {format(new Date(inspection.schedule_next_due_date), "MMM d, yyyy")}
                                                             </div>
                                                         )}
                                                     </div>
@@ -566,16 +589,20 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                                 <span>{inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}</span>
                                                             </span>
                                                         </Badge>
-                                                        {/* Optional: Add back progress bar if needed for instances */}
-                                                        {/* <div className="w-full mt-2">
+                                                        <div className="w-full mt-2">
                                                             <div className="w-full bg-gray-100 rounded-full h-1">
                                                                 <div 
                                                                     className={`h-1 rounded-full ${
-                                                                        // ... progress logic based on tasks/results counts for instance ...
+                                                                        inspection.status === 'completed' ? 'bg-green-500' :
+                                                                        inspection.status === 'active' ? 'bg-blue-500' :
+                                                                        inspection.status === 'archived' ? 'bg-amber-500' : 'bg-gray-400'
                                                                     }`}
+                                                                    style={{ width: inspection.status === 'completed' ? '100%' : 
+                                                                             inspection.status === 'active' ? '50%' : 
+                                                                             inspection.status === 'archived' ? '100%' : '25%' }}
                                                                 ></div>
                                                             </div>
-                                                        </div> */}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </td>
@@ -610,11 +637,11 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                             {/* Actions */}
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
                                                 <div className="flex items-center justify-end space-x-3">
-                                                    <Link href={route('api.inspections.show', inspection.id)}>
-                                                        <Button variant="outline" size="sm" className="h-8 gap-1">
-                                                            <Eye className="h-3.5 w-3.5" />
-                                                            <span className="sm:hidden lg:inline">View</span>
-                                                        </Button>
+                                                    <Link 
+                                                        href={route('api.inspections.show', inspection.id)}
+                                                        className="text-gray-600 hover:text-[var(--emmo-green-primary)] transition-colors"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
                                                     </Link>
                                                     <Button 
                                                         variant="ghost" 

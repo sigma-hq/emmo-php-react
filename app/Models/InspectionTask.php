@@ -72,6 +72,14 @@ class InspectionTask extends Model
     }
 
     /**
+     * Get the sub-tasks for this task.
+     */
+    public function subTasks(): HasMany
+    {
+        return $this->hasMany(InspectionSubTask::class, 'inspection_task_id')->orderBy('sort_order');
+    }
+
+    /**
      * Get the validation rules for creating a new inspection task.
      *
      * @return array<string, mixed>

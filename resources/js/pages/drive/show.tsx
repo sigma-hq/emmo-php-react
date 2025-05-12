@@ -34,9 +34,10 @@ interface Drive {
 
 interface DriveShowProps {
     drive: Drive;
+    operators: { id: number; name: string }[];
 }
 
-export default function DriveShow({ drive }: DriveShowProps) {
+export default function DriveShow({ drive, operators }: DriveShowProps) {
     const [activeTab, setActiveTab] = useState('overview');
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -159,7 +160,7 @@ export default function DriveShow({ drive }: DriveShowProps) {
                         </TabsContent>
                         
                         <TabsContent value="maintenance" className="h-full">
-                            <MaintenanceTab drive={drive} />
+                            <MaintenanceTab drive={drive} operators={operators} />
                         </TabsContent>
                     </div>
                 </Tabs>

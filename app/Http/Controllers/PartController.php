@@ -86,9 +86,14 @@ class PartController extends Controller
             ->with(['drive:id,name,drive_ref', 'user:id,name'])
             ->get();
         
+        $drives = Drive::select('id', 'name', 'drive_ref')
+            ->orderBy('name')
+            ->get();
+        
         return Inertia::render('part/show', [
             'part' => $part->load('drive:id,name,drive_ref'),
             'attachmentHistory' => $attachmentHistory,
+            'drives' => $drives,
         ]);
     }
 
@@ -192,5 +197,104 @@ class PartController extends Controller
             ->get();
         
         return response()->json($history);
+    }
+
+    /**
+     * Update the attachment status of a part
+     */
+    public function updateAttachment(Request $request, Part $part)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:attached,unattached',
+            'drive_id' => 'nullable|exists:drives,id',
+            'attachment_notes' => 'nullable|string',
+        ]);
+        
+        // Get current values
+        $oldStatus = $part->status;
+        $oldDriveId = $part->drive_id;
+        $newStatus = $validated['status'];
+        $newDriveId = $validated['drive_id'] ?? null;
+        
+        // If status is unattached, make sure drive_id is null
+        if ($newStatus === 'unattached') {
+            $newDriveId = null;
+        }
+        
+        // If status is attached, make sure drive_id is not null
+        if ($newStatus === 'attached' && empty($newDriveId)) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'errors' => ['drive_id' => 'A drive must be selected when status is attached']
+                ], 422);
+            }
+            return back()->withErrors(['drive_id' => 'A drive must be selected when status is attached']);
+        }
+        
+        // Record history changes based on what changed
+        // Case 1: Previously unattached, now attached to a drive
+        if ($oldStatus === 'unattached' && $newStatus === 'attached') {
+            $part->recordAttachmentAction(
+                'attached',
+                $newDriveId,
+                $request->input('attachment_notes', 'Part attached to drive')
+            );
+        }
+        // Case 2: Previously attached to a drive, now detached
+        else if ($oldStatus === 'attached' && $newStatus === 'unattached') {
+            $part->recordAttachmentAction(
+                'detached',
+                $oldDriveId,
+                $request->input('attachment_notes', 'Part detached from drive')
+            );
+        }
+        // Case 3: Changed from one drive to another
+        else if ($oldStatus === 'attached' && $newStatus === 'attached' && $oldDriveId != $newDriveId) {
+            // Record detachment from old drive
+            $part->recordAttachmentAction(
+                'detached',
+                $oldDriveId,
+                $request->input('attachment_notes', 'Part moved to another drive')
+            );
+            
+            // Record attachment to new drive
+            $part->recordAttachmentAction(
+                'attached',
+                $newDriveId,
+                $request->input('attachment_notes', 'Part moved from another drive')
+            );
+        }
+        
+        // Update the part with new status and drive_id
+        $part->status = $newStatus;
+        $part->drive_id = $newDriveId;
+        $part->save();
+        
+        $message = $newStatus === 'attached' 
+            ? 'Part successfully attached to drive'
+            : 'Part successfully detached from drive';
+            
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'part' => $part->load('drive:id,name,drive_ref')
+            ]);
+        }
+        
+        return back()->with('success', $message);
+    }
+
+    /**
+     * Get all parts that are not attached to any drive.
+     */
+    public function getUnattachedParts()
+    {
+        $unattachedParts = Part::where('status', 'unattached')
+            ->orWhereNull('drive_id')
+            ->orderBy('name')
+            ->get();
+        
+        return response()->json($unattachedParts);
     }
 }

@@ -145,9 +145,14 @@ class InspectionController extends Controller
             'creator:id,name',
             'parentTemplate:id,name', // Load parent if it's an instance
             'tasks' => function($query) {
-                $query->with(['results' => function($query) {
-                    $query->with('performer:id,name');
-                }]);
+                $query->with([
+                    'results' => function($query) {
+                        $query->with('performer:id,name');
+                    },
+                    'subTasks' => function($query) {
+                        $query->with('completedBy:id,name')->orderBy('sort_order');
+                    }
+                ]);
             }
         ]);
         

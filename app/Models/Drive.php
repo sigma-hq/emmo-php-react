@@ -32,6 +32,14 @@ class Drive extends Model
     }
 
     /**
+     * Get the maintenance records for this drive.
+     */
+    public function maintenances(): HasMany
+    {
+        return $this->hasMany(Maintenance::class);
+    }
+
+    /**
      * Get the validation rules for creating a new drive.
      *
      * @return array<string, mixed>

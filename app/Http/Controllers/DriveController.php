@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Drive;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
@@ -59,9 +60,10 @@ class DriveController extends Controller
                 $query->latest();
             }
         ]);
-        
+        $operators = User::where('role', 'operator')->select('id', 'name')->get();
         return Inertia::render('drive/show', [
             'drive' => $drive,
+            'operators' => $operators,
         ]);
     }
 
