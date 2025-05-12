@@ -5,9 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import axios from 'axios';
-import { useForm, router } from '@inertiajs/react';
 import React, { useState } from 'react';
+import { useForm, Link, router } from '@inertiajs/react';
 import {
     PlusIcon,
     CheckIcon,
@@ -28,8 +27,13 @@ import {
     ListChecks
 } from 'lucide-react';
 // Import types from the parent component file
-import { InspectionTask, InspectionResult, InspectionSubTask } from '../show';
+import { InspectionTask as BaseInspectionTask, InspectionResult, InspectionSubTask } from '../show';
 import { format } from 'date-fns';
+
+// Extend the imported interface to add sub_tasks
+interface InspectionTask extends BaseInspectionTask {
+    sub_tasks?: InspectionSubTask[];
+}
 
 interface TasksTabProps {
     tasks: InspectionTask[];
@@ -37,6 +41,14 @@ interface TasksTabProps {
     openEditTaskDialog: (task: InspectionTask) => void;
     openDeleteTaskDialog: (task: InspectionTask) => void;
     openRecordResultDialog: (task: InspectionTask) => void;
+}
+
+// Define the response type from the backend
+interface ApiResponse {
+    success: boolean;
+    message: string;
+    redirect?: string;
+    errors?: Record<string, string>;
 }
 
 export default function TasksTab({ 
@@ -53,6 +65,12 @@ export default function TasksTab({
     const [isSubTaskDialogOpen, setIsSubTaskDialogOpen] = useState(false);
     const [currentTaskId, setCurrentTaskId] = useState<number | null>(null);
     const [editingSubTask, setEditingSubTask] = useState<InspectionSubTask | null>(null);
+    const [formError, setFormError] = useState<string | null>(null);
+    
+    // Debug: Log the tasks to see if they include subtasks
+    console.log('Tasks received in TasksTab:', tasks);
+    console.log('Tasks with subtasks (JSON):', JSON.stringify(tasks, null, 2));
+    console.log('First task subtasks:', tasks[0]?.sub_tasks);
     
     const subTaskForm = useForm({
         inspection_task_id: '',
@@ -73,6 +91,7 @@ export default function TasksTab({
     const openAddSubTaskDialog = (taskId: number) => {
         setCurrentTaskId(taskId);
         setEditingSubTask(null);
+        setFormError(null);
         subTaskForm.reset();
         subTaskForm.setData('inspection_task_id', taskId.toString());
         setIsSubTaskDialogOpen(true);
@@ -82,6 +101,7 @@ export default function TasksTab({
     const openEditSubTaskDialog = (subTask: InspectionSubTask) => {
         setCurrentTaskId(subTask.inspection_task_id);
         setEditingSubTask(subTask);
+        setFormError(null);
         subTaskForm.reset();
         subTaskForm.setData({
             inspection_task_id: subTask.inspection_task_id.toString(),
@@ -92,64 +112,81 @@ export default function TasksTab({
     };
     
     // Handle sub-task form submission
-    const handleSubTaskSubmit = async (e: React.FormEvent) => {
+    const handleSubTaskSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        setFormError(null); // Clear any previous errors
         
-        try {
-            if (editingSubTask) {
-                // Update existing sub-task using axios
-                const response = await axios.put(`/inspection-sub-tasks/${editingSubTask.id}`, subTaskForm.data);
-                
-                if (response.data.success) {
+        if (editingSubTask) {
+            // Update existing sub-task using Inertia
+            subTaskForm.put(route('api.inspection-sub-tasks.update', editingSubTask.id), {
+                onSuccess: () => {
                     setIsSubTaskDialogOpen(false);
-                    // Use router to reload the inspection data
-                    router.reload({ only: ['inspection'] });
+                    // Let the page reload naturally via redirect
+                },
+                onError: (errors) => {
+                    console.error('Error updating sub-task:', errors);
+                    // Set the error message to display in the dialog
+                    if (errors.name) {
+                        setFormError(errors.name);
+                    } else if (errors.error) {
+                        setFormError(errors.error);
+                    } else {
+                        setFormError('An error occurred while updating the sub-task.');
+                    }
+                    // Don't close the dialog when there's an error
                 }
-            } else {
-                // Create new sub-task using axios
-                const response = await axios.post('/inspection-sub-tasks', subTaskForm.data);
-                
-                if (response.data.success) {
+            });
+        } else {
+            // Create new sub-task using Inertia
+            subTaskForm.post(route('api.inspection-sub-tasks.store'), {
+                onSuccess: () => {
                     setIsSubTaskDialogOpen(false);
-                    // Use router to reload the inspection data
-                    router.reload({ only: ['inspection'] });
+                    // Let the page reload naturally via redirect
+                },
+                onError: (errors) => {
+                    console.error('Error creating sub-task:', errors);
+                    // Set the error message to display in the dialog
+                    if (errors.name) {
+                        setFormError(errors.name);
+                    } else if (errors.error) {
+                        setFormError(errors.error);
+                    } else {
+                        setFormError('An error occurred while creating the sub-task.');
+                    }
+                    // Don't close the dialog when there's an error
                 }
-            }
-        } catch (error) {
-            console.error('Error saving sub-task:', error);
+            });
         }
     };
     
     // Delete a sub-task
-    const deleteSubTask = async (subTaskId: number) => {
+    const deleteSubTask = (subTaskId: number) => {
         if (!confirm('Are you sure you want to delete this sub-task?')) {
             return;
         }
         
-        try {
-            const response = await axios.delete(`/inspection-sub-tasks/${subTaskId}`);
-            
-            if (response.data.success) {
-                // Use router to reload the inspection data
-                router.reload({ only: ['inspection'] });
+        router.delete(route('api.inspection-sub-tasks.destroy', subTaskId), {
+            onSuccess: () => {
+                // Let the page reload naturally via redirect
+            },
+            onError: (errors) => {
+                console.error('Error deleting sub-task:', errors);
+                alert('Failed to delete sub-task. Please try again.');
             }
-        } catch (error) {
-            console.error('Error deleting sub-task:', error);
-        }
+        });
     };
     
     // Toggle sub-task completion status
-    const toggleSubTaskStatus = async (subTask: InspectionSubTask) => {
-        try {
-            const response = await axios.patch(`/inspection-sub-tasks/${subTask.id}/toggle-status`);
-            
-            if (response.data.success) {
-                // Use router to reload the inspection data
-                router.reload({ only: ['inspection'] });
+    const toggleSubTaskStatus = (subTask: InspectionSubTask) => {
+        router.patch(route('api.inspection-sub-tasks.toggle-status', subTask.id), {}, {
+            onSuccess: () => {
+                // Let the page reload naturally via redirect
+            },
+            onError: (errors) => {
+                console.error('Error toggling sub-task status:', errors);
+                alert('Failed to update sub-task status. Please try again.');
             }
-        } catch (error) {
-            console.error('Error toggling sub-task status:', error);
-        }
+        });
     };
     
     return (
@@ -194,10 +231,10 @@ export default function TasksTab({
                                             </div>
                                         </td>
                                     
-                                        {/* Task Name & Type */}
+                                    {/* Task Name & Type */}
                                         <td className="px-6 py-4">
-                                            <div className="flex flex-col">
-                                                <div className="flex items-center">
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center">
                                                     <button 
                                                         className="mr-2 focus:outline-none"
                                                         onClick={() => toggleTaskExpanded(task.id)}
@@ -208,8 +245,8 @@ export default function TasksTab({
                                                             <ChevronRight className="h-4 w-4 text-gray-500" />
                                                         )}
                                                     </button>
-                                                    <span className="font-medium text-gray-900">{task.name}</span>
-                                                </div>
+                                                <span className="font-medium text-gray-900">{task.name}</span>
+                                            </div>
                                                 <div className="mt-1 flex items-center gap-2 ml-6">
                                                     <Badge 
                                                         variant="outline" 
@@ -219,21 +256,21 @@ export default function TasksTab({
                                                                 : 'bg-purple-50 text-purple-700 border-purple-200'
                                                         }`}
                                                     >
-                                                        {task.type === 'yes_no' ? 'Yes/No' : 'Numeric'}
-                                                    </Badge>
+                                                    {task.type === 'yes_no' ? 'Yes/No' : 'Numeric'}
+                                                </Badge>
                                                     
-                                                    {task.subTasks && task.subTasks.length > 0 && (
+                                                    {task.sub_tasks && task.sub_tasks.length > 0 && (
                                                         <Badge className="bg-gray-100 text-gray-700 border-gray-200 flex items-center gap-1">
                                                             <ListChecks className="h-3 w-3" />
-                                                            <span>{task.subTasks.filter(st => st.status === 'completed').length}/{task.subTasks.length}</span>
+                                                            <span>{task.sub_tasks.filter((st: InspectionSubTask) => st.status === 'completed').length}/{task.sub_tasks.length}</span>
                                                         </Badge>
                                                     )}
-                                                </div>
                                             </div>
-                                        </td>
-                                        
-                                        {/* Task Details */}
-                                        <td className="px-6 py-4">
+                                        </div>
+                                    </td>
+                                    
+                                    {/* Task Details */}
+                                    <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1.5">
                                                 {task.description && (
                                                     <div className="flex items-start gap-1.5">
@@ -241,68 +278,68 @@ export default function TasksTab({
                                                         <p className="text-sm text-gray-600 line-clamp-2">
                                                             {task.description}
                                                         </p>
-                                                    </div>
+                                        </div>
                                                 )}
                                                 
                                                 <div className="flex flex-wrap gap-3 text-xs text-gray-500">
-                                                    {task.target_type && (
+                                            {task.target_type && (
                                                         <div className="flex items-center gap-1">
                                                             <Target className="h-3 w-3 text-gray-400" />
                                                             <span className="font-medium">Target:</span>
-                                                            <span className="capitalize">{task.target_type}</span>
-                                                        </div>
-                                                    )}
-                                                    
-                                                    {task.type === 'yes_no' && task.expected_value_boolean !== null && (
+                                                    <span className="capitalize">{task.target_type}</span>
+                                                </div>
+                                            )}
+                                            
+                                            {task.type === 'yes_no' && task.expected_value_boolean !== null && (
                                                         <div className="flex items-center gap-1">
                                                             <Check className="h-3 w-3 text-gray-400" />
                                                             <span className="font-medium">Expected:</span>
                                                             <span className={`${task.expected_value_boolean ? 'text-green-600' : 'text-red-600'}`}>
                                                                 {task.expected_value_boolean ? 'Yes' : 'No'}
                                                             </span>
-                                                        </div>
-                                                    )}
-                                                    
-                                                    {task.type === 'numeric' && (
+                                                </div>
+                                            )}
+                                            
+                                            {task.type === 'numeric' && (
                                                         <div className="flex items-center gap-1">
                                                             <Hash className="h-3 w-3 text-gray-400" />
                                                             <span className="font-medium">Range:</span>
-                                                            <span>
-                                                                {task.expected_value_min} - {task.expected_value_max} 
+                                                    <span>
+                                                        {task.expected_value_min} - {task.expected_value_max} 
                                                                 {task.unit_of_measure ? (
                                                                     <span className="text-gray-600">{task.unit_of_measure}</span>
                                                                 ) : ''}
-                                                            </span>
-                                                        </div>
-                                                    )}
+                                                    </span>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        
-                                        {/* Latest Result */}
+                                            )}
+                                                </div>
+                                        </div>
+                                    </td>
+                                    
+                                    {/* Latest Result */}
                                         <td className="px-6 py-4">
-                                            {task.results && task.results.length > 0 ? (
+                                        {task.results && task.results.length > 0 ? (
                                                 <div className="flex flex-col gap-2">
-                                                    <div className="flex items-center">
-                                                        {task.results[0].is_passing ? (
+                                                <div className="flex items-center">
+                                                    {task.results[0].is_passing ? (
                                                             <Badge className="bg-green-100 border-green-200 text-green-800 flex items-center gap-1 h-6 px-2">
                                                                 <CheckIcon className="h-3.5 w-3.5" />
                                                                 <span>Pass</span>
                                                             </Badge>
-                                                        ) : (
+                                                    ) : (
                                                             <Badge className="bg-red-100 border-red-200 text-red-800 flex items-center gap-1 h-6 px-2">
                                                                 <XIcon className="h-3.5 w-3.5" />
                                                                 <span>Fail</span>
                                                             </Badge>
-                                                        )}
-                                                        <span className="mx-2 text-gray-400">•</span>
+                                                    )}
+                                                    <span className="mx-2 text-gray-400">•</span>
                                                         <span className="font-medium">
-                                                            {task.type === 'yes_no' 
-                                                                ? (task.results[0].value_boolean ? 'Yes' : 'No')
-                                                                : `${task.results[0].value_numeric} ${task.unit_of_measure || ''}`
-                                                            }
-                                                        </span>
-                                                    </div>
+                                                        {task.type === 'yes_no' 
+                                                            ? (task.results[0].value_boolean ? 'Yes' : 'No')
+                                                            : `${task.results[0].value_numeric} ${task.unit_of_measure || ''}`
+                                                        }
+                                                    </span>
+                                                </div>
                                                     
                                                     <div className="flex items-center gap-2 text-xs text-gray-500">
                                                         <div className="flex items-center gap-1">
@@ -319,7 +356,7 @@ export default function TasksTab({
                                                 <div className="flex items-center gap-1.5 text-gray-500">
                                                     <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                                                     <span className="text-xs italic">No results recorded</span>
-                                                </div>
+                                            </div>
                                             )}
                                         </td>
                                         
@@ -329,47 +366,47 @@ export default function TasksTab({
                                                 <Badge className="bg-blue-100 text-blue-800 border-blue-200 px-2 py-0.5">
                                                     Recorded
                                                 </Badge>
-                                            ) : (
+                                        ) : (
                                                 <Badge variant="outline" className="bg-gray-50 text-gray-500 px-2 py-0.5">
                                                     Pending
                                                 </Badge>
-                                            )}
-                                        </td>
-                                        
-                                        {/* Actions */}
+                                        )}
+                                    </td>
+                                    
+                                    {/* Actions */}
                                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm"
+                                        <div className="flex items-center justify-end gap-2">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm"
                                                     className="h-8 bg-[var(--emmo-green-light)] border-[var(--emmo-green-primary)] text-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-light)]/80"
-                                                    onClick={() => openRecordResultDialog(task)}
-                                                >
-                                                    <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
-                                                    Record
-                                                </Button>
-                                                
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
+                                                onClick={() => openRecordResultDialog(task)}
+                                            >
+                                                <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
+                                                Record
+                                            </Button>
+                                            
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
                                                     className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700"
-                                                    onClick={() => openEditTaskDialog(task)}
-                                                >
-                                                    <span className="sr-only">Edit</span>
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
+                                                onClick={() => openEditTaskDialog(task)}
+                                            >
+                                                <span className="sr-only">Edit</span>
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
                                                     className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
-                                                    onClick={() => openDeleteTaskDialog(task)}
-                                                >
-                                                    <span className="sr-only">Delete</span>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                                onClick={() => openDeleteTaskDialog(task)}
+                                            >
+                                                <span className="sr-only">Delete</span>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
                                     
                                     {/* Sub-tasks section (conditionally rendered) */}
                                     {expandedTaskIds.includes(task.id) && (
@@ -392,9 +429,9 @@ export default function TasksTab({
                                                         </Button>
                                                     </div>
                                                     
-                                                    {task.subTasks && task.subTasks.length > 0 ? (
+                                                    {task.sub_tasks && task.sub_tasks.length > 0 ? (
                                                         <ul className="space-y-2 mb-2">
-                                                            {task.subTasks.map((subTask) => (
+                                                            {task.sub_tasks.map((subTask: InspectionSubTask) => (
                                                                 <li key={subTask.id} className="flex items-start py-2 pl-2 pr-4 rounded-md hover:bg-gray-100 group">
                                                                     <div className="mr-3 pt-0.5">
                                                                         <Checkbox 
@@ -505,6 +542,9 @@ export default function TasksTab({
                                 placeholder="Enter sub-task name"
                                 required
                             />
+                            {subTaskForm.errors.name && (
+                                <p className="text-sm text-red-500">{subTaskForm.errors.name}</p>
+                            )}
                         </div>
                         
                         <div className="space-y-2">
@@ -517,7 +557,16 @@ export default function TasksTab({
                                 placeholder="Enter sub-task description"
                                 rows={3}
                             />
+                            {subTaskForm.errors.description && (
+                                <p className="text-sm text-red-500">{subTaskForm.errors.description}</p>
+                            )}
                         </div>
+                        
+                        {formError && (
+                            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-md text-sm">
+                                {formError}
+                            </div>
+                        )}
                         
                         <DialogFooter>
                             <Button 
@@ -527,7 +576,11 @@ export default function TasksTab({
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]">
+                            <Button 
+                                type="submit" 
+                                disabled={subTaskForm.processing}
+                                className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
+                            >
                                 {editingSubTask ? 'Update Sub-Task' : 'Add Sub-Task'}
                             </Button>
                         </DialogFooter>

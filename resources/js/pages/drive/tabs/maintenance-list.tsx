@@ -168,7 +168,7 @@ function SortableMaintenanceCard({ maintenance, formatDate, formatCurrency, getS
                                 return 0;
                             }
                         })()} tasks
-                    </div>
+                        </div>
                 </CardFooter>
             </Card>
         </div>

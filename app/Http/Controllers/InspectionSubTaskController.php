@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Inspection;
 use App\Models\InspectionSubTask;
 use App\Models\InspectionTask;
 use Illuminate\Http\Request;
@@ -31,32 +30,14 @@ class InspectionSubTaskController extends Controller
             
             $subTask = InspectionSubTask::create($validated);
             
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Sub-task created successfully',
-                    'sub_task' => $subTask->fresh()->load('completedBy'),
-                ]);
-            }
-            
-            // Get inspection ID from the task to redirect back
+            // Get the inspection ID from the task for redirecting
             $inspectionId = $task->inspection_id;
             
-            return redirect()->route('api.inspections.show', $inspectionId)
-                ->with('success', 'Sub-task created successfully');
-            
+            return redirect()->route('inspections.show', $inspectionId);
         } catch (\Exception $e) {
             Log::error('Failed to create sub-task: ' . $e->getMessage());
             
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to create sub-task',
-                    'error' => $e->getMessage(),
-                ], 500);
-            }
-            
-            return back()->withErrors(['error' => 'Failed to create sub-task: ' . $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Failed to create sub-task: ' . $e->getMessage()]);
         }
     }
 
@@ -74,75 +55,42 @@ class InspectionSubTaskController extends Controller
             
             $subTask->update($validated);
             
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Sub-task updated successfully',
-                    'sub_task' => $subTask->fresh()->load('completedBy'),
-                ]);
-            }
+            // Get the task and inspection ID for redirecting
+            $task = InspectionTask::findOrFail($subTask->inspection_task_id);
+            $inspectionId = $task->inspection_id;
             
-            // Get inspection ID from the task to redirect back
-            $inspectionId = $subTask->task->inspection_id;
-            
-            return redirect()->route('api.inspections.show', $inspectionId)
-                ->with('success', 'Sub-task updated successfully');
-            
+            return redirect()->route('inspections.show', $inspectionId);
         } catch (\Exception $e) {
             Log::error('Failed to update sub-task: ' . $e->getMessage());
             
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to update sub-task',
-                    'error' => $e->getMessage(),
-                ], 500);
-            }
-            
-            return back()->withErrors(['error' => 'Failed to update sub-task: ' . $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Failed to update sub-task: ' . $e->getMessage()]);
         }
     }
 
     /**
      * Remove the specified sub-task from storage.
      */
-    public function destroy(Request $request, InspectionSubTask $subTask)
+    public function destroy(InspectionSubTask $subTask)
     {
         try {
-            // Get inspection ID before deleting the task
-            $inspectionId = $subTask->task->inspection_id;
+            // Get the task and inspection ID for redirecting
+            $task = InspectionTask::findOrFail($subTask->inspection_task_id);
+            $inspectionId = $task->inspection_id;
             
             $subTask->delete();
             
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Sub-task deleted successfully'
-                ]);
-            }
-            
-            return redirect()->route('api.inspections.show', $inspectionId)
-                ->with('success', 'Sub-task deleted successfully');
-            
+            return redirect()->route('inspections.show', $inspectionId);
         } catch (\Exception $e) {
             Log::error('Failed to delete sub-task: ' . $e->getMessage());
             
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to delete sub-task',
-                    'error' => $e->getMessage(),
-                ], 500);
-            }
-            
-            return back()->withErrors(['error' => 'Failed to delete sub-task: ' . $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Failed to delete sub-task: ' . $e->getMessage()]);
         }
     }
 
     /**
      * Toggle the completion status of a sub-task.
      */
-    public function toggleStatus(Request $request, InspectionSubTask $subTask)
+    public function toggleStatus(InspectionSubTask $subTask)
     {
         try {
             if ($subTask->status === 'completed') {
@@ -157,32 +105,16 @@ class InspectionSubTaskController extends Controller
                 throw new \Exception('Failed to update sub-task status');
             }
             
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => true,
-                    'message' => $message,
-                    'sub_task' => $subTask->fresh()->load('completedBy'),
-                ]);
-            }
+            // Get the task and inspection ID for redirecting
+            $task = InspectionTask::findOrFail($subTask->inspection_task_id);
+            $inspectionId = $task->inspection_id;
             
-            // Get inspection ID to redirect back
-            $inspectionId = $subTask->task->inspection_id;
-            
-            return redirect()->route('api.inspections.show', $inspectionId)
+            return redirect()->route('inspections.show', $inspectionId)
                 ->with('success', $message);
-            
         } catch (\Exception $e) {
             Log::error('Failed to toggle sub-task status: ' . $e->getMessage());
             
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to update sub-task status',
-                    'error' => $e->getMessage(),
-                ], 500);
-            }
-            
-            return back()->withErrors(['error' => 'Failed to update sub-task status: ' . $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Failed to update sub-task status: ' . $e->getMessage()]);
         }
     }
 
@@ -207,14 +139,7 @@ class InspectionSubTaskController extends Controller
                 ->count();
                 
             if ($count !== count($orderIds)) {
-                if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'All sub-tasks must belong to the same parent task',
-                    ], 400);
-                }
-                
-                return back()->withErrors(['error' => 'All sub-tasks must belong to the same parent task']);
+                return redirect()->back()->withErrors(['error' => 'All sub-tasks must belong to the same parent task']);
             }
             
             // Update the sort_order of each sub-task
@@ -222,32 +147,16 @@ class InspectionSubTaskController extends Controller
                 InspectionSubTask::where('id', $id)->update(['sort_order' => $index]);
             }
             
-            // Get inspection ID to redirect back
+            // Get the inspection ID for redirecting
             $task = InspectionTask::findOrFail($taskId);
             $inspectionId = $task->inspection_id;
             
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Sub-tasks reordered successfully',
-                ]);
-            }
-            
-            return redirect()->route('api.inspections.show', $inspectionId)
+            return redirect()->route('inspections.show', $inspectionId)
                 ->with('success', 'Sub-tasks reordered successfully');
-            
         } catch (\Exception $e) {
             Log::error('Failed to reorder sub-tasks: ' . $e->getMessage());
             
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to reorder sub-tasks',
-                    'error' => $e->getMessage(),
-                ], 500);
-            }
-            
-            return back()->withErrors(['error' => 'Failed to reorder sub-tasks: ' . $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Failed to reorder sub-tasks: ' . $e->getMessage()]);
         }
     }
 }

@@ -224,7 +224,7 @@ class InspectionController extends Controller
         $inspection->update($validated);
         
         // Use inspection detail route if available, otherwise fallback
-        $routeName = $inspection->is_template ? 'inspections' : 'api.inspections.show';
+        $routeName = $inspection->is_template ? 'inspections' : 'inspections.show';
         $routeParams = $inspection->is_template ? [] : ['inspection' => $inspection->id];
         
         return redirect()->route($routeName, $routeParams)->with('success', 'Inspection updated successfully');

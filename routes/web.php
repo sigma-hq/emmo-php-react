@@ -40,7 +40,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('inspections', [InspectionController::class, 'index'])->name('inspections');
     Route::post('inspections', [InspectionController::class, 'store'])->name('api.inspections.store');
-    Route::get('inspections/{inspection}', [InspectionController::class, 'show'])->name('api.inspections.show');
+    Route::get('inspections/{inspection}', [InspectionController::class, 'show'])->name('inspections.show');
     Route::put('inspections/{inspection}', [InspectionController::class, 'update'])->name('api.inspections.update');
     Route::delete('inspections/{inspection}', [InspectionController::class, 'destroy'])->name('api.inspections.destroy');
 

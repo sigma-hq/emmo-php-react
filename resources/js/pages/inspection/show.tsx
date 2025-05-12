@@ -183,7 +183,7 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
         },
         {
             title: inspection.name,
-            href: route('api.inspections.show', inspection.id),
+            href: route('inspections.show', inspection.id),
         },
     ];
     
@@ -291,8 +291,8 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
         if (taskToDelete) {
             router.delete(route('api.inspection-tasks.destroy', taskToDelete.id), {
                 onSuccess: () => {
-                    setShowDeleteTaskDialog(false);
-                    setTaskToDelete(null);
+            setShowDeleteTaskDialog(false);
+            setTaskToDelete(null);
                     router.reload({ only: ['inspection'] });
                 },
                 onError: (errors) => {
@@ -350,7 +350,7 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                 onError: (errors) => {
                     console.error('Result submission errors:', errors);
                 }
-            });
+                });
         }
     };
     

@@ -59,7 +59,7 @@ class InspectionTaskController extends Controller
                 ]);
             }
             
-            return redirect()->route('api.inspections.show', $validated['inspection_id'])
+            return redirect()->route('inspections.show', $validated['inspection_id'])
                 ->with('success', 'Task added successfully');
         } catch (\Exception $e) {
             Log::error('InspectionTask store - error:', [
@@ -126,7 +126,7 @@ class InspectionTaskController extends Controller
                 ]);
             }
             
-            return redirect()->route('api.inspections.show', $task->inspection_id)
+            return redirect()->route('inspections.show', $task->inspection_id)
                 ->with('success', 'Task updated successfully');
         } catch (\Exception $e) {
             Log::error('InspectionTask update - error:', [
@@ -152,8 +152,8 @@ class InspectionTaskController extends Controller
     public function destroy(Request $request, InspectionTask $task)
     {
         try {
-            $inspectionId = $task->inspection_id;
-            $task->delete();
+        $inspectionId = $task->inspection_id;
+        $task->delete();
             
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
@@ -161,9 +161,9 @@ class InspectionTaskController extends Controller
                     'message' => 'Task deleted successfully'
                 ]);
             }
-            
-            return redirect()->route('api.inspections.show', $inspectionId)
-                ->with('success', 'Task deleted successfully');
+        
+        return redirect()->route('inspections.show', $inspectionId)
+            ->with('success', 'Task deleted successfully');
         } catch (\Exception $e) {
             Log::error('InspectionTask destroy - error:', [
                 'message' => $e->getMessage(),
@@ -188,30 +188,30 @@ class InspectionTaskController extends Controller
     public function recordResult(Request $request, InspectionTask $task)
     {
         try {
-            $validated = $request->validate([
-                'value_boolean' => 'nullable|boolean|required_if:task_type,yes_no',
-                'value_numeric' => 'nullable|numeric|required_if:task_type,numeric',
-                'notes' => 'nullable|string',
-                'task_type' => 'required|in:yes_no,numeric',
-            ]);
-            
-            // Determine if the result is passing
-            $isPassing = $task->isPassing(
-                $validated['value_boolean'] ?? null,
-                $validated['value_numeric'] ?? null
-            );
-            
-            $result = new InspectionResult([
-                'inspection_id' => $task->inspection_id,
-                'task_id' => $task->id,
-                'performed_by' => auth()->id(),
-                'value_boolean' => $validated['value_boolean'],
-                'value_numeric' => $validated['value_numeric'],
-                'is_passing' => $isPassing,
-                'notes' => $validated['notes'],
-            ]);
-            
-            $result->save();
+        $validated = $request->validate([
+            'value_boolean' => 'nullable|boolean|required_if:task_type,yes_no',
+            'value_numeric' => 'nullable|numeric|required_if:task_type,numeric',
+            'notes' => 'nullable|string',
+            'task_type' => 'required|in:yes_no,numeric',
+        ]);
+        
+        // Determine if the result is passing
+        $isPassing = $task->isPassing(
+            $validated['value_boolean'] ?? null,
+            $validated['value_numeric'] ?? null
+        );
+        
+        $result = new InspectionResult([
+            'inspection_id' => $task->inspection_id,
+            'task_id' => $task->id,
+            'performed_by' => auth()->id(),
+            'value_boolean' => $validated['value_boolean'],
+            'value_numeric' => $validated['value_numeric'],
+            'is_passing' => $isPassing,
+            'notes' => $validated['notes'],
+        ]);
+        
+        $result->save();
             
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
@@ -220,9 +220,9 @@ class InspectionTaskController extends Controller
                     'result' => $result->fresh()->load('performer')
                 ]);
             }
-            
-            return redirect()->route('api.inspections.show', $task->inspection_id)
-                ->with('success', 'Result recorded successfully');
+        
+        return redirect()->route('inspections.show', $task->inspection_id)
+            ->with('success', 'Result recorded successfully');
         } catch (\Exception $e) {
             Log::error('InspectionTask recordResult - error:', [
                 'message' => $e->getMessage(),

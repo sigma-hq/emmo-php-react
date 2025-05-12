@@ -512,7 +512,7 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <Link 
-                                                        href={route('api.inspections.show', inspection.id)}
+                                                        href={route('inspections.show', inspection.id)}
                                                         className="text-base font-medium text-gray-900 hover:text-[var(--emmo-green-primary)] transition-colors"
                                                     >
                                                         {inspection.name}
@@ -521,7 +521,7 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                     {/* Show parent link for instances */}
                                                     {!inspection.is_template && inspection.parent_inspection_id && (
                                                         <Link 
-                                                            href={route('api.inspections.show', inspection.parent_inspection_id)} 
+                                                            href={route('inspections.show', inspection.parent_inspection_id)} 
                                                             className="mt-1 text-xs text-blue-600 hover:underline inline-flex items-center"
                                                         >
                                                             <ArrowRight className="h-3 w-3 mr-1" />
@@ -565,13 +565,13 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                     <div className="text-sm">
                                                         <Badge className="bg-purple-100 text-purple-800 h-6 px-2.5">
                                                             <span className="flex items-center gap-1">
-                                                                <RefreshCcw className="h-3.5 w-3.5" />
-                                                                <span>Template</span>
+                                                            <RefreshCcw className="h-3.5 w-3.5" />
+                                                            <span>Template</span>
                                                             </span>
                                                         </Badge>
                                                         <div className="mt-1 text-xs text-gray-600 flex items-center gap-1">
                                                             <Clock className="h-3 w-3 text-gray-400" />
-                                                            {formatFrequency(inspection.schedule_frequency, inspection.schedule_interval)}
+                                                             {formatFrequency(inspection.schedule_frequency, inspection.schedule_interval)}
                                                         </div>
                                                         {inspection.schedule_next_due_date && (
                                                              <div className="mt-1 text-xs text-gray-500 flex items-center gap-1">
@@ -638,7 +638,7 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
                                                 <div className="flex items-center justify-end space-x-3">
                                                     <Link 
-                                                        href={route('api.inspections.show', inspection.id)}
+                                                        href={route('inspections.show', inspection.id)}
                                                         className="text-gray-600 hover:text-[var(--emmo-green-primary)] transition-colors"
                                                     >
                                                         <Eye className="h-4 w-4" />
