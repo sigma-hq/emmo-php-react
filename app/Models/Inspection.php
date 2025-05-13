@@ -22,9 +22,11 @@ class Inspection extends Model
         'description',
         'status',
         'created_by',
+        'operator_id',
         // Scheduling related fields
         'is_template',
         'parent_inspection_id',
+        'unique_constraint',
         'schedule_frequency',
         'schedule_interval',
         'schedule_start_date',
@@ -54,6 +56,14 @@ class Inspection extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get the operator assigned to this inspection.
+     */
+    public function operator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'operator_id');
     }
 
     /**

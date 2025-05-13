@@ -93,7 +93,15 @@ export interface InspectionSubTask {
     inspection_task_id: number;
     name: string;
     description: string | null;
-    status: 'pending' | 'completed';
+    type: 'yes_no' | 'numeric' | 'none';
+    status: 'pending' | 'completed'; // Overall status of the subtask action itself
+    expected_value_boolean: boolean | null;
+    expected_value_min: number | null;
+    expected_value_max: number | null;
+    unit_of_measure: string | null;
+    recorded_value_boolean: boolean | null;
+    recorded_value_numeric: number | null;
+    compliance: 'passing' | 'failing' | 'warning' | 'pending_action' | 'pending_result' | 'complete' | 'misconfigured' | 'unknown'; // Added
     completed_by: number | null;
     completed_at: string | null;
     sort_order: number;

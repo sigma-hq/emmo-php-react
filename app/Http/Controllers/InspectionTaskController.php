@@ -154,7 +154,7 @@ class InspectionTaskController extends Controller
         try {
         $inspectionId = $task->inspection_id;
         $task->delete();
-            
+        
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => true,
@@ -212,7 +212,7 @@ class InspectionTaskController extends Controller
         ]);
         
         $result->save();
-            
+        
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => true,
@@ -246,6 +246,13 @@ class InspectionTaskController extends Controller
      */
     public function show(InspectionTask $task)
     {
+        // Load target reference details if applicable
+        if ($task->target_type === 'drive') {
+            $task->load('target:id,drive_ref');
+        } elseif ($task->target_type === 'part') {
+            $task->load('target:id,part_ref');
+        }
+        
         return response()->json([
             'success' => true,
             'task' => $task->load(['results.performer', 'subTasks.completedBy']),

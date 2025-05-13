@@ -38,7 +38,9 @@ import {
     ArrowDown,
     RefreshCcw,
     Copy,
-    Calendar
+    Calendar,
+    ChevronsUpDown,
+    Check
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -47,6 +49,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface User {
     id: number;
@@ -62,6 +65,7 @@ interface Inspection {
     created_at: string;
     updated_at: string;
     creator?: User;
+    operator?: User;
     is_template: boolean;
     parent_inspection_id?: number | null;
     schedule_frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
@@ -70,6 +74,8 @@ interface Inspection {
     schedule_end_date?: string | Date | null;
     schedule_next_due_date?: string | null;
     schedule_last_created_at?: string | null;
+    tasks_count?: number;
+    completed_tasks_count?: number;
 }
 
 interface PaginationLinks {
@@ -97,6 +103,13 @@ interface InspectionsPageProps {
     inspections: {
         data: Inspection[];
     } & Pagination;
+    users: User[];
+    filters: {
+        search: string;
+        type: string;
+        status: string;
+        per_page: number;
+    };
     flash?: {
         success?: string;
     };
@@ -108,6 +121,7 @@ interface InspectionFormData {
     name: string;
     description: string;
     status: 'draft' | 'active' | 'completed' | 'archived';
+    operator_id: string | null;
     is_template: boolean;
     schedule_frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
     schedule_interval: string;
@@ -139,22 +153,35 @@ const formatFrequency = (freq: string | null | undefined, interval: number | nul
     }
 };
 
-export default function Inspections({ inspections, flash }: InspectionsPageProps) {
+// Add a helper function to calculate progress percentage
+const calculateProgress = (inspection: Inspection): number => {
+    if (!inspection.tasks_count || inspection.tasks_count === 0) return 0;
+    if (inspection.status === 'completed') return 100; // Always 100% for completed inspections
+    
+    const completedTasks = inspection.completed_tasks_count || 0;
+    return Math.round((completedTasks / inspection.tasks_count) * 100);
+};
+
+export default function Inspections({ inspections, users, filters, flash }: InspectionsPageProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [showSuccessNotification, setShowSuccessNotification] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [inspectionToDelete, setInspectionToDelete] = useState<Inspection | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [activeView, setActiveView] = useState('all');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [typeFilter, setTypeFilter] = useState(filters.type || 'all');
+    const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
+    const [perPage, setPerPage] = useState(filters.per_page);
+    const [isOperatorComboOpen, setIsOperatorComboOpen] = useState(false);
+    const [operatorSearchTerm, setOperatorSearchTerm] = useState('');
     
     const { data, setData, post, put, processing, errors, reset } = useForm<InspectionFormData>({
         id: '',
         name: '',
         description: '',
         status: 'draft',
+        operator_id: null,
         is_template: false,
         schedule_frequency: 'weekly',
         schedule_interval: '1',
@@ -182,13 +209,18 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
         const timeoutId = setTimeout(() => {
             router.get(
                 route('inspections'),
-                { search: searchTerm, status: statusFilter !== 'all' ? statusFilter : undefined },
-                { preserveState: true, preserveScroll: true, only: ['inspections'] }
+                { 
+                    search: searchTerm, 
+                    status: statusFilter !== 'all' ? statusFilter : undefined,
+                    type: typeFilter !== 'all' ? typeFilter : undefined,
+                    per_page: perPage
+                },
+                { preserveState: true, preserveScroll: true }
             );
         }, 300);
         
         return () => clearTimeout(timeoutId);
-    }, [searchTerm, statusFilter]);
+    }, [searchTerm, statusFilter, typeFilter, perPage]);
     
     const openCreateDialog = () => {
         reset();
@@ -203,6 +235,7 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
             name: inspection.name,
             description: inspection.description || '',
             status: inspection.status,
+            operator_id: inspection.operator?.id?.toString() || null,
             is_template: inspection.is_template,
             schedule_frequency: inspection.schedule_frequency || 'weekly',
             schedule_interval: inspection.schedule_interval ? inspection.schedule_interval.toString() : '1',
@@ -258,6 +291,10 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
         }
     };
     
+    const handlePerPageChange = (value: string) => {
+        setPerPage(parseInt(value));
+    };
+    
     const goToPage = (url: string | null) => {
         if (url) {
             router.get(url);
@@ -294,22 +331,16 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
         }
     };
     
-    // Count inspections by status
+    // Count inspections by status for statistics cards
     const statusCounts = {
         draft: inspections.data.filter(i => i.status === 'draft').length,
         active: inspections.data.filter(i => i.status === 'active').length,
         completed: inspections.data.filter(i => i.status === 'completed').length,
         archived: inspections.data.filter(i => i.status === 'archived').length,
+        templates: inspections.data.filter(i => i.is_template).length,
+        instances: inspections.data.filter(i => !i.is_template).length,
         all: inspections.data.length
     };
-    
-    // Filter inspections based on the active view
-    const filteredInspections = inspections.data.filter(inspection => {
-        if (statusFilter !== 'all') {
-            return inspection.status === statusFilter;
-        }
-        return true;
-    });
     
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -350,96 +381,144 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                 </div>
                 
                 {/* Statistics Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <Card className="shadow-sm border-gray-200" onClick={() => setStatusFilter('all')}>
-                        <CardHeader className="pb-2">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <Card className={`shadow-sm border-gray-200 hover:shadow-md transition-shadow cursor-pointer ${typeFilter === 'all' ? 'ring-2 ring-[var(--emmo-green-primary)]' : ''}`} onClick={() => setTypeFilter('all')}>
+                        <CardHeader className="pb-2 p-4">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Inspections</CardTitle>
-                                <div className="rounded-md p-1 bg-gray-50">
+                                <CardTitle className="text-sm font-medium text-gray-600">Total Inspections</CardTitle>
+                                <div className="rounded-full p-1.5 bg-gray-100">
                                     <BarChart3 className="h-4 w-4 text-gray-700" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="pt-0 p-4">
                             <div className="flex justify-between items-baseline">
                                 <div className="text-2xl font-bold">{statusCounts.all}</div>
                                 <div className="text-xs text-gray-500">100%</div>
                             </div>
-                            <div className="h-1 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
-                                <div className="h-full bg-gray-300 rounded-full" style={{ width: '100%' }}></div>
+                            <div className="h-1.5 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-gray-400 rounded-full" style={{ width: '100%' }}></div>
                             </div>
                         </CardContent>
                     </Card>
                     
-                    <Card className="shadow-sm border-gray-200" onClick={() => setStatusFilter('draft')}>
-                        <CardHeader className="pb-2">
+                    <Card className={`shadow-sm border-gray-200 hover:shadow-md transition-shadow cursor-pointer ${typeFilter === 'templates' ? 'ring-2 ring-[var(--emmo-green-primary)]' : ''}`} onClick={() => setTypeFilter('templates')}>
+                        <CardHeader className="pb-2 p-4">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Draft</CardTitle>
-                                <div className="rounded-md p-1 bg-gray-50">
-                                    <Clock className="h-4 w-4 text-gray-700" />
+                                <CardTitle className="text-sm font-medium text-gray-600">Templates</CardTitle>
+                                <div className="rounded-full p-1.5 bg-purple-100">
+                                    <RefreshCcw className="h-4 w-4 text-purple-600" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="pt-0 p-4">
                             <div className="flex justify-between items-baseline">
-                                <div className="text-2xl font-bold">{statusCounts.draft}</div>
+                                <div className="text-2xl font-bold">{statusCounts.templates}</div>
                                 <div className="text-xs text-gray-500">
-                                    {statusCounts.all > 0 ? Math.round((statusCounts.draft / statusCounts.all) * 100) : 0}%
+                                    {statusCounts.all > 0 ? Math.round((statusCounts.templates / statusCounts.all) * 100) : 0}%
                                 </div>
                             </div>
-                            <div className="h-1 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
-                                <div className="h-full bg-gray-300 rounded-full" style={{ width: `${statusCounts.all > 0 ? (statusCounts.draft / statusCounts.all) * 100 : 0}%` }}></div>
+                            <div className="h-1.5 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-purple-400 rounded-full" style={{ width: `${statusCounts.all > 0 ? (statusCounts.templates / statusCounts.all) * 100 : 0}%` }}></div>
                             </div>
                         </CardContent>
                     </Card>
                     
-                    <Card className="shadow-sm border-gray-200" onClick={() => setStatusFilter('active')}>
-                        <CardHeader className="pb-2">
+                    <Card className={`shadow-sm border-gray-200 hover:shadow-md transition-shadow cursor-pointer ${typeFilter === 'instances' ? 'ring-2 ring-[var(--emmo-green-primary)]' : ''}`} onClick={() => setTypeFilter('instances')}>
+                        <CardHeader className="pb-2 p-4">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Active</CardTitle>
-                                <div className="rounded-md p-1 bg-gray-50">
-                                    <ClipboardList className="h-4 w-4 text-gray-700" />
+                                <CardTitle className="text-sm font-medium text-gray-600">Instances</CardTitle>
+                                <div className="rounded-full p-1.5 bg-blue-100">
+                                    <Copy className="h-4 w-4 text-blue-600" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="pt-0 p-4">
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold">{statusCounts.instances}</div>
+                                <div className="text-xs text-gray-500">
+                                    {statusCounts.all > 0 ? Math.round((statusCounts.instances / statusCounts.all) * 100) : 0}%
+                                </div>
+                            </div>
+                            <div className="h-1.5 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-blue-400 rounded-full" style={{ width: `${statusCounts.all > 0 ? (statusCounts.instances / statusCounts.all) * 100 : 0}%` }}></div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    
+                    <Card className={`shadow-sm border-gray-200 hover:shadow-md transition-shadow cursor-pointer ${statusFilter === 'active' ? 'ring-2 ring-[var(--emmo-green-primary)]' : ''}`} onClick={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}>
+                        <CardHeader className="pb-2 p-4">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-600">Active</CardTitle>
+                                <div className="rounded-full p-1.5 bg-green-100">
+                                    <ClipboardList className="h-4 w-4 text-green-600" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="pt-0 p-4">
                             <div className="flex justify-between items-baseline">
                                 <div className="text-2xl font-bold">{statusCounts.active}</div>
                                 <div className="text-xs text-gray-500">
                                     {statusCounts.all > 0 ? Math.round((statusCounts.active / statusCounts.all) * 100) : 0}%
                                 </div>
                             </div>
-                            <div className="h-1 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
-                                <div className="h-full bg-gray-300 rounded-full" style={{ width: `${statusCounts.all > 0 ? (statusCounts.active / statusCounts.all) * 100 : 0}%` }}></div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card className="shadow-sm border-gray-200" onClick={() => setStatusFilter('completed')}>
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Completed</CardTitle>
-                                <div className="rounded-md p-1 bg-gray-50">
-                                    <ClipboardCheck className="h-4 w-4 text-gray-700" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex justify-between items-baseline">
-                                <div className="text-2xl font-bold">{statusCounts.completed}</div>
-                                <div className="text-xs text-gray-500">
-                                    {statusCounts.all > 0 ? Math.round((statusCounts.completed / statusCounts.all) * 100) : 0}%
-                                </div>
-                            </div>
-                            <div className="h-1 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
-                                <div className="h-full bg-gray-300 rounded-full" style={{ width: `${statusCounts.all > 0 ? (statusCounts.completed / statusCounts.all) * 100 : 0}%` }}></div>
+                            <div className="h-1.5 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-green-400 rounded-full" style={{ width: `${statusCounts.all > 0 ? (statusCounts.active / statusCounts.all) * 100 : 0}%` }}></div>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
                 
+                {/* Status Pills */}
+                <div className="flex flex-wrap gap-2 -mt-2">
+                    <Button 
+                        variant={statusFilter === 'all' ? "default" : "outline"} 
+                        size="sm" 
+                        onClick={() => setStatusFilter('all')}
+                        className={statusFilter === 'all' ? "bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]" : ""}
+                    >
+                        All Statuses <span className="ml-1.5 text-xs bg-white/20 px-1.5 py-0.5 rounded-full">{statusCounts.all}</span>
+                    </Button>
+                    <Button 
+                        variant={statusFilter === 'draft' ? "default" : "outline"} 
+                        size="sm" 
+                        onClick={() => setStatusFilter(statusFilter === 'draft' ? 'all' : 'draft')}
+                        className={statusFilter === 'draft' ? "bg-gray-700 hover:bg-gray-800" : ""}
+                    >
+                        <Clock className="h-3 w-3 mr-1" />
+                        Draft <span className="ml-1.5 text-xs bg-white/20 px-1.5 py-0.5 rounded-full">{statusCounts.draft}</span>
+                    </Button>
+                    <Button 
+                        variant={statusFilter === 'active' ? "default" : "outline"} 
+                        size="sm" 
+                        onClick={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}
+                        className={statusFilter === 'active' ? "bg-blue-600 hover:bg-blue-700" : ""}
+                    >
+                        <ClipboardList className="h-3 w-3 mr-1" />
+                        Active <span className="ml-1.5 text-xs bg-white/20 px-1.5 py-0.5 rounded-full">{statusCounts.active}</span>
+                    </Button>
+                    <Button 
+                        variant={statusFilter === 'completed' ? "default" : "outline"} 
+                        size="sm" 
+                        onClick={() => setStatusFilter(statusFilter === 'completed' ? 'all' : 'completed')}
+                        className={statusFilter === 'completed' ? "bg-green-600 hover:bg-green-700" : ""}
+                    >
+                        <ClipboardCheck className="h-3 w-3 mr-1" />
+                        Completed <span className="ml-1.5 text-xs bg-white/20 px-1.5 py-0.5 rounded-full">{statusCounts.completed}</span>
+                    </Button>
+                    <Button 
+                        variant={statusFilter === 'archived' ? "default" : "outline"} 
+                        size="sm" 
+                        onClick={() => setStatusFilter(statusFilter === 'archived' ? 'all' : 'archived')}
+                        className={statusFilter === 'archived' ? "bg-amber-600 hover:bg-amber-700" : ""}
+                    >
+                        <Archive className="h-3 w-3 mr-1" />
+                        Archived <span className="ml-1.5 text-xs bg-white/20 px-1.5 py-0.5 rounded-full">{statusCounts.archived}</span>
+                    </Button>
+                </div>
+                
                 {/* Search and Filters */}
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col md:flex-row gap-3">
                     <div className="relative flex-grow">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                         <Input
@@ -449,34 +528,93 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+                    <div className="flex flex-wrap gap-2">
+                        <Select value={typeFilter} onValueChange={setTypeFilter}>
+                            <SelectTrigger className="w-[140px] md:w-[180px]">
                     <div className="flex items-center gap-2">
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className={`${errors.status ? 'border-red-500' : ''} ${data.is_template ? 'disabled:opacity-50' : ''}`.trim()}>
-                                <div className="flex items-center gap-2">
-                                    <Filter className="h-4 w-4 text-gray-500" />
-                                    <span>Status: {statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}</span>
+                                    <Copy className="h-4 w-4 text-gray-500" />
+                                    <span className="truncate">{typeFilter === 'all' ? 'All Types' : typeFilter === 'templates' ? 'Templates' : 'Instances'}</span>
                                 </div>
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All Statuses</SelectItem>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="completed">Completed</SelectItem>
-                                <SelectItem value="archived">Archived</SelectItem>
+                                <SelectItem value="all">All Types</SelectItem>
+                                <SelectItem value="templates">Templates Only</SelectItem>
+                                <SelectItem value="instances">Instances Only</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        
+                        <Select value={perPage.toString()} onValueChange={handlePerPageChange}>
+                            <SelectTrigger className="w-[110px]">
+                                <div className="flex items-center gap-1">
+                                    <BarChart3 className="h-3.5 w-3.5 text-gray-500" />
+                                    <span>{perPage} per page</span>
+                                </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="10">10 per page</SelectItem>
+                                <SelectItem value="25">25 per page</SelectItem>
+                                <SelectItem value="50">50 per page</SelectItem>
+                                <SelectItem value="100">100 per page</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                 </div>
                 
+                {/* Active Filters */}
+                {(searchTerm || statusFilter !== 'all' || typeFilter !== 'all') && (
+                    <div className="flex flex-wrap items-center gap-2 py-2">
+                        <span className="text-sm text-gray-500">Active filters:</span>
+                        {searchTerm && (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                                <Search className="h-3 w-3" />
+                                "{searchTerm}"
+                                <button onClick={() => setSearchTerm('')} className="ml-1 rounded-full hover:bg-gray-200 p-0.5">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </Badge>
+                        )}
+                        {statusFilter !== 'all' && (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                                <Filter className="h-3 w-3" />
+                                Status: {statusFilter}
+                                <button onClick={() => setStatusFilter('all')} className="ml-1 rounded-full hover:bg-gray-200 p-0.5">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </Badge>
+                        )}
+                        {typeFilter !== 'all' && (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                                <Copy className="h-3 w-3" />
+                                Type: {typeFilter}
+                                <button onClick={() => setTypeFilter('all')} className="ml-1 rounded-full hover:bg-gray-200 p-0.5">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </Badge>
+                        )}
+                        <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => {
+                                setSearchTerm('');
+                                setStatusFilter('all');
+                                setTypeFilter('all');
+                            }}
+                            className="text-xs h-7"
+                        >
+                            Clear all
+                        </Button>
+                    </div>
+                )}
+                
                 {/* Result Count */}
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-2">
                     <div className="text-sm text-gray-500">
-                        {filteredInspections.length} {filteredInspections.length === 1 ? 'inspection' : 'inspections'} found
+                        {inspections.total} {inspections.total === 1 ? 'inspection' : 'inspections'} found
                     </div>
                 </div>
                 
                 {/* Inspections List */}
-                {filteredInspections.length > 0 ? (
+                {inspections.data.length > 0 ? (
                     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
                             <table className="w-full">
@@ -484,16 +622,17 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                     <tr className="bg-gray-50 border-b border-gray-200">
                                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-6"></th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Inspection</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                        <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tasks</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Status</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Description</th>
+                                        <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Tasks</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-48 hidden md:table-cell">Status</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Created</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Creator</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Creator</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Operator</th>
                                         <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {filteredInspections.map((inspection) => (
+                                    {inspections.data.map((inspection) => (
                                         <tr key={inspection.id} className="hover:bg-gray-50 transition-colors duration-150">
                                             {/* Type indicator Icon */}
                                             <td className="px-4 py-4 text-center">
@@ -536,6 +675,12 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                             day: 'numeric',
                                                             year: 'numeric'
                                                         })}</span>
+                                                        {inspection.operator && (
+                                                            <>
+                                                                <span>•</span>
+                                                                <span className="text-blue-600">Operator: {inspection.operator.name}</span>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
@@ -552,9 +697,7 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                             {/* Tasks Count - New Column */}
                                             <td className="px-6 py-4 text-center">
                                                 <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-[var(--emmo-green-light)] text-[var(--emmo-green-primary)] font-medium text-sm">
-                                                    {/* Since we don't have tasks count in the data, we'll display a placeholder.
-                                                        In a real implementation, you'd fetch and display the actual task count */}
-                                                    0
+                                                    {inspection.tasks_count || 0}
                                                 </span>
                                             </td>
                                             
@@ -597,10 +740,12 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                                         inspection.status === 'active' ? 'bg-blue-500' :
                                                                         inspection.status === 'archived' ? 'bg-amber-500' : 'bg-gray-400'
                                                                     }`}
-                                                                    style={{ width: inspection.status === 'completed' ? '100%' : 
-                                                                             inspection.status === 'active' ? '50%' : 
-                                                                             inspection.status === 'archived' ? '100%' : '25%' }}
+                                                                    style={{ width: `${calculateProgress(inspection)}%` }}
                                                                 ></div>
+                                                            </div>
+                                                            <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                                                                <span>{inspection.completed_tasks_count || 0} of {inspection.tasks_count || 0} tasks</span>
+                                                                <span>{calculateProgress(inspection)}%</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -632,6 +777,20 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                                     </div>
                                                     <span>{inspection.creator?.name || 'Unknown'}</span>
                                                 </div>
+                                            </td>
+                                            
+                                            {/* Operator */}
+                                            <td className="px-6 py-4 text-sm text-gray-500 hidden md:table-cell">
+                                                {inspection.operator ? (
+                                                    <div className="flex items-center">
+                                                        <div className="h-7 w-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-2">
+                                                            {inspection.operator.name.charAt(0)}
+                                                        </div>
+                                                        <span>{inspection.operator.name}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400 italic">Not assigned</span>
+                                                )}
                                             </td>
                                             
                                             {/* Actions */}
@@ -674,30 +833,34 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                         <ClipboardList className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900">No inspections found</h3>
                         <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
-                            {searchTerm ? 
-                                `No inspections match your search term "${searchTerm}"` : 
+                            {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' ? 
+                                `No inspections match your current filters` : 
                                 "Get started by creating your first inspection using the 'New Inspection' button above."
                             }
                         </p>
-                        {searchTerm && (
+                        {(searchTerm || statusFilter !== 'all' || typeFilter !== 'all') && (
                             <Button 
                                 variant="outline" 
                                 className="mt-4"
-                                onClick={() => setSearchTerm('')}
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setStatusFilter('all');
+                                    setTypeFilter('all');
+                                }}
                             >
-                                Clear Search
+                                Clear Filters
                             </Button>
                         )}
                     </div>
                 )}
                 
-                {/* Pagination (conditional, only show when needed) */}
+                {/* Pagination (update for better responsiveness) */}
                 {inspections.last_page > 1 && (
-                    <div className="flex items-center justify-between mt-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4">
                         <p className="text-sm text-gray-500">
                             Showing {inspections.from} to {inspections.to} of {inspections.total} results
                         </p>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center justify-center sm:justify-end gap-1">
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -708,7 +871,11 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                             </Button>
                             {inspections.links
                                 .filter(link => !link.label.includes('Previous') && !link.label.includes('Next'))
-                                .map((link, i) => (
+                                .slice(0, window.innerWidth < 640 ? 5 : inspections.links.length) // Show fewer links on mobile
+                                .map((link, i) => {
+                                    // Handle pagination labels with HTML entities
+                                    const label = link.label.replace(/&laquo;/g, '«').replace(/&raquo;/g, '»');
+                                    return (
                                     <Button
                                         key={i}
                                         variant={link.active ? "default" : "outline"}
@@ -716,9 +883,10 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                         onClick={() => goToPage(link.url)}
                                         className={link.active ? "bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]" : ""}
                                     >
-                                        {link.label}
+                                            {label}
                                     </Button>
-                                ))}
+                                    );
+                                })}
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -793,6 +961,104 @@ export default function Inspections({ inspections, flash }: InspectionsPageProps
                                     {errors.status && (
                                         <p className="text-sm text-red-500">{errors.status}</p>
                                     )}
+                                </div>
+                                
+                                {/* Operator Selection */}
+                                <div className="grid gap-2">
+                                    <Label htmlFor="operator_id">
+                                        Operator (Optional)
+                                    </Label>
+                                    <div className="relative">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setIsOperatorComboOpen(true)}
+                                            className="w-full justify-between"
+                                        >
+                                            {data.operator_id
+                                                ? users.find(u => u.id.toString() === data.operator_id)?.name || "Select an operator"
+                                                : "Select an operator"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                        {isOperatorComboOpen && (
+                                            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg overflow-hidden">
+                                                <div className="p-2 border-b border-gray-100 dark:border-gray-800">
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Search operators..."
+                                                        className="w-full"
+                                                        value={operatorSearchTerm}
+                                                        onChange={(e) => setOperatorSearchTerm(e.target.value)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        autoFocus
+                                                    />
+                                                </div>
+                                                <div className="max-h-[220px] overflow-y-auto p-1">
+                                                    <button
+                                                        type="button"
+                                                        className={cn(
+                                                            "flex items-center w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800",
+                                                            data.operator_id === null && "bg-[var(--emmo-green-light)] dark:bg-[var(--emmo-green-dark)]/20"
+                                                        )}
+                                                        onClick={() => {
+                                                            setData('operator_id', null);
+                                                            setIsOperatorComboOpen(false);
+                                                            setOperatorSearchTerm('');
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4",
+                                                                data.operator_id === null ? "opacity-100 text-[var(--emmo-green-primary)]" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        <span className="font-medium">No operator assigned</span>
+                                                    </button>
+                                                    
+                                                    {users
+                                                        .filter(user => user.name.toLowerCase().includes(operatorSearchTerm.toLowerCase()))
+                                                        .map(user => (
+                                                            <button
+                                                                key={user.id}
+                                                                type="button"
+                                                                className={cn(
+                                                                    "flex items-center w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800",
+                                                                    data.operator_id === user.id.toString() && "bg-[var(--emmo-green-light)] dark:bg-[var(--emmo-green-dark)]/20"
+                                                                )}
+                                                                onClick={() => {
+                                                                    setData('operator_id', user.id.toString());
+                                                                    setIsOperatorComboOpen(false);
+                                                                    setOperatorSearchTerm('');
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "mr-2 h-4 w-4",
+                                                                        data.operator_id === user.id.toString() ? "opacity-100 text-[var(--emmo-green-primary)]" : "opacity-0"
+                                                                    )}
+                                                                />
+                                                                <span className="font-medium">{user.name}</span>
+                                                            </button>
+                                                        ))}
+                                                    {users.filter(user => user.name.toLowerCase().includes(operatorSearchTerm.toLowerCase())).length === 0 && (
+                                                        <div className="px-2 py-4 text-center text-sm text-gray-500">
+                                                            No operators found
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* Overlay to close dropdown */}
+                                        {isOperatorComboOpen && (
+                                            <div
+                                                className="fixed inset-0 z-40"
+                                                onClick={() => {
+                                                    setIsOperatorComboOpen(false);
+                                                    setOperatorSearchTerm('');
+                                                }}
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                                 
                                 <div className="items-center flex space-x-2 border-t pt-4 mt-2">

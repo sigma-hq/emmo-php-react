@@ -88,6 +88,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('inspection-sub-tasks/{subTask}', [InspectionSubTaskController::class, 'destroy'])->name('api.inspection-sub-tasks.destroy');
     Route::patch('inspection-sub-tasks/{subTask}/toggle-status', [InspectionSubTaskController::class, 'toggleStatus'])->name('api.inspection-sub-tasks.toggle-status');
     Route::post('inspection-sub-tasks/reorder', [InspectionSubTaskController::class, 'reorder'])->name('api.inspection-sub-tasks.reorder');
+    Route::post('inspection-sub-tasks/{subTask}/results', [InspectionSubTaskController::class, 'recordResult'])->name('api.inspection-sub-tasks.record-result');
 });
 
 require __DIR__.'/settings.php';

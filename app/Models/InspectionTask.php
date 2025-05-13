@@ -42,6 +42,13 @@ class InspectionTask extends Model
     ];
 
     /**
+     * The attributes that should be appended to model arrays.
+     *
+     * @var array
+     */
+    protected $appends = ['target_drive_ref', 'target_part_ref'];
+
+    /**
      * Get the inspection that this task belongs to.
      */
     public function inspection(): BelongsTo
@@ -116,5 +123,29 @@ class InspectionTask extends Model
         }
         
         return false;
+    }
+
+    /**
+     * Get the drive reference for the task if applicable.
+     */
+    public function getTargetDriveRefAttribute()
+    {
+        if ($this->target_type === 'drive' && $this->target_id) {
+            $drive = Drive::find($this->target_id);
+            return $drive ? $drive->drive_ref : null;
+        }
+        return null;
+    }
+
+    /**
+     * Get the part reference for the task if applicable.
+     */
+    public function getTargetPartRefAttribute()
+    {
+        if ($this->target_type === 'part' && $this->target_id) {
+            $part = Part::find($this->target_id);
+            return $part ? $part->part_ref : null;
+        }
+        return null;
     }
 }

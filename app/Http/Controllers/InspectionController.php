@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class InspectionController extends Controller
 {
@@ -21,6 +22,7 @@ class InspectionController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'status' => ['required', Rule::in(['draft', 'active', 'completed', 'archived'])],
+            'operator_id' => ['nullable', 'exists:users,id'],
             // Scheduling fields (conditional validation)
             'is_template' => ['sometimes', 'boolean'],
             'schedule_frequency' => ['nullable', 'required_if:is_template,true', Rule::in(['daily', 'weekly', 'monthly', 'yearly'])],
@@ -84,22 +86,46 @@ class InspectionController extends Controller
      */
     public function index(Request $request)
     {
-        $inspections = Inspection::with('creator:id,name')
+        // Get pagination settings from request or use defaults
+        $perPage = $request->input('per_page', 10);
+        
+        $inspections = Inspection::with(['creator:id,name', 'operator:id,name'])
             ->when($request->input('search'), function($query, $search) {
-                $query->where('name', 'like', "%{$search}%")
+                $query->where(function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
                       ->orWhere('description', 'like', "%{$search}%");
+                });
             })
-            // Add filtering for templates/instances if needed via request param
-            // ->when($request->input('type'), function($query, $type) {
-            //     if ($type === 'templates') $query->where('is_template', true);
-            //     if ($type === 'instances') $query->where('is_template', false);
-            // })
+            // Add filtering for templates/instances via request param
+            ->when($request->input('type'), function($query, $type) {
+                if ($type === 'templates') $query->where('is_template', true);
+                if ($type === 'instances') $query->where('is_template', false);
+            })
+            // Add filtering for status
+            ->when($request->input('status') && $request->input('status') !== 'all', function($query) use ($request) {
+                $query->where('status', $request->input('status'));
+            })
+            ->withCount(['tasks', 'tasks as completed_tasks_count' => function($query) {
+                $query->whereHas('results', function($query) {
+                    $query->where('is_passing', true);
+                });
+            }])
             ->latest()
-            ->paginate(10)
+            ->paginate($perPage)
             ->withQueryString();
+            
+        // Get all users for the operator dropdown
+        $users = \App\Models\User::select('id', 'name')->orderBy('name')->get();
             
         return Inertia::render('inspections', [
             'inspections' => $inspections,
+            'users' => $users,
+            'filters' => [
+                'search' => $request->input('search', ''),
+                'type' => $request->input('type', 'all'),
+                'status' => $request->input('status', 'all'),
+                'per_page' => $perPage
+            ]
         ]);
     }
 
@@ -147,11 +173,20 @@ class InspectionController extends Controller
             'tasks' => function($query) {
                 $query->with([
                     'results' => function($query) {
-                        $query->with('performer:id,name');
+                    $query->with('performer:id,name');
                     },
                     'subTasks' => function($query) {
                         $query->with('completedBy:id,name')->orderBy('sort_order');
                     }
+                ])->addSelect(['*', 
+                  DB::raw('(CASE 
+                      WHEN target_type = "drive" THEN (SELECT drive_ref FROM drives WHERE drives.id = target_id) 
+                      ELSE NULL 
+                    END) as target_drive_ref'),
+                  DB::raw('(CASE 
+                      WHEN target_type = "part" THEN (SELECT part_ref FROM parts WHERE parts.id = target_id) 
+                      ELSE NULL 
+                    END) as target_part_ref')
                 ]);
             }
         ]);

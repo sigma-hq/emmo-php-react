@@ -34,11 +34,13 @@ class CreateScheduledInspections extends Command
         Log::info('Running CreateScheduledInspections command.');
 
         $now = Carbon::now();
+        $fourDaysFromNow = $now->copy()->addDays(4);
 
-        // Find templates that are due
+        // Find templates that are due for instance creation 4 days before due date
         $dueTemplates = Inspection::where('is_template', true)
             ->whereNotNull('schedule_next_due_date')
-            ->where('schedule_next_due_date', '<=', $now)
+            ->where('schedule_next_due_date', '>', $now) // Due date is in the future
+            ->where('schedule_next_due_date', '<=', $fourDaysFromNow) // But within 4 days
             // Optionally: Add check for schedule_end_date if needed
             // ->where(function ($query) use ($now) {
             //     $query->whereNull('schedule_end_date')
@@ -56,40 +58,70 @@ class CreateScheduledInspections extends Command
         foreach ($dueTemplates as $template) {
             $this->info("Processing template ID: {$template->id} - {$template->name}");
 
-            // --- Robust Duplicate Check --- 
-            // Check if an instance was already created very recently for this exact due date 
-            // (Handles cases where the command might run slightly after the exact due time)
-            $alreadyCreated = Inspection::where('parent_inspection_id', $template->id)
-                                        ->where('created_at', '>=', $template->schedule_next_due_date->subMinutes(5)) // Check within a small window
+            // --- Enhanced Duplicate Prevention --- 
+            // 1. Check by parent_id and due date in name (most reliable method)
+            $alreadyCreatedByName = Inspection::where('parent_inspection_id', $template->id)
+                                        ->where('name', $template->schedule_next_due_date->format('Y-m-d'))
                                         ->exists();
+            
+            // 2. Check if created within a larger time window around the due date (more generous window)
+            $alreadyCreatedByTimeWindow = Inspection::where('parent_inspection_id', $template->id)
+                                        ->where('created_at', '>=', $template->schedule_next_due_date->copy()->subDay()) 
+                                        ->where('created_at', '<=', $template->schedule_next_due_date->copy()->addDay())
+                                        ->exists();
+            
+            // 3. Fallback: Check using the last_created_at timestamp on the template
+            $alreadyCreatedByLastTimestamp = $template->schedule_last_created_at && 
+                                            $template->schedule_last_created_at->gte($template->schedule_next_due_date);
+            
+            if ($alreadyCreatedByName || $alreadyCreatedByTimeWindow || $alreadyCreatedByLastTimestamp) {
+                 $reason = $alreadyCreatedByName ? "name match" : 
+                          ($alreadyCreatedByTimeWindow ? "time window match" : "last created timestamp");
+                 
+                 $this->warn("Skipping template ID: {$template->id}. Duplicate detection: {$reason} for due date ({$template->schedule_next_due_date->toDateTimeString()}).");
+                 Log::warning("Skipping template ID: {$template->id}. Duplicate detected via {$reason}.");
+                 continue; 
+            }
 
-            // Alternative/Additional Check: Compare last created timestamp with next due date
-            // This assumes schedule_last_created_at is reliably updated.
-            // if ($template->schedule_last_created_at && $template->schedule_last_created_at->gte($template->schedule_next_due_date)) {
-            //    $this->warn("Skipping template ID: {$template->id}. Instance likely already created based on last_created_at.");
-            //    Log::warning("Skipping template ID: {$template->id}. Instance likely already created based on last_created_at.");
-            //    continue; // Skip to next template
-            // }
+            // --- Original check left for backward compatibility ---
+            // Check if an instance was already created very recently for this exact due date
+            $alreadyCreated = Inspection::where('parent_inspection_id', $template->id)
+                                        ->where('created_at', '>=', $template->schedule_next_due_date->subMinutes(5))
+                                        ->exists();
             
             if ($alreadyCreated) {
                  $this->warn("Skipping template ID: {$template->id}. Instance appears to have been recently created for this due date ({$template->schedule_next_due_date->toDateTimeString()}).");
                  Log::warning("Skipping template ID: {$template->id}. Instance appears recently created.");
-                 // Optionally, still recalculate the next due date if needed to avoid re-processing immediately
-                 // $this->updateTemplateNextDueDate($template, $now); 
                  continue; 
             }
 
+            // --- Additional unique constraint for extra safety ---
+            // Add a unique key check based on template_id + due_date
+            $uniqueConstraint = md5($template->id . '_' . $template->schedule_next_due_date->format('Y-m-d'));
+            
+            // Check if another inspection with this constraint already exists
+            $constraintExists = Inspection::where('unique_constraint', $uniqueConstraint)->exists();
+            
+            if ($constraintExists) {
+                $this->warn("Skipping template ID: {$template->id}. Duplicate detected via unique constraint.");
+                Log::warning("Skipping template ID: {$template->id}. Duplicate detected via unique constraint.");
+                continue;
+            }
+            
+            // We'll set this constraint when we create the inspection
 
             DB::beginTransaction();
             try {
                 // 1. Create new Inspection Instance
                 $instance = Inspection::create([
-                    'name' => $template->name . ' - ' . $template->schedule_next_due_date->format('Y-m-d'), // Append date to name
+                    // Set the name to the due date (YYYY-MM-DD)
+                    'name' => $template->schedule_next_due_date->format('Y-m-d'),
                     'description' => $template->description,
                     'status' => 'active', // Or 'draft', depending on workflow
                     'created_by' => $template->created_by, // Inherit creator?
                     'is_template' => false,
                     'parent_inspection_id' => $template->id,
+                    'unique_constraint' => $uniqueConstraint, // Set the unique constraint to prevent duplicates
                     // Add instance_due_date if needed: 'instance_due_date' => $template->schedule_next_due_date 
                 ]);
                 $this->info("  Created instance ID: {$instance->id}");
