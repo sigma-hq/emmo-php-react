@@ -23,7 +23,9 @@ type MaintenanceStatus = 'pending' | 'in_progress' | 'completed';
 interface ChecklistItem {
     id: string;
     text: string;
-    completed: boolean;
+    status: 'pending' | 'completed' | 'failed';
+    notes?: string | null;
+    updated_at?: string | null;
 }
 
 interface Maintenance {
@@ -140,13 +142,40 @@ export default function LogMaintenanceDialog({
 
     const addChecklistItem = () => {
         if (!newChecklistItem.trim()) return;
-        const newItem: ChecklistItem = { id: Date.now().toString(), text: newChecklistItem.trim(), completed: false };
+        const newItem: ChecklistItem = { 
+            id: Date.now().toString(), 
+            text: newChecklistItem.trim(), 
+            status: 'pending',
+            notes: null,
+            updated_at: new Date().toISOString()
+        };
         setChecklistItems(prev => [...prev, newItem]);
         setNewChecklistItem('');
     };
     
     const toggleChecklistItem = (id: string) => {
-        setChecklistItems(prev => prev.map(item => item.id === id ? { ...item, completed: !item.completed } : item));
+        setChecklistItems(prev => prev.map(item => {
+            if (item.id === id) {
+                // Cycle through statuses: pending -> completed -> failed -> pending
+                let newStatus: 'pending' | 'completed' | 'failed';
+                switch (item.status) {
+                    case 'pending': newStatus = 'completed'; break;
+                    case 'completed': newStatus = 'failed'; break;
+                    default: newStatus = 'pending';
+                }
+                return { ...item, status: newStatus, updated_at: new Date().toISOString() };
+            }
+            return item;
+        }));
+    };
+
+    const updateChecklistItemNotes = (id: string, notes: string) => {
+        setChecklistItems(prev => prev.map(item => {
+            if (item.id === id) {
+                return { ...item, notes, updated_at: new Date().toISOString() };
+            }
+            return item;
+        }));
     };
     
     const removeChecklistItem = (id: string) => {
@@ -259,12 +288,18 @@ export default function LogMaintenanceDialog({
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="status" className="text-sm font-medium block">Status <span className="text-red-500">*</span></Label>
-                                        <Select value={data.status} onValueChange={(value) => handleSelectChange('status', value)}>
+                                        <Select value={data.status} onValueChange={(value) => handleSelectChange('status', value)} disabled={checklistItems.length > 0}>
                                             <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
                                             <SelectContent>
                                                 {statusConfig.map(s => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
+                                        {checklistItems.length > 0 && (
+                                            <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                                <span className="inline-block w-1 h-1 bg-current rounded-full"></span>
+                                                Status will be automatically managed based on task completion
+                                            </p>
+                                        )}
                                         {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status}</p>}
                                     </div>
                                 </div>
@@ -362,10 +397,56 @@ export default function LogMaintenanceDialog({
                                 ) : (
                                     <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
                                         {checklistItems.map((item) => (
-                                            <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-md border border-gray-100 dark:border-gray-800">
-                                                <Checkbox id={`item-${item.id}`} checked={item.completed} onCheckedChange={() => toggleChecklistItem(item.id)} />
-                                                <label htmlFor={`item-${item.id}`} className={`flex-1 ${item.completed ? 'line-through text-gray-400' : ''}`}>{item.text}</label>
-                                                <Button type="button" variant="ghost" size="sm" onClick={() => removeChecklistItem(item.id)} className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"><X className="h-4 w-4" /></Button>
+                                            <div key={item.id} className="flex flex-col p-3 bg-gray-50 dark:bg-gray-900 rounded-md border border-gray-100 dark:border-gray-800">
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleChecklistItem(item.id)}
+                                                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                                                            item.status === 'completed' 
+                                                                ? 'bg-green-500 border-green-500 text-white' 
+                                                                : item.status === 'failed'
+                                                                ? 'bg-red-500 border-red-500 text-white'
+                                                                : 'border-gray-300 dark:border-gray-600'
+                                                        }`}
+                                                    >
+                                                        {item.status === 'completed' && <Check className="h-3 w-3" />}
+                                                        {item.status === 'failed' && <X className="h-3 w-3" />}
+                                                    </button>
+                                                    <span className={`flex-1 ${
+                                                        item.status === 'completed' 
+                                                            ? 'line-through text-gray-400' 
+                                                            : item.status === 'failed'
+                                                            ? 'text-red-500 dark:text-red-400'
+                                                            : ''
+                                                    }`}>
+                                                        {item.text}
+                                                    </span>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-xs text-gray-500">
+                                                            {item.updated_at ? formatDateFns(new Date(item.updated_at), 'MMM d, h:mm a') : ''}
+                                                        </span>
+                                                        <Button 
+                                                            type="button" 
+                                                            variant="ghost" 
+                                                            size="sm" 
+                                                            onClick={() => removeChecklistItem(item.id)} 
+                                                            className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                {/* Notes input field */}
+                                                <div className="mt-2 pl-8">
+                                                    <Input 
+                                                        type="text"
+                                                        value={item.notes || ''}
+                                                        onChange={(e) => updateChecklistItemNotes(item.id, e.target.value)}
+                                                        placeholder="Add notes for this task..."
+                                                        className="text-sm h-8 px-2 py-1"
+                                                    />
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

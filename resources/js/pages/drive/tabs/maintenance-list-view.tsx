@@ -1,9 +1,10 @@
 import React, { useState, useMemo, Fragment } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusIcon, Wrench, Calendar, User, Clock, CheckCircle2, ArrowUpDown, Filter, Search, ChevronDown, MoreVertical, Edit3, Trash2, ChevronRight } from 'lucide-react';
+import { PlusIcon, Wrench, Calendar, User, Clock, CheckCircle2, ArrowUpDown, Filter, Search, ChevronDown, MoreVertical, Edit3, Trash2, ChevronRight, Clipboard } from 'lucide-react';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
+import MaintenanceChecklist from '@/components/ui/maintenance-checklist';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -67,7 +68,9 @@ interface MaintenanceListViewProps {
 interface ChecklistItem {
     id: string;
     text: string;
-    completed: boolean;
+    status: 'pending' | 'completed' | 'failed';
+    notes?: string | null;
+    updated_at?: string | null;
 }
 
 export default function MaintenanceListView({ 
@@ -98,15 +101,17 @@ export default function MaintenanceListView({
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
     };
 
-    const getStatusBadge = (status: MaintenanceStatus) => {
+    const getStatusBadge = (status: MaintenanceStatus, hasChecklistItems: boolean = false) => {
         const config = statusConfig.find(s => s.key === status) || statusConfig[0];
         
         return (
             <span 
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.bgClass} ${config.iconColorClass}`}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.bgClass} ${config.iconColorClass} ${hasChecklistItems ? 'border border-dashed border-current' : ''}`}
+                title={hasChecklistItems ? 'Status automatically managed by tasks' : 'Click to change status'}
             >
                 <config.icon className="h-3.5 w-3.5" />
                 <span>{config.label}</span>
+                {hasChecklistItems && <span className="text-xs opacity-70">●</span>}
             </span>
         );
     };
@@ -177,6 +182,30 @@ export default function MaintenanceListView({
 
     // Handle status change
     const handleStatusChange = async (maintenanceId: number, newStatus: MaintenanceStatus) => {
+        // Find the maintenance to check if it has checklist items
+        const maintenance = maintenances.find(m => m.id === maintenanceId);
+        if (!maintenance) return;
+        
+        // Check if there are checklist items
+        let hasChecklistItems = false;
+        try {
+            if (maintenance.checklist_json) {
+                const checklist = typeof maintenance.checklist_json === 'string' 
+                    ? JSON.parse(maintenance.checklist_json) 
+                    : maintenance.checklist_json;
+                hasChecklistItems = Array.isArray(checklist) && checklist.length > 0;
+            }
+        } catch (e) {
+            hasChecklistItems = false;
+        }
+        
+        // If there are checklist items, prevent manual status updates
+        if (hasChecklistItems) {
+            alert('Status is automatically managed based on task completion. Please update individual tasks instead.');
+            return;
+        }
+        
+        // Otherwise, proceed with manual status update
         await onStatusUpdate(maintenanceId, newStatus);
     };
 
@@ -326,7 +355,30 @@ export default function MaintenanceListView({
                                             ? JSON.parse(maintenance.checklist_json)
                                             : maintenance.checklist_json;
                                         if (Array.isArray(parsed)) {
-                                            checklist = parsed.filter(item => item && typeof item.id === 'string' && typeof item.text === 'string' && typeof item.completed === 'boolean');
+                                            // Handle both old and new format
+                                            checklist = parsed.map(item => {
+                                                // Convert old format (completed boolean) to new format (status)
+                                                if (item && typeof item.id === 'string' && typeof item.text === 'string') {
+                                                    if (typeof item.completed === 'boolean' && !('status' in item)) {
+                                                        return {
+                                                            id: item.id,
+                                                            text: item.text,
+                                                            status: item.completed ? 'completed' : 'pending',
+                                                            notes: item.notes || null,
+                                                            updated_at: item.updated_at || null
+                                                        };
+                                                    } else if (typeof item.status === 'string') {
+                                                        return {
+                                                            id: item.id,
+                                                            text: item.text,
+                                                            status: item.status,
+                                                            notes: item.notes || null,
+                                                            updated_at: item.updated_at || null
+                                                        };
+                                                    }
+                                                }
+                                                return null;
+                                            }).filter(Boolean) as ChecklistItem[];
                                         }
                                     } catch (e) {
                                         console.error("Failed to parse checklist JSON for maintenance ID:", maintenance.id, e);
@@ -370,40 +422,53 @@ export default function MaintenanceListView({
                                             <TableCell>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <button className="w-full text-left">
-                                                            {getStatusBadge(maintenance.status)}
+                                                        <button className="w-full text-left" disabled={checklist.length > 0}>
+                                                            {getStatusBadge(maintenance.status, checklist.length > 0)}
                                                         </button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="start" className="w-48">
-                                                        <DropdownMenuGroup>
-                                                            {statusConfig.map((status) => (
-                                                                <DropdownMenuItem 
-                                                                    key={status.key}
-                                                                    className={maintenance.status === status.key ? 'bg-[var(--emmo-green-light)] dark:bg-[var(--emmo-green-dark)]/20' : ''}
-                                                                    onClick={() => handleStatusChange(maintenance.id, status.key)}
-                                                                    disabled={maintenance.status === status.key}
-                                                                >
-                                                                    <status.icon className={`h-4 w-4 mr-2 ${status.iconColorClass}`} />
-                                                                    <span className="flex-1">{status.label}</span>
-                                                                    {maintenance.status === status.key && <CheckCircle2 className="h-4 w-4 text-[var(--emmo-green-primary)]" />}
-                                                                </DropdownMenuItem>
-                                                            ))}
-                                                        </DropdownMenuGroup>
+                                                        {checklist.length > 0 ? (
+                                                            <div className="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                                                Status is automatically managed based on task completion
+                                                            </div>
+                                                        ) : (
+                                                            <DropdownMenuGroup>
+                                                                {statusConfig.map((status) => (
+                                                                    <DropdownMenuItem 
+                                                                        key={status.key}
+                                                                        className={maintenance.status === status.key ? 'bg-[var(--emmo-green-light)] dark:bg-[var(--emmo-green-dark)]/20' : ''}
+                                                                        onClick={() => handleStatusChange(maintenance.id, status.key)}
+                                                                        disabled={maintenance.status === status.key}
+                                                                    >
+                                                                        <status.icon className={`h-4 w-4 mr-2 ${status.iconColorClass}`} />
+                                                                        <span className="flex-1">{status.label}</span>
+                                                                        {maintenance.status === status.key && <CheckCircle2 className="h-4 w-4 text-[var(--emmo-green-primary)]" />}
+                                                                    </DropdownMenuItem>
+                                                                ))}
+                                                            </DropdownMenuGroup>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 {(() => {
                                                     try {
-                                                        if (!maintenance.checklist_json) return 0;
+                                                        if (!maintenance.checklist_json) return '0 / 0';
                                                         
                                                         const checklist = typeof maintenance.checklist_json === 'string' 
                                                             ? JSON.parse(maintenance.checklist_json) 
                                                             : maintenance.checklist_json;
                                                             
-                                                        return Array.isArray(checklist) ? checklist.length : 0;
+                                                        if (!Array.isArray(checklist)) return '0 / 0';
+                                                        
+                                                        const total = checklist.length;
+                                                        const completed = checklist.filter(item => 
+                                                            item.status === 'completed' || (item.completed === true && !('status' in item))
+                                                        ).length;
+                                                        
+                                                        return `${completed} / ${total}`;
                                                     } catch (e) {
-                                                        return 0;
+                                                        return '0 / 0';
                                                     }
                                                 })()}
                                             </TableCell>
@@ -434,28 +499,25 @@ export default function MaintenanceListView({
                                                 </DropdownMenu>
                                             </TableCell>
                                         </TableRow>
-                                        {isExpanded && checklist.length > 0 && (
+                                        {isExpanded && (
                                             <TableRow className="bg-gray-50 dark:bg-gray-800/10">
-                                                <TableCell colSpan={10} className="p-0"> {/* Adjusted colSpan */}
+                                                <TableCell colSpan={10} className="p-0">
                                                     <div className="p-4">
                                                         <h4 className="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                                                            <CheckCircle2 className="h-4 w-4 text-[var(--emmo-green-primary)]" />
-                                                            Maintenance Checklist
+                                                            <Clipboard className="h-4 w-4 text-[var(--emmo-green-primary)]" />
+                                                            Maintenance Tasks
                                                         </h4>
-                                                        {checklist.length > 0 ? (
-                                                            <ul className="list-none pl-1 space-y-2">
-                                                                {checklist.map(item => (
-                                                                    <li key={item.id} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400 py-1 border-b border-gray-100 dark:border-gray-700/50 last:border-b-0">
-                                                                        {item.completed 
-                                                                            ? <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" /> 
-                                                                            : <Clock className="h-4 w-4 text-gray-400 dark:text-gray-500 mt-0.5 shrink-0" />}
-                                                                        <span className={`flex-1 ${item.completed ? 'line-through text-gray-500 dark:text-gray-400/70' : ''}`}>{item.text}</span>
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        ) : (
-                                                            <p className="text-sm text-gray-500 py-2 px-1">No checklist items for this maintenance task.</p>
-                                                        )}
+                                                        <MaintenanceChecklist
+                                                            maintenanceId={maintenance.id}
+                                                            checklistItems={typeof maintenance.checklist_json === 'string'
+                                                                ? JSON.parse(maintenance.checklist_json || '[]')
+                                                                : maintenance.checklist_json || []
+                                                            }
+                                                            onUpdate={(stats) => {
+                                                                // Refresh the UI with updated stats
+                                                                // This is optional as our component handles the UI updates internally
+                                                            }}
+                                                        />
                                                     </div>
                                                 </TableCell>
                                             </TableRow>

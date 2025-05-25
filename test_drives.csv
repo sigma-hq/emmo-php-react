@@ -1,0 +1,4 @@
+Item Number,Drive Number,Drive Description,Item,Area
+001,DR001,Main Conveyor Drive,Primary conveyor motor,Production Floor
+002,DR002,Pump Motor Drive,Water circulation pump,Pump Room
+003,DR003,Fan Drive Unit,Ventilation fan motor,HVAC Room 

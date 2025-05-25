@@ -4,6 +4,7 @@ import { Wrench, PlusIcon, CheckCircle2, Clock, X, List } from 'lucide-react';
 import { format } from 'date-fns';
 import LogMaintenanceDialog from './log-maintenance-dialog';
 import MaintenanceListView from './maintenance-list-view';
+import { usePage } from '@inertiajs/react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -50,6 +51,7 @@ interface Drive {
     location: string | null;
     notes: string | null;
     parts: any[];
+    maintenances: Maintenance[];
     created_at: string;
     updated_at: string;
 }
@@ -88,8 +90,7 @@ const statusConfig = [
 ];
 
 export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps) {
-    const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [maintenances, setMaintenances] = useState<Maintenance[]>(drive.maintenances || []);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
@@ -97,9 +98,28 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
     const [deletingMaintenanceId, setDeletingMaintenanceId] = useState<number | null>(null);
     const wasDeleteOpen = useRef(false);
     
+    // Get flash messages from Inertia
+    const { flash } = usePage<any>().props;
+    
+    // Update maintenances when drive prop changes (after Inertia updates)
     useEffect(() => {
-        fetchMaintenances();
-    }, [drive.id]);
+        setMaintenances(drive.maintenances || []);
+    }, [drive.maintenances]);
+    
+    // Handle flash messages from the backend
+    useEffect(() => {
+        if (flash && flash.success) {
+            setSuccessMessage(flash.success);
+            setShowSuccessMessage(true);
+            
+            // Auto-hide the notification after 3 seconds
+            const timer = setTimeout(() => {
+                setShowSuccessMessage(false);
+            }, 3000);
+            
+            return () => clearTimeout(timer);
+        }
+    }, [flash]);
     
     useEffect(() => {
         if (wasDeleteOpen.current && deletingMaintenanceId === null) {
@@ -107,21 +127,6 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
         }
         wasDeleteOpen.current = deletingMaintenanceId !== null;
     }, [deletingMaintenanceId]);
-    
-    const fetchMaintenances = async () => {
-        setIsLoading(true);
-        try {
-            const response = await fetch(route('api.drives.maintenances', drive.id));
-            if (!response.ok) throw new Error('Failed to fetch');
-            const data = await response.json();
-            setMaintenances(data);
-        } catch (error) {
-            console.error('Failed to fetch maintenances:', error);
-            setMaintenances([]); // Set to empty array on error
-        } finally {
-            setIsLoading(false);
-        }
-    };
     
     // Handle status update when a maintenance is moved to a different column
     const handleUpdateStatus = async (maintenanceId: number, newStatus: MaintenanceStatus) => {
@@ -152,12 +157,12 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
         } catch (error) {
             console.error('Error updating status:', error);
             // Refresh data from server in case of error
-            fetchMaintenances();
+            window.location.reload();
         }
     };
     
     const handleMaintenanceSuccess = (message: string) => {
-        fetchMaintenances();
+        // The page will be refreshed by Inertia, so we don't need to manually fetch
         setSuccessMessage(message);
         setShowSuccessMessage(true);
         setTimeout(() => setShowSuccessMessage(false), 3000);
@@ -203,56 +208,50 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
         }
     };
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--emmo-green-primary)] mx-auto mb-4"></div>
-                    <p className="text-gray-500 dark:text-gray-400">Loading maintenance records...</p>
-                </div>
-            </div>
-        );
-    }
-    
+    const cancelDelete = () => {
+        setDeletingMaintenanceId(null);
+    };
+
     return (
         <div className="space-y-6">
-            {/* Success Message */}
+            {/* Success Notification */}
             {showSuccessMessage && (
-                <div className="bg-[var(--emmo-green-primary)] text-white px-4 py-3 rounded-lg shadow flex items-center gap-2 fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-5">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span>{successMessage}</span>
-                    <button onClick={() => setShowSuccessMessage(false)} className="ml-2 text-white/80 hover:text-white">
-                        <X className="h-4 w-4" />
-                    </button>
+                <div className="fixed top-6 right-6 z-50 transform transition-all duration-500 ease-in-out">
+                    <div className="flex items-center gap-3 bg-[var(--emmo-green-primary)] text-white px-4 py-3 rounded-lg shadow-lg">
+                        <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
+                        <p className="font-medium">{successMessage}</p>
+                        <button 
+                            onClick={() => setShowSuccessMessage(false)}
+                            className="ml-2 text-white hover:text-gray-200 transition-colors"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
                 </div>
             )}
-            
+
             {/* Header */}
-            <div className="flex justify-between items-center mb-3">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                    <Wrench className="h-5 w-5 text-[var(--emmo-green-primary)]" />
-                    <span>Maintenance List</span>
-                </h2>
-                <div className="flex items-center gap-2">
-                    {/* Add Maintenance Button */}
-                    <Button 
-                        className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)]"
-                        onClick={() => {
-                            setEditingMaintenance(null); // Ensure not in edit mode when opening for add
-                            setIsAddDialogOpen(true);
-                        }}
-                    >
-                        <PlusIcon className="h-4 w-4 mr-2" /> 
-                        Log Maintenance
-                    </Button>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Wrench className="h-6 w-6 text-[var(--emmo-green-primary)]" />
+                    <h2 className="text-xl font-semibold">Maintenance Records</h2>
                 </div>
+                <Button 
+                    onClick={() => {
+                        setEditingMaintenance(null);
+                        setIsAddDialogOpen(true);
+                    }}
+                    className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)]"
+                >
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Log Maintenance
+                </Button>
             </div>
 
-            {/* List View Component */}
-            <MaintenanceListView
+            {/* Content */}
+            <MaintenanceListView 
                 drive={drive}
                 maintenances={maintenances}
-                statusConfig={statusConfig}
                 onOpenAddDialog={() => {
                     setEditingMaintenance(null);
                     setIsAddDialogOpen(true);
@@ -260,47 +259,42 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
                 onStatusUpdate={handleUpdateStatus}
                 onEditMaintenance={handleOpenEditDialog}
                 onDeleteMaintenance={handleDeleteConfirmation}
+                statusConfig={statusConfig}
             />
-            
-            {/* Log Maintenance Dialog (handles both add and edit) */}
-            <LogMaintenanceDialog 
+
+            {/* Log Maintenance Dialog */}
+            <LogMaintenanceDialog
                 drive={drive}
                 operators={operators}
                 isOpen={isAddDialogOpen}
                 setIsOpen={setIsAddDialogOpen}
-                onSuccess={(message) => handleMaintenanceSuccess(message)}
+                onSuccess={handleMaintenanceSuccess}
                 statusConfig={statusConfig}
                 editingMaintenance={editingMaintenance}
                 clearEditingMaintenance={() => setEditingMaintenance(null)}
             />
 
             {/* Delete Confirmation Dialog */}
-            {deletingMaintenanceId !== null && (
-                <AlertDialog
-                    open={deletingMaintenanceId !== null}
-                    onOpenChange={open => {
-                        if (!open) setDeletingMaintenanceId(null);
-                    }}
-                >
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the maintenance record.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setDeletingMaintenanceId(null)}>Cancel</AlertDialogCancel>
-                            <AlertDialogAction 
-                                onClick={actuallyDeleteMaintenance} 
-                                className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
-                            > 
-                                Yes, delete it
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            )}
+            <AlertDialog open={deletingMaintenanceId !== null} onOpenChange={cancelDelete}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the maintenance record
+                            and remove all associated data.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={cancelDelete}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={actuallyDeleteMaintenance}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 } 

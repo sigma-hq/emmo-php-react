@@ -15,8 +15,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage, Link } from '@inertiajs/react';
-import { PlusIcon, Pencil, Trash2, CheckCircle, HardDrive, Info, Search, X, ArrowRight, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { PlusIcon, Pencil, Trash2, CheckCircle, HardDrive, Info, Search, X, ArrowRight, ChevronLeft, ChevronRight, Eye, UploadIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { CSVImportDialog } from '@/components/ui/csv-import-dialog';
 
 interface Drive {
     id: number;
@@ -78,6 +79,7 @@ export default function Drive({ drives, flash }: DrivePageProps) {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [driveToDelete, setDriveToDelete] = useState<Drive | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showImportDialog, setShowImportDialog] = useState(false);
     
     const { data, setData, post, put, processing, errors, reset } = useForm({
         id: '',
@@ -165,9 +167,35 @@ export default function Drive({ drives, flash }: DrivePageProps) {
         }
     };
     
+    const handleImportComplete = (result: any) => {
+        if (result.success) {
+            setSuccessMessage(`Successfully imported ${result.imported} drives`);
+            setShowSuccessNotification(true);
+            
+            // Refresh the drives list
+            router.reload({ only: ['drives'] });
+        } else if (result.errors && result.errors.length > 0) {
+            // Show the first error as notification
+            setSuccessMessage(`Import completed with errors: ${result.errors[0]}`);
+            setShowSuccessNotification(true);
+        }
+    };
+    
     const goToPage = (url: string | null) => {
         if (url) {
-            router.get(url);
+            // Parse the URL to extract the page parameter
+            const urlObj = new URL(url, window.location.origin);
+            const page = urlObj.searchParams.get('page');
+            
+            // Navigate with current search term preserved
+            router.get(route('drive'), {
+                search: searchTerm,
+                page: page
+            }, {
+                preserveState: true,
+                preserveScroll: true,
+                only: ['drives']
+            });
         }
     };
     
@@ -200,12 +228,23 @@ export default function Drive({ drives, flash }: DrivePageProps) {
                             <h1 className="text-2xl font-bold tracking-tight">Drive Management</h1>
                         </div>
                         
-                        <Button 
-                            onClick={openCreateDialog} 
-                            className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
-                        >
-                            <PlusIcon className="mr-2 h-4 w-4" /> New Drive
-                        </Button>
+                        <div className="flex gap-3">
+                            <Button 
+                                variant="outline"
+                                onClick={() => setShowImportDialog(true)}
+                                className="flex items-center gap-2 border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                            >
+                                <UploadIcon className="h-4 w-4 text-[var(--emmo-green-primary)]" />
+                                Import CSV
+                            </Button>
+                        
+                            <Button 
+                                onClick={openCreateDialog} 
+                                className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
+                            >
+                                <PlusIcon className="mr-2 h-4 w-4" /> New Drive
+                            </Button>
+                        </div>
                     </div>
                     
                     <p className="text-gray-500 dark:text-gray-400 max-w-2xl">
@@ -607,6 +646,16 @@ export default function Drive({ drives, flash }: DrivePageProps) {
                         </div>
                     </AlertDialogContent>
                 </AlertDialog>
+                
+                {/* CSV Import Dialog */}
+                <CSVImportDialog 
+                    isOpen={showImportDialog}
+                    onClose={() => setShowImportDialog(false)}
+                    onImportComplete={handleImportComplete}
+                    importUrl={route('api.drives.import')}
+                    title="Import Drives from CSV"
+                    description="Upload a CSV file with drive data. Required columns: 'Drive Number' (unique ID) and 'Drive Description' (name). Optional: 'Area' (location), 'Item' (notes). Column names are case-insensitive."
+                />
             </div>
         </AppLayout>
     );

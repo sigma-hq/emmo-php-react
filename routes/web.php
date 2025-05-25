@@ -26,6 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('drive', [DriveController::class, 'index'])->name('drive');
 
     Route::post('drives', [DriveController::class, 'store'])->name('api.drives.store');
+    Route::post('drives/import', [DriveController::class, 'import'])->name('api.drives.import');
     Route::get('drives/{drive}', [DriveController::class, 'show'])->name('api.drives.show');
     Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.drives.update');
     Route::delete('drives/{drive}', [DriveController::class, 'destroy'])->name('api.drives.destroy');
@@ -53,6 +54,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('maintenances/{maintenance}', [MaintenanceController::class, 'update'])->name('api.maintenances.update');
     Route::delete('maintenances/{maintenance}', [MaintenanceController::class, 'destroy'])->name('api.maintenances.destroy');
     Route::get('drives/{drive}/maintenances', [MaintenanceController::class, 'forDrive'])->name('api.drives.maintenances');
+    
+    // Maintenance checklist item routes
+    Route::post('maintenances/{maintenance}/checklist', [MaintenanceController::class, 'addChecklistItem'])->name('api.maintenances.checklist.add');
+    Route::put('maintenances/{maintenance}/checklist/{itemId}', [MaintenanceController::class, 'updateChecklistItem'])->name('api.maintenances.checklist.update');
+    Route::delete('maintenances/{maintenance}/checklist/{itemId}', [MaintenanceController::class, 'removeChecklistItem'])->name('api.maintenances.checklist.remove');
+    Route::get('maintenances/{maintenance}/checklist-stats', [MaintenanceController::class, 'getChecklistStats'])->name('api.maintenances.checklist.stats');
 
     Route::get('view-items', function () {
         return Inertia::render('view-items');

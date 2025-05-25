@@ -12,22 +12,22 @@ const navItems: (NavItem & { group: string })[] = [
     { title: 'Drive', href: '/drive', icon: HardDrive, group: 'Operations' },
     { title: 'Inspections', href: '/inspections', icon: ClipboardCheck, group: 'Operations' },
     { title: 'Maintenances', href: '/maintenances', icon: Hammer, group: 'Operations' },
-    { title: 'View Items', href: '/view-items', icon: List, group: 'Operations' },
+    // { title: 'View Items', href: '/view-items', icon: List, group: 'Operations' },
     { title: 'Parts', href: '/parts', icon: Wrench, group: 'Resources' },
     { title: 'Users', href: '/users', icon: UsersIcon, group: 'Admin' },
 ];
 
 const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
+    // {
+    //     title: 'Repository',
+    //     href: 'https://github.com/laravel/react-starter-kit',
+    //     icon: Folder,
+    // },
+    // {
+    //     title: 'Documentation',
+    //     href: 'https://laravel.com/docs/starter-kits#react',
+    //     icon: BookOpen,
+    // },
 ];
 
 // Helper function to group items
