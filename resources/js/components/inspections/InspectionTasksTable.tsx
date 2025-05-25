@@ -249,6 +249,36 @@ export default function InspectionTasksTable({
                             {/* Actions */}
                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                 <div className="flex items-center justify-end gap-2">
+                                    {/* Check if task has pending subtasks */}
+                                    {task.sub_tasks && task.sub_tasks.length > 0 ? (
+                                        <div className="relative group">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className={`h-8 ${
+                                                    task.sub_tasks?.some(st => st.status !== 'completed')
+                                                        ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                                                        : 'bg-[var(--emmo-green-light)] border-[var(--emmo-green-primary)] text-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-light)]/80'
+                                                }`}
+                                                onClick={() => {
+                                                    if (!task.sub_tasks?.some(st => st.status !== 'completed')) {
+                                                        openRecordResultDialog(task);
+                                                    }
+                                                }}
+                                                disabled={task.sub_tasks?.some(st => st.status !== 'completed')}
+                                            >
+                                                <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
+                                                Record
+                                            </Button>
+                                            
+                                            {task.sub_tasks?.some(st => st.status !== 'completed') && (
+                                                <div className="absolute bottom-full mb-2 -left-2 w-48 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none">
+                                                    Complete all subtasks before recording results
+                                                    <div className="absolute top-full left-6 h-2 w-2 bg-gray-800 transform rotate-45 -mt-1"></div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -258,6 +288,7 @@ export default function InspectionTasksTable({
                                         <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
                                         Record
                                     </Button>
+                                    )}
 
                                     <Button
                                         variant="ghost"

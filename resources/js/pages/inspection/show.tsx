@@ -124,6 +124,7 @@ export interface InspectionTask {
     unit_of_measure: string | null;
     results?: InspectionResult[];
     subTasks?: InspectionSubTask[];
+    sub_tasks?: InspectionSubTask[];
 }
 
 export interface Inspection {
@@ -179,6 +180,8 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
     // Result Dialog
     const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState<InspectionTask | null>(null);
+    
+    const [resultsErrorMessage, setResultsErrorMessage] = useState<string | null>(null);
     
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -338,6 +341,9 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
     const handleResultSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Clear previous error message
+        setResultsErrorMessage(null);
+        
         // Log submission for debugging
         console.log('Submitting result form with data:', resultForm.data);
         console.log('Selected task:', selectedTask);
@@ -357,6 +363,9 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                 },
                 onError: (errors) => {
                     console.error('Result submission errors:', errors);
+                    if (errors.message && errors.message.includes('subtask')) {
+                        setResultsErrorMessage(errors.message);
+                    }
                 }
                 });
         }
@@ -527,19 +536,20 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                 
                 {/* Task Form Dialog */}
                 <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
-                    <DialogContent className="sm:max-w-[600px]">
-                        <DialogHeader>
-                            <DialogTitle>
-                                {isEditTaskMode ? 'Edit Task' : 'Add New Task'}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {isEditTaskMode 
-                                    ? 'Update the task details below.' 
-                                    : 'Fill in the task details below to create a new task.'}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleTaskSubmit}>
-                            <div className="grid gap-4 py-4">
+                    <DialogContent className="sm:max-w-[550px] rounded-xl p-0 overflow-hidden">
+                        <form onSubmit={handleTaskSubmit} className="flex flex-col h-full">
+                            {/* Header with visual treatment */}
+                            <div className="bg-gradient-to-r from-[var(--emmo-green-primary)] to-[var(--emmo-green-secondary)] p-6 text-white">
+                                <DialogTitle className="text-2xl font-bold mb-2">
+                                    {isEditTaskMode ? 'Edit Task' : 'Add New Task'}
+                                </DialogTitle>
+                                <DialogDescription className="text-white/80 max-w-sm">
+                                    {isEditTaskMode 
+                                        ? 'Update the task details below.' 
+                                        : 'Fill in the task details below to create a new task.'}
+                                </DialogDescription>
+                            </div>
+                            <div className="grid gap-4 p-6 overflow-y-auto">
                                 <div className="grid gap-2">
                                     <Label htmlFor="name" className={taskForm.errors.name ? "text-red-500" : ""}>
                                         Task Name
@@ -716,7 +726,7 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                                     </div>
                                 )}
                             </div>
-                            <DialogFooter>
+                            <DialogFooter className="border-t border-gray-100 dark:border-gray-800 p-4 flex justify-end gap-3 bg-gray-50 dark:bg-gray-950">
                                 <Button 
                                     type="button" 
                                     variant="outline" 
@@ -771,6 +781,18 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                             </DialogDescription>
                         </DialogHeader>
                         <form onSubmit={handleResultSubmit}>
+                            {resultsErrorMessage && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
+                                    <div className="flex">
+                                        <div className="flex-shrink-0">
+                                            <AlertTriangle className="h-5 w-5 text-red-400" />
+                                        </div>
+                                        <div className="ml-3">
+                                            <p className="text-sm">{resultsErrorMessage}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <div className="grid gap-4 py-4">
                                 {resultForm.data.task_type === 'yes_no' && (
                                     <div className="grid gap-2">

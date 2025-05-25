@@ -194,6 +194,20 @@ class InspectionTaskController extends Controller
             'notes' => 'nullable|string',
             'task_type' => 'required|in:yes_no,numeric',
         ]);
+            
+            // Check if all subtasks are completed
+            $subtasks = $task->subTasks;
+            if ($subtasks->count() > 0) {
+                $pendingSubtasks = $subtasks->where('status', '!=', 'completed')->count();
+                
+                if ($pendingSubtasks > 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cannot record result: ' . $pendingSubtasks . ' subtask(s) are not completed',
+                        'pending_count' => $pendingSubtasks
+                    ], 422);
+                }
+            }
         
         // Determine if the result is passing
         $isPassing = $task->isPassing(

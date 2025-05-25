@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, router } from '@inertiajs/react';
 import {
     PlusIcon, ClipboardCheck, ClipboardList,
@@ -70,6 +70,14 @@ export default function TasksTab({
     const [editingSubTask, setEditingSubTask] = useState<InspectionSubTask | null>(null);
     const [formError, setFormError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Add local state to maintain tasks with updated subtasks
+    const [localTasks, setLocalTasks] = useState<InspectionTask[]>(tasks);
+    
+    // Update local tasks when the prop changes
+    useEffect(() => {
+        setLocalTasks(tasks);
+    }, [tasks]);
     
     // Debug: Log the tasks to see if they include subtasks
     console.log('Tasks received in TasksTab:', tasks);
@@ -149,8 +157,86 @@ export default function TasksTab({
             // Add boolean value with proper type if this is a yes/no type
             if (formData.type === 'yes_no') {
                 requestData.expected_value_boolean = formData.expected_value_boolean === 'true';
-            } else {
+                    } else {
                 requestData.expected_value_boolean = null;
+            }
+            
+            // Create optimistic UI update
+            if (editingSubTask) {
+                // For edit mode, create updated subtask
+                const updatedSubTask: InspectionSubTask = {
+                    ...editingSubTask,
+                    name: formData.name,
+                    description: formData.description || null,
+                    type: formData.type as 'yes_no' | 'numeric' | 'none',
+                    expected_value_boolean: formData.type === 'yes_no' 
+                        ? formData.expected_value_boolean === 'true' 
+                        : null,
+                    expected_value_min: formData.type === 'numeric' && formData.expected_value_min 
+                        ? parseFloat(formData.expected_value_min) 
+                        : null,
+                    expected_value_max: formData.type === 'numeric' && formData.expected_value_max 
+                        ? parseFloat(formData.expected_value_max) 
+                        : null,
+                    unit_of_measure: formData.unit_of_measure || null,
+                };
+                
+                // Update local state for edited subtask
+                setLocalTasks(prevTasks => {
+                    return prevTasks.map(task => {
+                        if (task.id === parseInt(formData.inspection_task_id) && task.sub_tasks) {
+                            return {
+                                ...task,
+                                sub_tasks: task.sub_tasks.map(st => 
+                                    st.id === updatedSubTask.id ? updatedSubTask : st
+                                )
+                            };
+                        }
+                        return task;
+                    });
+            });
+        } else {
+                // For create mode, create a temporary ID for optimistic update
+                const tempId = -Date.now(); // Use negative timestamp as temporary ID
+                const newSubTask: InspectionSubTask = {
+                    id: tempId,
+                    inspection_task_id: parseInt(formData.inspection_task_id),
+                    name: formData.name,
+                    description: formData.description || null,
+                    type: formData.type as 'yes_no' | 'numeric' | 'none',
+                    status: 'pending',
+                    expected_value_boolean: formData.type === 'yes_no' 
+                        ? formData.expected_value_boolean === 'true' 
+                        : null,
+                    expected_value_min: formData.type === 'numeric' && formData.expected_value_min 
+                        ? parseFloat(formData.expected_value_min) 
+                        : null,
+                    expected_value_max: formData.type === 'numeric' && formData.expected_value_max 
+                        ? parseFloat(formData.expected_value_max) 
+                        : null,
+                    unit_of_measure: formData.unit_of_measure || null,
+                    recorded_value_boolean: null,
+                    recorded_value_numeric: null,
+                    compliance: 'pending_action',
+                    completed_by: null,
+                    completed_at: null,
+                    sort_order: 0,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+                
+                // Update local state with new subtask
+                setLocalTasks(prevTasks => {
+                    return prevTasks.map(task => {
+                        if (task.id === parseInt(formData.inspection_task_id)) {
+                            return {
+                                ...task,
+                                sub_tasks: [...(task.sub_tasks || []), newSubTask]
+                            };
+                        }
+                        return task;
+                    });
+                });
             }
             
             // Set URL based on whether we're editing or creating
@@ -162,11 +248,16 @@ export default function TasksTab({
             const method = editingSubTask ? 'put' : 'post';
             const response = await axios[method](url, requestData);
             
-            // Handle success
-            if (response.data.redirect) {
+            // Close the dialog on success
                     setIsSubTaskDialogOpen(false);
-                // Navigate to the returned redirect URL
-                window.location.href = response.data.redirect;
+            
+            // If we're creating a new task, we need to update our local temporary ID with the real one
+            if (!editingSubTask && response.data.data) {
+                // Wait a short time to let the backend process the changes
+                setTimeout(() => {
+                    // Fetch the latest data to ensure we have the correct IDs and state
+                    router.reload({ only: ['inspection'] });
+                }, 100);
             }
         } catch (error: any) {
             console.error('Error submitting sub-task:', error);
@@ -180,10 +271,13 @@ export default function TasksTab({
                         setFormError(errors.error);
                     } else {
                     setFormError('An error occurred while saving the sub-task.');
-                }
+                    }
         } else {
                 setFormError('An unexpected error occurred. Please try again.');
             }
+            
+            // Revert optimistic update on error
+            setLocalTasks(tasks);
         } finally {
             setIsSubmitting(false);
         }
@@ -195,33 +289,98 @@ export default function TasksTab({
             return;
         }
         
+        // Find the subtask and its containing task for optimistic UI update
+        let taskIdToUpdate: number | null = null;
+        
+        // Update local state first by removing the subtask
+        setLocalTasks(prevTasks => {
+            return prevTasks.map(task => {
+                if (task.sub_tasks?.some(st => st.id === subTaskId)) {
+                    taskIdToUpdate = task.id;
+                    return {
+                        ...task,
+                        sub_tasks: task.sub_tasks.filter(st => st.id !== subTaskId)
+                    };
+                }
+                return task;
+            });
+        });
+        
         router.delete(route('api.inspection-sub-tasks.destroy', subTaskId), {
-            onSuccess: () => {
-                // Let the page reload naturally via redirect
-            },
+            preserveState: true,
+            preserveScroll: true,
             onError: (errors) => {
                 console.error('Error deleting sub-task:', errors);
                 alert('Failed to delete sub-task. Please try again.');
+                
+                // Revert optimistic update on error
+                setLocalTasks(tasks);
             }
         });
     };
     
     // Toggle sub-task completion status
     const toggleSubTaskStatus = (subTask: InspectionSubTask) => {
+        // Create a copy of the subTask with updated status for optimistic UI update
+        const updatedSubTask: InspectionSubTask = { 
+            ...subTask, 
+            status: subTask.status === 'completed' ? 'pending' : 'completed',
+            completed_at: subTask.status === 'completed' ? null : new Date().toISOString(),
+        };
+        
+        // Update local state first for optimistic UI update
+        setLocalTasks(prevTasks => {
+            return prevTasks.map(task => {
+                if (task.id === updatedSubTask.inspection_task_id && task.sub_tasks) {
+                    return {
+                        ...task,
+                        sub_tasks: task.sub_tasks.map(st => 
+                            st.id === updatedSubTask.id ? updatedSubTask : st
+                        )
+                    };
+                }
+                return task;
+            });
+        });
+        
         // For subtasks with type 'none', just toggle status
         if (subTask.type === 'none') {
         router.patch(route('api.inspection-sub-tasks.toggle-status', subTask.id), {}, {
-            onSuccess: () => {
-                // Let the page reload naturally via redirect
-            },
+                preserveState: true,
+                preserveScroll: true,
             onError: (errors) => {
                 console.error('Error toggling sub-task status:', errors);
                 alert('Failed to update sub-task status. Please try again.');
+                    
+                    // Revert optimistic update on error
+                    setLocalTasks(tasks);
                 }
             });
         } else if (subTask.type === 'yes_no') {
             // For yes/no subtasks, record a result directly (current toggle becomes "yes")
             const boolValue = subTask.status !== 'completed';
+            
+            // Further enhance the optimistic update for yes/no type
+            const enhancedSubTask: InspectionSubTask = {
+                ...updatedSubTask,
+                recorded_value_boolean: boolValue,
+                compliance: boolValue === updatedSubTask.expected_value_boolean ? 'passing' : 'failing'
+            };
+            
+            // Update local state with enhanced data
+            setLocalTasks(prevTasks => {
+                return prevTasks.map(task => {
+                    if (task.id === enhancedSubTask.inspection_task_id && task.sub_tasks) {
+                        return {
+                            ...task,
+                            sub_tasks: task.sub_tasks.map(st => 
+                                st.id === enhancedSubTask.id ? enhancedSubTask : st
+                            )
+                        };
+                    }
+                    return task;
+                });
+            });
             
             recordSubTaskResult(subTask, 'yes_no', boolValue, null);
         } else if (subTask.type === 'numeric') {
@@ -273,13 +432,45 @@ export default function TasksTab({
             notes: ''
         };
         
+        // For numeric values, create optimistic update when called from handleRecordSubTaskResult
+        if (type === 'numeric' && numValue !== null && selectedSubTask) {
+            const updatedSubTask: InspectionSubTask = {
+                ...selectedSubTask,
+                status: 'completed',
+                recorded_value_numeric: numValue,
+                completed_at: new Date().toISOString(),
+                // Set compliance based on the value being in range
+                compliance: 
+                    (selectedSubTask.expected_value_min !== null && numValue < selectedSubTask.expected_value_min) ||
+                    (selectedSubTask.expected_value_max !== null && numValue > selectedSubTask.expected_value_max)
+                    ? 'failing' : 'passing'
+            };
+            
+            // Update local state with optimistic result
+            setLocalTasks(prevTasks => {
+                return prevTasks.map(task => {
+                    if (task.id === updatedSubTask.inspection_task_id && task.sub_tasks) {
+                        return {
+                            ...task,
+                            sub_tasks: task.sub_tasks.map(st => 
+                                st.id === updatedSubTask.id ? updatedSubTask : st
+                            )
+                        };
+                    }
+                    return task;
+                });
+            });
+        }
+        
         router.post(route('api.inspection-sub-tasks.record-result', subTask.id), data, {
-            onSuccess: () => {
-                // Let the page reload naturally via redirect
-            },
+            preserveState: true,
+            preserveScroll: true,
             onError: (errors) => {
                 console.error('Error recording subtask result:', errors);
                 alert('Failed to record result. Please try again.');
+                
+                // Revert optimistic update on error
+                setLocalTasks(tasks);
             }
         });
     };
@@ -323,9 +514,9 @@ export default function TasksTab({
                 </Button>
             </div>
             
-            {tasks && tasks.length > 0 ? (
+            {localTasks && localTasks.length > 0 ? (
                 <InspectionTasksTable 
-                    tasks={tasks} 
+                    tasks={localTasks} 
                     toggleTaskExpanded={toggleTaskExpanded} 
                     expandedTaskIds={expandedTaskIds} 
                     openRecordResultDialog={openRecordResultDialog} 

@@ -191,14 +191,20 @@ class InspectionController extends Controller
             }
         ]);
         
-        $drives = Drive::select('id', 'name', 'drive_ref')->get();
-        $parts = Part::select('id', 'name', 'part_ref')->get();
-        
-        return Inertia::render('inspection/show', [
+        // Improve debugging
+        $response = [
             'inspection' => $inspection,
-            'drives' => $drives,
-            'parts' => $parts,
-        ]);
+            'drives' => Drive::select('id', 'name', 'drive_ref')->get(),
+            'parts' => Part::select('id', 'name', 'part_ref')->get(),
+        ];
+        
+        // Force relationship to be included in response
+        foreach ($inspection->tasks as $task) {
+            // Explicitly load the subTasks to ensure they're in the response
+            $task->setRelation('subTasks', $task->subTasks()->with('completedBy:id,name')->orderBy('sort_order')->get());
+        }
+        
+        return Inertia::render('inspection/show', $response);
     }
 
     /**

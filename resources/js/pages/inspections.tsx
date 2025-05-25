@@ -901,17 +901,20 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                 
                 {/* Create/Edit Inspection Dialog */}
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                    <DialogContent className="sm:max-w-[600px]">
-                        <DialogHeader>
-                            <DialogTitle>{isEditMode ? 'Edit Inspection' : 'Create New Inspection'}</DialogTitle>
-                            <DialogDescription>
-                                {isEditMode
-                                    ? 'Update the inspection details below.'
-                                    : 'Fill in the inspection details below to create a new inspection.'}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleSubmit}>
-                            <div className="grid gap-4 py-4">
+                    <DialogContent className="sm:max-w-[550px] rounded-xl p-0 overflow-hidden">
+                        <form onSubmit={handleSubmit} className="flex flex-col h-full">
+                            {/* Header with visual treatment */}
+                            <div className="bg-gradient-to-r from-[var(--emmo-green-primary)] to-[var(--emmo-green-secondary)] p-6 text-white">
+                                <DialogTitle className="text-2xl font-bold mb-2">
+                                    {isEditMode ? 'Edit Inspection' : 'Add New Inspection'}
+                                </DialogTitle>
+                                <DialogDescription className="text-white/80 max-w-sm">
+                                    {isEditMode 
+                                        ? 'Update information about this inspection.' 
+                                        : 'Enter details for a new inspection.'}
+                                </DialogDescription>
+                            </div>
+                            <div className="grid gap-4 p-6 overflow-y-auto">
                                 <div className="grid gap-2">
                                     <Label htmlFor="name" className={errors.name ? "text-red-500" : ""}>
                                         Name
@@ -1147,7 +1150,7 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                     </div>
                                 )}
                             </div>
-                            <DialogFooter>
+                            <DialogFooter className="border-t border-gray-100 dark:border-gray-800 p-4 flex justify-end gap-3 bg-gray-50 dark:bg-gray-950">
                                 <Button 
                                     type="button" 
                                     variant="outline" 

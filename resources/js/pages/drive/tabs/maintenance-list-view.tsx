@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Fragment } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusIcon, Wrench, Calendar, User, Clock, CheckCircle2, ArrowUpDown, Filter, Search, ChevronDown, MoreVertical, Edit3, Trash2 } from 'lucide-react';
+import { PlusIcon, Wrench, Calendar, User, Clock, CheckCircle2, ArrowUpDown, Filter, Search, ChevronDown, MoreVertical, Edit3, Trash2, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import {
@@ -64,6 +64,12 @@ interface MaintenanceListViewProps {
     onDeleteMaintenance: (maintenanceId: number) => void;
 }
 
+interface ChecklistItem {
+    id: string;
+    text: string;
+    completed: boolean;
+}
+
 export default function MaintenanceListView({ 
     drive, 
     maintenances, 
@@ -77,6 +83,7 @@ export default function MaintenanceListView({
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<MaintenanceStatus | 'all'>('all');
+    const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
 
     // Formatting utility functions
     const formatDate = (dateStr: string | null) => {
@@ -112,6 +119,13 @@ export default function MaintenanceListView({
             setSortField(field);
             setSortDirection('asc');
         }
+    };
+
+    const toggleRowExpansion = (maintenanceId: number) => {
+        setExpandedRows(prev => ({
+            ...prev,
+            [maintenanceId]: !prev[maintenanceId]
+        }));
     };
 
     // Filter and sort maintenances
@@ -246,6 +260,7 @@ export default function MaintenanceListView({
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-[40px] px-2"></TableHead> {/* Expander Column */}
                                 <TableHead 
                                     className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
                                     onClick={() => toggleSort('title')}
@@ -296,98 +311,157 @@ export default function MaintenanceListView({
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredAndSortedMaintenances.map((maintenance) => (
-                                <TableRow key={maintenance.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                    <TableCell className="font-medium">
-                                        <div>
-                                            <div className="font-medium">{maintenance.title}</div>
-                                            {maintenance.description && (
-                                                <div className="text-sm text-gray-500 mt-1 line-clamp-2">{maintenance.description}</div>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-1.5">
-                                            <Calendar className="h-3.5 w-3.5 text-gray-500" />
-                                            {formatDate(maintenance.maintenance_date)}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {maintenance.technician ? (
-                                            <div className="flex items-center gap-1.5">
-                                                <User className="h-3.5 w-3.5 text-gray-500" />
-                                                <span>{maintenance.technician}</span>
-                                            </div>
-                                        ) : '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <button className="w-full text-left">
-                                                    {getStatusBadge(maintenance.status)}
-                                                </button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="start" className="w-48">
-                                                <DropdownMenuGroup>
-                                                    {statusConfig.map((status) => (
-                                                        <DropdownMenuItem 
-                                                            key={status.key}
-                                                            className={maintenance.status === status.key ? 'bg-[var(--emmo-green-light)] dark:bg-[var(--emmo-green-dark)]/20' : ''}
-                                                            onClick={() => handleStatusChange(maintenance.id, status.key)}
-                                                            disabled={maintenance.status === status.key}
-                                                        >
-                                                            <status.icon className={`h-4 w-4 mr-2 ${status.iconColorClass}`} />
-                                                            <span className="flex-1">{status.label}</span>
-                                                            {maintenance.status === status.key && <CheckCircle2 className="h-4 w-4 text-[var(--emmo-green-primary)]" />}
-                                                        </DropdownMenuItem>
-                                                    ))}
-                                                </DropdownMenuGroup>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        {(() => {
-                                            try {
-                                                if (!maintenance.checklist_json) return 0;
-                                                
-                                                const checklist = typeof maintenance.checklist_json === 'string' 
-                                                    ? JSON.parse(maintenance.checklist_json) 
-                                                    : maintenance.checklist_json;
-                                                    
-                                                return Array.isArray(checklist) ? checklist.length : 0;
-                                            } catch (e) {
-                                                return 0;
-                                            }
-                                        })()}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                                            <Clock className="h-3.5 w-3.5" />
-                                            {format(new Date(maintenance.created_at), 'MMM d, yyyy')}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:bg-muted">
-                                                    <MoreVertical className="h-4 w-4" />
-                                                    <span className="sr-only">Open menu</span>
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-[160px]">
-                                                <DropdownMenuItem onClick={() => onEditMaintenance(maintenance)}>
-                                                    <Edit3 className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
-                                                    Edit
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => onDeleteMaintenance(maintenance.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-700/20 dark:focus:text-red-500">
-                                                    <Trash2 className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
-                                                    Delete
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                            {filteredAndSortedMaintenances.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={10} className="h-24 text-center"> {/* Adjusted colSpan */}
+                                        No results found. Try adjusting your search or filters.
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )}
+                            {filteredAndSortedMaintenances.map((maintenance) => {
+                                let checklist: ChecklistItem[] = [];
+                                if (maintenance.checklist_json) {
+                                    try {
+                                        const parsed = typeof maintenance.checklist_json === 'string'
+                                            ? JSON.parse(maintenance.checklist_json)
+                                            : maintenance.checklist_json;
+                                        if (Array.isArray(parsed)) {
+                                            checklist = parsed.filter(item => item && typeof item.id === 'string' && typeof item.text === 'string' && typeof item.completed === 'boolean');
+                                        }
+                                    } catch (e) {
+                                        console.error("Failed to parse checklist JSON for maintenance ID:", maintenance.id, e);
+                                        checklist = []; // Ensure checklist is an empty array on error
+                                    }
+                                }
+                                const isExpanded = expandedRows[maintenance.id];
+
+                                return (
+                                    <Fragment key={maintenance.id}>
+                                        <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                            <TableCell className="px-2">
+                                                {checklist.length > 0 && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => toggleRowExpansion(maintenance.id)}
+                                                        className="h-8 w-8 p-0"
+                                                    >
+                                                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                    </Button>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="font-medium max-w-[200px] truncate" title={maintenance.title}>
+                                                {maintenance.title}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Calendar className="h-3.5 w-3.5 text-gray-500" />
+                                                    {formatDate(maintenance.maintenance_date)}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {maintenance.technician ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <User className="h-3.5 w-3.5 text-gray-500" />
+                                                        <span>{maintenance.technician}</span>
+                                                    </div>
+                                                ) : '—'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <button className="w-full text-left">
+                                                            {getStatusBadge(maintenance.status)}
+                                                        </button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="start" className="w-48">
+                                                        <DropdownMenuGroup>
+                                                            {statusConfig.map((status) => (
+                                                                <DropdownMenuItem 
+                                                                    key={status.key}
+                                                                    className={maintenance.status === status.key ? 'bg-[var(--emmo-green-light)] dark:bg-[var(--emmo-green-dark)]/20' : ''}
+                                                                    onClick={() => handleStatusChange(maintenance.id, status.key)}
+                                                                    disabled={maintenance.status === status.key}
+                                                                >
+                                                                    <status.icon className={`h-4 w-4 mr-2 ${status.iconColorClass}`} />
+                                                                    <span className="flex-1">{status.label}</span>
+                                                                    {maintenance.status === status.key && <CheckCircle2 className="h-4 w-4 text-[var(--emmo-green-primary)]" />}
+                                                                </DropdownMenuItem>
+                                                            ))}
+                                                        </DropdownMenuGroup>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {(() => {
+                                                    try {
+                                                        if (!maintenance.checklist_json) return 0;
+                                                        
+                                                        const checklist = typeof maintenance.checklist_json === 'string' 
+                                                            ? JSON.parse(maintenance.checklist_json) 
+                                                            : maintenance.checklist_json;
+                                                            
+                                                        return Array.isArray(checklist) ? checklist.length : 0;
+                                                    } catch (e) {
+                                                        return 0;
+                                                    }
+                                                })()}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                                                    <Clock className="h-3.5 w-3.5" />
+                                                    {format(new Date(maintenance.created_at), 'MMM d, yyyy')}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:bg-muted">
+                                                            <MoreVertical className="h-4 w-4" />
+                                                            <span className="sr-only">Open menu</span>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-[160px]">
+                                                        <DropdownMenuItem onClick={() => onEditMaintenance(maintenance)}>
+                                                            <Edit3 className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
+                                                            Edit
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => onDeleteMaintenance(maintenance.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-700/20 dark:focus:text-red-500">
+                                                            <Trash2 className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
+                                                            Delete
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                        {isExpanded && checklist.length > 0 && (
+                                            <TableRow className="bg-gray-50 dark:bg-gray-800/10">
+                                                <TableCell colSpan={10} className="p-0"> {/* Adjusted colSpan */}
+                                                    <div className="p-4">
+                                                        <h4 className="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                                            <CheckCircle2 className="h-4 w-4 text-[var(--emmo-green-primary)]" />
+                                                            Maintenance Checklist
+                                                        </h4>
+                                                        {checklist.length > 0 ? (
+                                                            <ul className="list-none pl-1 space-y-2">
+                                                                {checklist.map(item => (
+                                                                    <li key={item.id} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400 py-1 border-b border-gray-100 dark:border-gray-700/50 last:border-b-0">
+                                                                        {item.completed 
+                                                                            ? <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" /> 
+                                                                            : <Clock className="h-4 w-4 text-gray-400 dark:text-gray-500 mt-0.5 shrink-0" />}
+                                                                        <span className={`flex-1 ${item.completed ? 'line-through text-gray-500 dark:text-gray-400/70' : ''}`}>{item.text}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        ) : (
+                                                            <p className="text-sm text-gray-500 py-2 px-1">No checklist items for this maintenance task.</p>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </ Fragment> 
+                                )})}
                         </TableBody>
                     </Table>
                 </div>

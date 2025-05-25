@@ -1,5 +1,5 @@
 import { InspectionSubTask } from "@/pages/inspection/show";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import InspectionsSubTasksList from "./InspectionsSubTasksList";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
@@ -17,18 +17,23 @@ export default function InspectionsSubTaskDialog({ isSubTaskDialogOpen, setIsSub
     isSubmitting: boolean;
 }) {
     return <Dialog open={isSubTaskDialogOpen} onOpenChange={setIsSubTaskDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-                <DialogTitle>{editingSubTask ? 'Edit Sub-Task' : 'Add Sub-Task'}</DialogTitle>
-            </DialogHeader>
-
-            <form onSubmit={handleSubTaskSubmit} className="space-y-4 py-2">
+        <DialogContent className="sm:max-w-[550px] rounded-xl p-0 overflow-hidden">
+            <form onSubmit={handleSubTaskSubmit} className="flex flex-col h-full">
+                {/* Header with visual treatment */}
+                <div className="bg-gradient-to-r from-[var(--emmo-green-primary)] to-[var(--emmo-green-secondary)] p-6 text-white">
+                                <DialogTitle className="text-2xl font-bold mb-2">
+                                    Add Inspection Sub-Task
+                                </DialogTitle>
+                                <DialogDescription className="text-white/80 max-w-sm">
+                                    Enter details for a new inspection sub-task.
+                                </DialogDescription>
+                            </div>
                 <input
                     type="hidden"
                     name="inspection_task_id"
                     value={subTaskForm.data.inspection_task_id} />
 
-                <div className="space-y-2">
+                <div className="space-y-2 p-6 overflow-y-auto">
                     <Label htmlFor="sub-task-name">Name</Label>
                     <Input
                         id="sub-task-name"
@@ -42,7 +47,7 @@ export default function InspectionsSubTaskDialog({ isSubTaskDialogOpen, setIsSub
                     )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 p-6 overflow-y-auto">
                     <Label htmlFor="sub-task-description">Description (Optional)</Label>
                     <Textarea
                         id="sub-task-description"
@@ -56,7 +61,7 @@ export default function InspectionsSubTaskDialog({ isSubTaskDialogOpen, setIsSub
                     )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 p-6 overflow-y-auto">
                     <Label>Type</Label>
                     <div className="flex flex-col space-y-2">
                         <label className="flex items-center space-x-2">
@@ -97,7 +102,7 @@ export default function InspectionsSubTaskDialog({ isSubTaskDialogOpen, setIsSub
 
                 {/* Conditional fields based on type selection */}
                 {subTaskForm.data.type === 'yes_no' && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 p-6 overflow-y-auto">
                         <Label>Expected Answer</Label>
                         <div className="flex flex-col space-y-2">
                             <label className="flex items-center space-x-2">
@@ -137,7 +142,7 @@ export default function InspectionsSubTaskDialog({ isSubTaskDialogOpen, setIsSub
                     </div>
                 )}
 
-                <DialogFooter>
+                <DialogFooter className="border-t border-gray-100 dark:border-gray-800 p-4 flex justify-end gap-3 bg-gray-50 dark:bg-gray-950">
                     <Button
                         type="button"
                         variant="outline"

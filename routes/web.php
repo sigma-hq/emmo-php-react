@@ -7,6 +7,7 @@ use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\InspectionTaskController;
 use App\Http\Controllers\InspectionSubTaskController;
 use App\Http\Controllers\MaintenanceController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
@@ -17,9 +18,7 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('drive', [DriveController::class, 'index'])->name('drive');
 
