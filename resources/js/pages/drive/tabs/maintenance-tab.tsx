@@ -211,7 +211,7 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
     const cancelDelete = () => {
         setDeletingMaintenanceId(null);
     };
-
+    
     return (
         <div className="space-y-6">
             {/* Success Notification */}
@@ -224,32 +224,32 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
                             onClick={() => setShowSuccessMessage(false)}
                             className="ml-2 text-white hover:text-gray-200 transition-colors"
                         >
-                            <X className="h-4 w-4" />
-                        </button>
+                        <X className="h-4 w-4" />
+                    </button>
                     </div>
                 </div>
             )}
-
+            
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Wrench className="h-6 w-6 text-[var(--emmo-green-primary)]" />
                     <h2 className="text-xl font-semibold">Maintenance Records</h2>
                 </div>
-                <Button 
-                    onClick={() => {
+                    <Button 
+                        onClick={() => {
                         setEditingMaintenance(null);
-                        setIsAddDialogOpen(true);
-                    }}
+                            setIsAddDialogOpen(true);
+                        }}
                     className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)]"
-                >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Log Maintenance
-                </Button>
+                    >
+                        <PlusIcon className="h-4 w-4 mr-2" /> 
+                        Log Maintenance
+                    </Button>
             </div>
 
             {/* Content */}
-            <MaintenanceListView 
+            <MaintenanceListView
                 drive={drive}
                 maintenances={maintenances}
                 onOpenAddDialog={() => {
@@ -261,9 +261,9 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
                 onDeleteMaintenance={handleDeleteConfirmation}
                 statusConfig={statusConfig}
             />
-
+            
             {/* Log Maintenance Dialog */}
-            <LogMaintenanceDialog
+            <LogMaintenanceDialog 
                 drive={drive}
                 operators={operators}
                 isOpen={isAddDialogOpen}
@@ -276,25 +276,25 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
 
             {/* Delete Confirmation Dialog */}
             <AlertDialog open={deletingMaintenanceId !== null} onOpenChange={cancelDelete}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
                             This action cannot be undone. This will permanently delete the maintenance record
                             and remove all associated data.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
                         <AlertDialogCancel onClick={cancelDelete}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
-                            onClick={actuallyDeleteMaintenance}
+                            <AlertDialogAction 
+                                onClick={actuallyDeleteMaintenance} 
                             className="bg-red-600 hover:bg-red-700"
-                        >
+                            > 
                             Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
         </div>
     );
 } 

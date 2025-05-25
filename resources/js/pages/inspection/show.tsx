@@ -274,22 +274,20 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
         console.log('Submitting task form with data:', taskForm.data);
         
         if (isEditTaskMode) {
-            taskForm.put(route('api.inspection-tasks.update', taskForm.data.id), {
+            taskForm.put(route('inspection-tasks.update', taskForm.data.id), {
                 onSuccess: () => {
                     setIsTaskDialogOpen(false);
-                    // Use reload with the 'only' option to refresh just the inspection data
-                    router.reload({ only: ['inspection'] });
+                    // Inertia handles the page refresh automatically
                 },
                 onError: (errors) => {
                     console.error('Form submission errors:', errors);
                 }
             });
         } else {
-            taskForm.post(route('api.inspection-tasks.store'), {
+            taskForm.post(route('inspection-tasks.store'), {
                 onSuccess: () => {
                     setIsTaskDialogOpen(false);
-                    // Use reload with the 'only' option to refresh just the inspection data
-                    router.reload({ only: ['inspection'] });
+                    // Inertia handles the page refresh automatically
                 },
                 onError: (errors) => {
                     console.error('Form submission errors:', errors);
@@ -300,11 +298,11 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
     
     const handleTaskDelete = () => {
         if (taskToDelete) {
-            router.delete(route('api.inspection-tasks.destroy', taskToDelete.id), {
+            router.delete(route('inspection-tasks.destroy', taskToDelete.id), {
                 onSuccess: () => {
-            setShowDeleteTaskDialog(false);
-            setTaskToDelete(null);
-                    router.reload({ only: ['inspection'] });
+                    setShowDeleteTaskDialog(false);
+                    setTaskToDelete(null);
+                    // Inertia handles the page refresh automatically
                 },
                 onError: (errors) => {
                     console.error('Task deletion error:', errors);
@@ -349,7 +347,7 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
         console.log('Selected task:', selectedTask);
         
         if (selectedTask) {
-            router.post(route('api.inspection-tasks.record-result', selectedTask.id), {
+            router.post(route('inspection-tasks.record-result', selectedTask.id), {
                 ...resultForm.data,
                 // Convert string to boolean for yes/no tasks
                 value_boolean: resultForm.data.task_type === 'yes_no' 
@@ -358,8 +356,7 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
             }, {
                 onSuccess: () => {
                     setIsResultDialogOpen(false);
-                    // Use reload with the 'only' option to refresh just the inspection data
-                    router.reload({ only: ['inspection'] });
+                    // Inertia handles the page refresh automatically
                 },
                 onError: (errors) => {
                     console.error('Result submission errors:', errors);
@@ -367,7 +364,7 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                         setResultsErrorMessage(errors.message);
                     }
                 }
-                });
+            });
         }
     };
     

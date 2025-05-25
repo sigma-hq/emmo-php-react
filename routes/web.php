@@ -85,11 +85,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('debug.inspection-task');
 
     // Inspection Tasks routes
-    Route::post('inspection-tasks', [InspectionTaskController::class, 'store'])->name('api.inspection-tasks.store');
-    Route::get('inspection-tasks/{task}', [InspectionTaskController::class, 'show'])->name('api.inspection-tasks.show');
-    Route::put('inspection-tasks/{task}', [InspectionTaskController::class, 'update'])->name('api.inspection-tasks.update');
-    Route::delete('inspection-tasks/{task}', [InspectionTaskController::class, 'destroy'])->name('api.inspection-tasks.destroy');
-    Route::post('inspection-tasks/{task}/results', [InspectionTaskController::class, 'recordResult'])->name('api.inspection-tasks.record-result');
+    Route::post('inspection-tasks', [InspectionTaskController::class, 'store'])->name('inspection-tasks.store');
+    Route::get('inspection-tasks/{task}', [InspectionTaskController::class, 'show'])->name('inspection-tasks.show');
+    Route::put('inspection-tasks/{task}', [InspectionTaskController::class, 'update'])->name('inspection-tasks.update');
+    Route::delete('inspection-tasks/{task}', [InspectionTaskController::class, 'destroy'])->name('inspection-tasks.destroy');
+    Route::post('inspection-tasks/{task}/results', [InspectionTaskController::class, 'recordResult'])->name('inspection-tasks.record-result');
     
     // Inspection Sub-Tasks routes
     Route::post('inspection-sub-tasks', [InspectionSubTaskController::class, 'store'])->name('api.inspection-sub-tasks.store');

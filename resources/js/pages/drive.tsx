@@ -238,12 +238,12 @@ export default function Drive({ drives, flash }: DrivePageProps) {
                                 Import CSV
                             </Button>
                         
-                            <Button 
-                                onClick={openCreateDialog} 
-                                className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
-                            >
-                                <PlusIcon className="mr-2 h-4 w-4" /> New Drive
-                            </Button>
+                        <Button 
+                            onClick={openCreateDialog} 
+                            className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
+                        >
+                            <PlusIcon className="mr-2 h-4 w-4" /> New Drive
+                        </Button>
                         </div>
                     </div>
                     

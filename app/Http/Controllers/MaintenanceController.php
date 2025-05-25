@@ -132,8 +132,8 @@ class MaintenanceController extends Controller
             // If no checklist items, allow manual status update
             $maintenance->update(['status' => $validated['status']]);
         } else {
-            $maintenance->update($validated);
-            
+        $maintenance->update($validated);
+        
             // After updating, refresh status based on checklist if there are tasks
             $stats = $maintenance->getChecklistStats();
             if ($stats['total'] > 0) {
@@ -145,7 +145,7 @@ class MaintenanceController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Maintenance record updated successfully.',
+            'message' => 'Maintenance record updated successfully.',
                 'maintenance' => $maintenance->fresh()->load(['drive:id,name,drive_ref', 'user:id,name']),
             ]);
         }
