@@ -22,6 +22,7 @@ interface CSVImportDialogProps {
     description?: string;
     acceptedFileTypes?: string;
     maxFileSize?: number; // in MB
+    templateUrl?: string;
 }
 
 interface ImportResult {
@@ -38,7 +39,8 @@ export function CSVImportDialog({
     title = 'Import CSV Data',
     description = 'Upload a CSV file to import data. The file should have headers matching the required fields.',
     acceptedFileTypes = '.csv',
-    maxFileSize = 10 // 10MB default
+    maxFileSize = 10, // 10MB default
+    templateUrl
 }: CSVImportDialogProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
@@ -290,6 +292,17 @@ export function CSVImportDialog({
                                     <p className="text-xs text-gray-400 dark:text-gray-500">
                                         Accepted file: {acceptedFileTypes}, max {maxFileSize}MB
                                     </p>
+                                    {templateUrl && (
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                                            <a 
+                                                href={templateUrl} 
+                                                className="text-[var(--emmo-green-primary)] hover:underline"
+                                                download
+                                            >
+                                                Download template
+                                            </a>
+                                        </p>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -373,6 +386,11 @@ export function CSVImportDialog({
                             >
                                 Import Data
                             </Button>
+                            {templateUrl && (
+                                <Button variant="outline" asChild>
+                                    <a href={templateUrl} download>Download Template</a>
+                                </Button>
+                            )}
                             <Button variant="outline" onClick={handleClose}>
                                 Cancel
                             </Button>

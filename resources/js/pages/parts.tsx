@@ -1,23 +1,20 @@
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { 
-    AlertDialog, 
-    AlertDialogAction, 
-    AlertDialogCancel, 
-    AlertDialogContent, 
-    AlertDialogDescription, 
-    AlertDialogFooter, 
-    AlertDialogHeader, 
-    AlertDialogTitle 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter, AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage, Link } from '@inertiajs/react';
-import { PlusIcon, Pencil, Trash2, CheckCircle, CpuIcon, Search, X, ArrowRight, ChevronLeft, ChevronRight, Link2Icon, UnlinkIcon, Check, ChevronsUpDown } from 'lucide-react';
+import { PlusIcon, Pencil, Trash2, CheckCircle, CpuIcon, Search, X, ArrowRight, ChevronLeft, ChevronRight, Link2Icon, UnlinkIcon, Check, ChevronsUpDown, UploadIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import {
@@ -33,6 +30,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
+import { CSVImportDialog } from '@/components/ui/csv-import-dialog';
 
 interface Drive {
     id: number;
@@ -120,6 +118,7 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
     const [partToDelete, setPartToDelete] = useState<Part | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [driveComboboxOpen, setDriveComboboxOpen] = useState(false);
+    const [showImportDialog, setShowImportDialog] = useState(false);
     
     // Attachment history state
     const [showHistoryDialog, setShowHistoryDialog] = useState(false);
@@ -264,6 +263,21 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
         }
     };
     
+    // Handle CSV import completion
+    const handleImportComplete = (result: any) => {
+        if (result.success) {
+            setSuccessMessage(`Successfully imported ${result.imported} parts`);
+            setShowSuccessNotification(true);
+            
+            // Refresh the parts list
+            router.reload({ only: ['parts'] });
+        } else if (result.errors && result.errors.length > 0) {
+            // Show the first error as notification
+            setSuccessMessage(`Import completed with errors: ${result.errors[0]}`);
+            setShowSuccessNotification(true);
+        }
+    };
+    
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Parts Management" />
@@ -293,12 +307,23 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
                             <h1 className="text-2xl font-bold tracking-tight">Parts Management</h1>
                         </div>
                         
-                        <Button 
-                            onClick={openCreateDialog} 
-                            className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
-                        >
-                            <PlusIcon className="mr-2 h-4 w-4" /> New Part
-                        </Button>
+                        <div className="flex gap-3">
+                            <Button 
+                                variant="outline"
+                                onClick={() => setShowImportDialog(true)}
+                                className="flex items-center gap-2 border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                            >
+                                <UploadIcon className="h-4 w-4 text-[var(--emmo-green-primary)]" />
+                                Import CSV
+                            </Button>
+                            
+                            <Button 
+                                onClick={openCreateDialog} 
+                                className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
+                            >
+                                <PlusIcon className="mr-2 h-4 w-4" /> New Part
+                            </Button>
+                        </div>
                     </div>
                     
                     <p className="text-gray-500 dark:text-gray-400 max-w-2xl">
@@ -1006,6 +1031,17 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
                         </div>
                     </DialogContent>
                 </Dialog>
+                
+                {/* CSV Import Dialog */}
+                <CSVImportDialog 
+                    isOpen={showImportDialog}
+                    onClose={() => setShowImportDialog(false)}
+                    onImportComplete={handleImportComplete}
+                    importUrl={route('api.parts.import')}
+                    title="Import Parts from CSV"
+                    description="Upload a CSV file with part data. Required columns: 'Part Number' (unique ID) and 'Part Description' (name). Optional: 'Drive ID' (drive reference to attach to), 'Notes'. Column names are case-insensitive."
+                    templateUrl={route('api.parts.import.template')}
+                />
             </div>
         </AppLayout>
     );

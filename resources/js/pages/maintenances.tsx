@@ -371,179 +371,7 @@ export default function Maintenances({ maintenances, statuses, filters, drives =
               <h1 className="text-2xl font-bold tracking-tight">Maintenance Records</h1>
             </div>
             
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
-                >
-                  <PlusIcon className="mr-2 h-4 w-4" /> New Maintenance
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[550px] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-                <form onSubmit={handleSubmit}>
-                  <DialogHeader>
-                    <DialogTitle>Create New Maintenance Record</DialogTitle>
-                    <DialogDescription className="text-gray-500 dark:text-gray-400">
-                      Fill out the form below to create a new maintenance record.
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="grid gap-4 py-4">
-                    {/* Drive Selection */}
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="drive_id" className="text-right">
-                        Drive <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="col-span-3">
-                        <Select
-                          value={data.drive_id}
-                          onValueChange={(value) => handleSelectChange('drive_id', value)}
-                        >
-                          <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            <SelectValue placeholder="Select a drive" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            {drives.map((drive) => (
-                              <SelectItem key={drive.id} value={drive.id.toString()}>
-                                {drive.name} ({drive.drive_ref})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {errors.drive_id && <p className="text-red-500 text-sm mt-1">{errors.drive_id}</p>}
-                      </div>
-                    </div>
-                    
-                    {/* Title */}
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="title" className="text-right">
-                        Title <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="col-span-3">
-                        <Input
-                          id="title"
-                          name="title"
-                          value={data.title}
-                          onChange={handleInputChange}
-                          className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                        />
-                        {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
-                      </div>
-                    </div>
-                    
-                    {/* Description */}
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="description" className="text-right">
-                        Description
-                      </Label>
-                      <div className="col-span-3">
-                        <Textarea
-                          id="description"
-                          name="description"
-                          value={data.description}
-                          onChange={handleInputChange}
-                          className="min-h-[100px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Date */}
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="maintenance_date" className="text-right">
-                        Date <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="col-span-3">
-                        <Input
-                          id="maintenance_date"
-                          name="maintenance_date"
-                          type="date"
-                          value={data.maintenance_date}
-                          onChange={handleInputChange}
-                          className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                        />
-                        {errors.maintenance_date && <p className="text-red-500 text-sm mt-1">{errors.maintenance_date}</p>}
-                      </div>
-                    </div>
-                    
-                    {/* Technician */}
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="technician" className="text-right">
-                        Technician
-                      </Label>
-                      <div className="col-span-3">
-                        <Input
-                          id="technician"
-                          name="technician"
-                          value={data.technician}
-                          onChange={handleInputChange}
-                          className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Status */}
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="status" className="text-right">
-                        Status <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="col-span-3">
-                        <Select
-                          value={data.status}
-                          onValueChange={(value) => handleSelectChange('status', value)}
-                        >
-                          <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            {Object.entries(statuses).map(([value, label]) => (
-                              <SelectItem key={value} value={value}>{label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status}</p>}
-                      </div>
-                    </div>
-                    
-                    {/* Cost */}
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="cost" className="text-right">
-                        Cost
-                      </Label>
-                      <div className="col-span-3">
-                        <Input
-                          id="cost"
-                          name="cost"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={data.cost}
-                          onChange={handleInputChange}
-                          className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <DialogFooter>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => setIsDialogOpen(false)}
-                      className="border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      disabled={processing} 
-                      className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)]"
-                    >
-                      {processing ? 'Creating...' : 'Create Record'}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+            
           </div>
           
           <p className="text-gray-500 dark:text-gray-400 max-w-2xl">
@@ -630,7 +458,6 @@ export default function Maintenances({ maintenances, statuses, filters, drives =
                     </div>
                   </TableHead>
                   <TableHead className="text-right">Tasks</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -790,19 +617,7 @@ export default function Maintenances({ maintenances, statuses, filters, drives =
                               }
                             })()}
                           </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              asChild
-                              className="h-8 w-8 p-0"
-                            >
-                              <Link href={route('api.maintenances.show', maintenance.id)}>
-                                <span className="sr-only">View details</span>
-                                <ChevronRight className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                          </TableCell>
+                          
                         </TableRow>
                         {isExpanded && (
                           <TableRow className="bg-gray-50 dark:bg-gray-800/30">

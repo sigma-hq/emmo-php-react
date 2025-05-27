@@ -33,6 +33,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('parts', [PartController::class, 'index'])->name('parts');
     Route::post('parts', [PartController::class, 'store'])->name('api.parts.store');
+    Route::post('parts/import', [PartController::class, 'import'])->name('api.parts.import');
+    Route::get('parts/import/template', [PartController::class, 'downloadImportTemplate'])->name('api.parts.import.template');
     Route::get('parts/{part}', [PartController::class, 'show'])->name('api.parts.show');
     Route::get('parts/{part}/edit', [PartController::class, 'edit'])->name('api.parts.edit');
     Route::put('parts/{part}', [PartController::class, 'update'])->name('api.parts.update');

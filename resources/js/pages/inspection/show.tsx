@@ -26,7 +26,6 @@ import {
     CheckCircle, 
     ClipboardList, 
     ArrowLeft, 
-    CheckIcon, 
     XIcon, 
     AlertTriangle, 
     Clock, 
@@ -41,7 +40,10 @@ import {
     ChevronRight,
     Clipboard,
     PieChart,
-    CheckSquare as CheckSquareIcon
+    CheckSquare as CheckSquareIcon,
+    ChevronsUpDown,
+    Search,
+    Check
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -49,6 +51,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import axios from 'axios';
 import Chart from 'react-apexcharts';
+import { cn } from '@/lib/utils';
 
 // Import Tab Components
 import OverviewTab from './tabs/overview-tab';
@@ -182,6 +185,14 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
     const [selectedTask, setSelectedTask] = useState<InspectionTask | null>(null);
     
     const [resultsErrorMessage, setResultsErrorMessage] = useState<string | null>(null);
+
+    // State for Drive Combobox
+    const [isDriveComboOpen, setIsDriveComboOpen] = useState(false);
+    const [driveComboSearchTerm, setDriveComboSearchTerm] = useState('');
+
+    // State for Part Combobox
+    const [isPartComboOpen, setIsPartComboOpen] = useState(false);
+    const [partComboSearchTerm, setPartComboSearchTerm] = useState('');
     
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -241,6 +252,8 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
         taskForm.setData('inspection_id', inspection.id.toString());
         setIsEditTaskMode(false);
         setIsTaskDialogOpen(true);
+        setDriveComboSearchTerm('');
+        setPartComboSearchTerm('');
     };
     
     const openEditTaskDialog = (task: InspectionTask) => {
@@ -260,6 +273,8 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
         });
         setIsEditTaskMode(true);
         setIsTaskDialogOpen(true);
+        setDriveComboSearchTerm('');
+        setPartComboSearchTerm('');
     };
     
     const openDeleteTaskDialog = (task: InspectionTask) => {
@@ -406,6 +421,18 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
     }, 0) || 0;
     const failedCount = resultsCount - passedCount;
     const completionPercentage = tasksCount > 0 ? Math.round((resultsCount / tasksCount) * 100) : 0;
+
+    const getSelectedDriveName = () => {
+        if (!taskForm.data.target_id) return null;
+        const selectedDrive = drives.find(drive => drive.id.toString() === taskForm.data.target_id);
+        return selectedDrive ? `${selectedDrive.name} (${selectedDrive.drive_ref})` : null;
+    };
+
+    const getSelectedPartName = () => {
+        if (!taskForm.data.target_id) return null;
+        const selectedPart = parts.find(part => part.id.toString() === taskForm.data.target_id);
+        return selectedPart ? `${selectedPart.name} (${selectedPart.part_ref})` : null;
+    };
     
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -620,29 +647,165 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                                             <Label htmlFor="target_id" className={taskForm.errors.target_id ? "text-red-500" : ""}>
                                                 Select {taskForm.data.target_type === 'drive' ? 'Drive' : 'Part'}
                                             </Label>
-                                            <Select
-                                                value={taskForm.data.target_id}
-                                                onValueChange={(value) => taskForm.setData('target_id', value)}
-                                            >
-                                                <SelectTrigger className={taskForm.errors.target_id ? "border-red-500" : ""}>
-                                                    <SelectValue placeholder={`Select ${taskForm.data.target_type}`} />
-                                                </SelectTrigger>
-                                                <SelectContent>
                                                     {taskForm.data.target_type === 'drive' ? (
-                                                        drives.map((drive) => (
-                                                            <SelectItem key={drive.id} value={drive.id.toString()}>
-                                                                {drive.name} ({drive.drive_ref})
-                                                            </SelectItem>
-                                                        ))
-                                                    ) : (
-                                                        parts.map((part) => (
-                                                            <SelectItem key={part.id} value={part.id.toString()}>
-                                                                {part.name} ({part.part_ref})
-                                                            </SelectItem>
-                                                        ))
+                                                // Drive Combobox
+                                                <div className="relative">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => setIsDriveComboOpen(prev => !prev)}
+                                                        className={cn("w-full justify-between", taskForm.errors.target_id && "border-red-500")}
+                                                    >
+                                                        {taskForm.data.target_id && getSelectedDriveName()
+                                                            ? getSelectedDriveName()
+                                                            : "Select a drive..."}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+
+                                                    {isDriveComboOpen && (
+                                                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg overflow-hidden">
+                                                            <div className="p-2 border-b border-gray-100 dark:border-gray-800 flex items-center">
+                                                                <Search className="h-4 w-4 mr-2 text-gray-400 shrink-0" />
+                                                                <Input
+                                                                    type="text"
+                                                                    placeholder="Search drives..."
+                                                                    className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-8 p-0"
+                                                                    value={driveComboSearchTerm}
+                                                                    onChange={(e) => setDriveComboSearchTerm(e.target.value)}
+                                                                    autoFocus
+                                                                />
+                                                            </div>
+                                                            <div className="max-h-[220px] overflow-y-auto p-1">
+                                                                {drives
+                                                                    .filter(drive =>
+                                                                        drive.name.toLowerCase().includes(driveComboSearchTerm.toLowerCase()) ||
+                                                                        drive.drive_ref.toLowerCase().includes(driveComboSearchTerm.toLowerCase())
+                                                                    )
+                                                                    .map(drive => (
+                                                                        <button
+                                                                            key={drive.id}
+                                                                            type="button"
+                                                                            className={cn(
+                                                                                "flex items-center w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800",
+                                                                                taskForm.data.target_id === drive.id.toString() && "bg-gray-100 dark:bg-gray-800"
+                                                                            )}
+                                                                            onClick={() => {
+                                                                                taskForm.setData('target_id', drive.id.toString());
+                                                                                setIsDriveComboOpen(false);
+                                                                                setDriveComboSearchTerm('');
+                                                                            }}
+                                                                        >
+                                                                            <Check
+                                                                                className={cn(
+                                                                                    "mr-2 h-4 w-4",
+                                                                                    taskForm.data.target_id === drive.id.toString() ? "opacity-100" : "opacity-0"
+                                                                                )}
+                                                                            />
+                                                                            <span className="font-medium">{drive.name}</span>
+                                                                            <span className="ml-2 text-xs text-gray-500">({drive.drive_ref})</span>
+                                                                        </button>
+                                                                    ))}
+                                                                {drives.filter(drive =>
+                                                                    drive.name.toLowerCase().includes(driveComboSearchTerm.toLowerCase()) ||
+                                                                    drive.drive_ref.toLowerCase().includes(driveComboSearchTerm.toLowerCase())
+                                                                ).length === 0 && (
+                                                                    <div className="px-2 py-4 text-center text-sm text-gray-500">
+                                                                        No drives found.
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     )}
-                                                </SelectContent>
-                                            </Select>
+                                                    {isDriveComboOpen && (
+                                                        <div
+                                                            className="fixed inset-0 z-40"
+                                                            onClick={() => {
+                                                                setIsDriveComboOpen(false);
+                                                                setDriveComboSearchTerm('');
+                                                            }}
+                                                        />
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                // Part Combobox
+                                                <div className="relative">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => setIsPartComboOpen(prev => !prev)}
+                                                         className={cn("w-full justify-between", taskForm.errors.target_id && "border-red-500")}
+                                                    >
+                                                        {taskForm.data.target_id && getSelectedPartName()
+                                                            ? getSelectedPartName()
+                                                            : "Select a part..."}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+
+                                                    {isPartComboOpen && (
+                                                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg overflow-hidden">
+                                                            <div className="p-2 border-b border-gray-100 dark:border-gray-800 flex items-center">
+                                                                <Search className="h-4 w-4 mr-2 text-gray-400 shrink-0" />
+                                                                <Input
+                                                                    type="text"
+                                                                    placeholder="Search parts..."
+                                                                    className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-8 p-0"
+                                                                    value={partComboSearchTerm}
+                                                                    onChange={(e) => setPartComboSearchTerm(e.target.value)}
+                                                                    autoFocus
+                                                                />
+                                                            </div>
+                                                            <div className="max-h-[220px] overflow-y-auto p-1">
+                                                                {parts
+                                                                    .filter(part =>
+                                                                        part.name.toLowerCase().includes(partComboSearchTerm.toLowerCase()) ||
+                                                                        part.part_ref.toLowerCase().includes(partComboSearchTerm.toLowerCase())
+                                                                    )
+                                                                    .map(part => (
+                                                                        <button
+                                                                            key={part.id}
+                                                                            type="button"
+                                                                            className={cn(
+                                                                                "flex items-center w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800",
+                                                                                taskForm.data.target_id === part.id.toString() && "bg-gray-100 dark:bg-gray-800"
+                                                                            )}
+                                                                            onClick={() => {
+                                                                                taskForm.setData('target_id', part.id.toString());
+                                                                                setIsPartComboOpen(false);
+                                                                                setPartComboSearchTerm('');
+                                                                            }}
+                                                                        >
+                                                                            <Check
+                                                                                className={cn(
+                                                                                    "mr-2 h-4 w-4",
+                                                                                    taskForm.data.target_id === part.id.toString() ? "opacity-100" : "opacity-0"
+                                                                                )}
+                                                                            />
+                                                                            <span className="font-medium">{part.name}</span>
+                                                                            <span className="ml-2 text-xs text-gray-500">({part.part_ref})</span>
+                                                                        </button>
+                                                                    ))}
+                                                                {parts.filter(part =>
+                                                                    part.name.toLowerCase().includes(partComboSearchTerm.toLowerCase()) ||
+                                                                    part.part_ref.toLowerCase().includes(partComboSearchTerm.toLowerCase())
+                                                                ).length === 0 && (
+                                                                    <div className="px-2 py-4 text-center text-sm text-gray-500">
+                                                                        No parts found.
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {isPartComboOpen && (
+                                                        <div
+                                                            className="fixed inset-0 z-40"
+                                                            onClick={() => {
+                                                                setIsPartComboOpen(false);
+                                                                setPartComboSearchTerm('');
+                                                            }}
+                                                        />
+                                                    )}
+                                                </div>
+                                            )}
                                             {taskForm.errors.target_id && (
                                                 <p className="text-sm text-red-500">{taskForm.errors.target_id}</p>
                                             )}
