@@ -39,6 +39,7 @@ export default function PartsTab({ drive }: PartsTabProps) {
     const [successMessage, setSuccessMessage] = useState('');
     const [isAttachDialogOpen, setIsAttachDialogOpen] = useState(false);
     const [isDetachDialogOpen, setIsDetachDialogOpen] = useState(false);
+    const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
     const [partToDetach, setPartToDetach] = useState<Part | null>(null);
     const [processing, setProcessing] = useState(false);
     const [unattachedParts, setUnattachedParts] = useState<Part[]>([]);
@@ -87,36 +88,25 @@ export default function PartsTab({ drive }: PartsTabProps) {
         
         setProcessing(true);
         
-        // Use the regular form submission to avoid Inertia error
-        fetch(route('api.parts.update-attachment', partToDetach.id), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                'Accept': 'application/json'
+        router.post(route('api.parts.update-attachment', partToDetach.id), {
+            status: 'unattached',
+            drive_id: null,
+            attachment_notes: 'Detached from drive via drive details page',
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setProcessing(false);
+                setIsDetachDialogOpen(false);
+                
+                // Show success dialog instead of immediate refresh
+                setSuccessMessage(`Part ${partToDetach.name} successfully detached`);
+                setIsSuccessDialogOpen(true);
             },
-            body: JSON.stringify({
-                status: 'unattached',
-                drive_id: null,
-                attachment_notes: 'Detached from drive via drive details page',
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            setProcessing(false);
-            setIsDetachDialogOpen(false);
-            
-            // Show success message
-            setSuccessMessage(`Part ${partToDetach.name} successfully detached`);
-            setShowSuccessMessage(true);
-            setTimeout(() => setShowSuccessMessage(false), 3000);
-            
-            // Refresh the drive data
-            router.visit(window.location.href, { preserveScroll: true });
-        })
-        .catch(error => {
-            console.error('Detachment error:', error);
-            setProcessing(false);
+            onError: (errors) => {
+                console.error('Detachment error:', errors);
+                setProcessing(false);
+            }
         });
     };
     
@@ -126,38 +116,27 @@ export default function PartsTab({ drive }: PartsTabProps) {
         
         setProcessing(true);
         
-        // Use the regular form submission to avoid Inertia error
-        fetch(route('api.parts.update-attachment', selectedPartId), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                'Accept': 'application/json'
+        router.post(route('api.parts.update-attachment', selectedPartId), {
+            status: 'attached',
+            drive_id: drive.id,
+            attachment_notes: attachmentNotes || 'Attached via drive details page',
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setProcessing(false);
+                setIsAttachDialogOpen(false);
+                setSelectedPartId('');
+                setAttachmentNotes('');
+                
+                // Show success dialog instead of immediate refresh
+                setSuccessMessage('Part successfully attached to drive');
+                setIsSuccessDialogOpen(true);
             },
-            body: JSON.stringify({
-                status: 'attached',
-                drive_id: drive.id,
-                attachment_notes: attachmentNotes || 'Attached via drive details page',
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            setProcessing(false);
-            setIsAttachDialogOpen(false);
-            setSelectedPartId('');
-            setAttachmentNotes('');
-            
-            // Show success message
-            setSuccessMessage('Part successfully attached to drive');
-            setShowSuccessMessage(true);
-            setTimeout(() => setShowSuccessMessage(false), 3000);
-            
-            // Refresh the drive data
-            router.visit(window.location.href, { preserveScroll: true });
-        })
-        .catch(error => {
-            console.error('Attachment error:', error);
-            setProcessing(false);
+            onError: (errors) => {
+                console.error('Attachment error:', errors);
+                setProcessing(false);
+            }
         });
     };
     
@@ -166,6 +145,12 @@ export default function PartsTab({ drive }: PartsTabProps) {
         if (!selectedPartId) return null;
         const selectedPart = unattachedParts.find(part => part.id.toString() === selectedPartId);
         return selectedPart ? `${selectedPart.name} (${selectedPart.part_ref})` : null;
+    };
+
+    const handleSuccessDialogClose = () => {
+        setIsSuccessDialogOpen(false);
+        // Refresh the page after dialog is closed
+        router.visit(window.location.href, { preserveScroll: true });
     };
     
     return (
@@ -579,6 +564,39 @@ export default function PartsTab({ drive }: PartsTabProps) {
                                 className="bg-amber-600 hover:bg-amber-700 transition-colors"
                             >
                                 {processing ? "Processing..." : "Detach Part"}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Success Dialog */}
+            <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
+                <DialogContent className="sm:max-w-[450px] rounded-xl p-0 overflow-hidden">
+                    <div className="flex flex-col h-full">
+                        {/* Visual header */}
+                        <div className="bg-gradient-to-r from-[var(--emmo-green-primary)] to-[var(--emmo-green-secondary)] p-6 text-white">
+                            <DialogTitle className="text-xl font-bold mb-2">
+                                Success
+                            </DialogTitle>
+                            <DialogDescription className="text-white/80">
+                                {successMessage}
+                            </DialogDescription>
+                        </div>
+                        
+                        <div className="p-6">
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                The page will refresh to show the updated parts list.
+                            </p>
+                        </div>
+                        
+                        <div className="border-t border-gray-100 dark:border-gray-800 p-4 flex justify-end gap-3 bg-gray-50 dark:bg-gray-950">
+                            <Button 
+                                type="button" 
+                                onClick={handleSuccessDialogClose}
+                                className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] transition-colors"
+                            >
+                                Close
                             </Button>
                         </div>
                     </div>

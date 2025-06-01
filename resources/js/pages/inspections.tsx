@@ -615,34 +615,34 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                 
                 {/* Inspections List */}
                 {inspections.data.length > 0 ? (
-                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200">
-                                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-6"></th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Inspection</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Description</th>
-                                        <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Tasks</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-48 hidden md:table-cell">Status</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Created</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Creator</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Operator</th>
-                                        <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-6"></th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inspection</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">Description</th>
+                                        <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16">Tasks</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-48 hidden md:table-cell">Status</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">Created</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Creator</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Operator</th>
+                                        <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                     {inspections.data.map((inspection) => (
-                                        <tr key={inspection.id} className="hover:bg-gray-50 transition-colors duration-150">
+                                        <tr key={inspection.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150">
                                             {/* Type indicator Icon */}
                                             <td className="px-4 py-4 text-center">
                                                 {inspection.is_template ? (
-                                                    <span title="Template" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-purple-100">
-                                                        <RefreshCcw className="h-4 w-4 text-purple-600" />
+                                                    <span title="Template" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30">
+                                                        <RefreshCcw className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                                                     </span>
                                                 ) : (
-                                                    <span title="Instance" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100">
-                                                        <Copy className="h-4 w-4 text-gray-500" />
+                                                    <span title="Instance" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                                                        <Copy className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                                                     </span>
                                                 )}
                                             </td>
@@ -652,7 +652,7 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                                 <div className="flex flex-col">
                                                     <Link 
                                                         href={route('inspections.show', inspection.id)}
-                                                        className="text-base font-medium text-gray-900 hover:text-[var(--emmo-green-primary)] transition-colors"
+                                                        className="text-base font-medium text-gray-900 dark:text-gray-100 hover:text-[var(--emmo-green-primary)] transition-colors"
                                                     >
                                                         {inspection.name}
                                                     </Link>
@@ -661,13 +661,13 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                                     {!inspection.is_template && inspection.parent_inspection_id && (
                                                         <Link 
                                                             href={route('inspections.show', inspection.parent_inspection_id)} 
-                                                            className="mt-1 text-xs text-blue-600 hover:underline inline-flex items-center"
+                                                            className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center"
                                                         >
                                                             <ArrowRight className="h-3 w-3 mr-1" />
                                                             From Template #{inspection.parent_inspection_id}
                                                         </Link>
                                                     )}
-                                                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 md:hidden">
+                                                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400 md:hidden">
                                                         <span>ID: #{inspection.id}</span>
                                                         <span>•</span>
                                                         <span>{new Date(inspection.created_at).toLocaleDateString(undefined, {
@@ -678,7 +678,7 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                                         {inspection.operator && (
                                                             <>
                                                                 <span>•</span>
-                                                                <span className="text-blue-600">Operator: {inspection.operator.name}</span>
+                                                                <span className="text-blue-600 dark:text-blue-400">Operator: {inspection.operator.name}</span>
                                                             </>
                                                         )}
                                                     </div>
@@ -688,15 +688,15 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                             {/* Description */}
                                             <td className="px-6 py-4">
                                                 {inspection.description ? (
-                                                    <p className="text-sm text-gray-500 line-clamp-2 max-w-xs">{inspection.description}</p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 max-w-xs">{inspection.description}</p>
                                                 ) : (
-                                                    <p className="text-sm text-gray-400 italic">No description</p>
+                                                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">No description</p>
                                                 )}
                                             </td>
                                             
-                                            {/* Tasks Count - New Column */}
+                                            {/* Tasks Count */}
                                             <td className="px-6 py-4 text-center">
-                                                <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-[var(--emmo-green-light)] text-[var(--emmo-green-primary)] font-medium text-sm">
+                                                <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-[var(--emmo-green-light)] dark:bg-[var(--emmo-green-dark)] text-[var(--emmo-green-primary)] dark:text-[var(--emmo-green-light)] font-medium text-sm">
                                                     {inspection.tasks_count || 0}
                                                 </span>
                                             </td>
@@ -706,19 +706,19 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                                 {inspection.is_template ? (
                                                     // Display Schedule Info for Templates
                                                     <div className="text-sm">
-                                                        <Badge className="bg-purple-100 text-purple-800 h-6 px-2.5">
+                                                        <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 h-6 px-2.5">
                                                             <span className="flex items-center gap-1">
                                                             <RefreshCcw className="h-3.5 w-3.5" />
                                                             <span>Template</span>
                                                             </span>
                                                         </Badge>
-                                                        <div className="mt-1 text-xs text-gray-600 flex items-center gap-1">
-                                                            <Clock className="h-3 w-3 text-gray-400" />
+                                                        <div className="mt-1 text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                                                            <Clock className="h-3 w-3 text-gray-400 dark:text-gray-500" />
                                                              {formatFrequency(inspection.schedule_frequency, inspection.schedule_interval)}
                                                         </div>
                                                         {inspection.schedule_next_due_date && (
-                                                             <div className="mt-1 text-xs text-gray-500 flex items-center gap-1">
-                                                                <Calendar className="h-3 w-3 text-gray-400" />
+                                                             <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                                                <Calendar className="h-3 w-3 text-gray-400 dark:text-gray-500" />
                                                                 Next: {format(new Date(inspection.schedule_next_due_date), "MMM d, yyyy")}
                                                             </div>
                                                         )}
@@ -726,24 +726,24 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                                 ) : (
                                                     // Display Status & Progress for Instances
                                                     <div>
-                                                        <Badge className={`${getStatusBadgeClasses(inspection.status)} h-6 px-2.5`}>
+                                                        <Badge className={`${getStatusBadgeClasses(inspection.status)} dark:bg-opacity-20 h-6 px-2.5`}>
                                                             <span className="flex items-center gap-1">
                                                                 {getStatusIcon(inspection.status)}
                                                                 <span>{inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}</span>
                                                             </span>
                                                         </Badge>
                                                         <div className="w-full mt-2">
-                                                            <div className="w-full bg-gray-100 rounded-full h-1">
+                                                            <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1">
                                                                 <div 
                                                                     className={`h-1 rounded-full ${
-                                                                        inspection.status === 'completed' ? 'bg-green-500' :
-                                                                        inspection.status === 'active' ? 'bg-blue-500' :
-                                                                        inspection.status === 'archived' ? 'bg-amber-500' : 'bg-gray-400'
+                                                                        inspection.status === 'completed' ? 'bg-green-500 dark:bg-green-400' :
+                                                                        inspection.status === 'active' ? 'bg-blue-500 dark:bg-blue-400' :
+                                                                        inspection.status === 'archived' ? 'bg-amber-500 dark:bg-amber-400' : 'bg-gray-400 dark:bg-gray-500'
                                                                     }`}
                                                                     style={{ width: `${calculateProgress(inspection)}%` }}
                                                                 ></div>
                                                             </div>
-                                                            <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                                                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 flex justify-between">
                                                                 <span>{inspection.completed_tasks_count || 0} of {inspection.tasks_count || 0} tasks</span>
                                                                 <span>{calculateProgress(inspection)}%</span>
                                                             </div>
@@ -753,14 +753,14 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                             </td>
                                             
                                             {/* Created date */}
-                                            <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap hidden lg:table-cell">
+                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap hidden lg:table-cell">
                                                 <div className="flex flex-col">
                                                     <span>{new Date(inspection.created_at).toLocaleDateString(undefined, {
                                                         month: 'short',
                                                         day: 'numeric',
                                                         year: 'numeric'
                                                     })}</span>
-                                                    <span className="text-xs text-gray-400">
+                                                    <span className="text-xs text-gray-400 dark:text-gray-500">
                                                         {new Date(inspection.created_at).toLocaleTimeString(undefined, {
                                                             hour: '2-digit',
                                                             minute: '2-digit'
@@ -770,9 +770,9 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                             </td>
                                             
                                             {/* Creator */}
-                                            <td className="px-6 py-4 text-sm text-gray-500 hidden md:table-cell">
+                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
                                                 <div className="flex items-center">
-                                                    <div className="h-7 w-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 mr-2">
+                                                    <div className="h-8 w-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 mr-2">
                                                         {(inspection.creator?.name || 'U').charAt(0)}
                                                     </div>
                                                     <span>{inspection.creator?.name || 'Unknown'}</span>
@@ -780,16 +780,16 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                             </td>
                                             
                                             {/* Operator */}
-                                            <td className="px-6 py-4 text-sm text-gray-500 hidden md:table-cell">
+                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
                                                 {inspection.operator ? (
                                                     <div className="flex items-center">
-                                                        <div className="h-7 w-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-2">
+                                                        <div className="h-8 w-14 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 mr-2">
                                                             {inspection.operator.name.charAt(0)}
                                                         </div>
                                                         <span>{inspection.operator.name}</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-gray-400 italic">Not assigned</span>
+                                                    <span className="text-gray-400 dark:text-gray-500 italic">Not assigned</span>
                                                 )}
                                             </td>
                                             
@@ -798,7 +798,7 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                                 <div className="flex items-center justify-end space-x-3">
                                                     <Link 
                                                         href={route('inspections.show', inspection.id)}
-                                                        className="text-gray-600 hover:text-[var(--emmo-green-primary)] transition-colors"
+                                                        className="text-gray-600 dark:text-gray-400 hover:text-[var(--emmo-green-primary)] transition-colors"
                                                     >
                                                         <Eye className="h-4 w-4" />
                                                     </Link>
@@ -814,7 +814,7 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                                     <Button 
                                                         variant="ghost" 
                                                         size="sm"
-                                                        className="h-8 w-8 p-0 text-red-500"
+                                                        className="h-8 w-8 p-0 text-red-500 dark:text-red-400"
                                                         onClick={() => openDeleteDialog(inspection)}
                                                     >
                                                         <Trash2 className="h-3.5 w-3.5" />
@@ -829,10 +829,10 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                         </div>
                     </div>
                 ) : (
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                        <ClipboardList className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900">No inspections found</h3>
-                        <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
+                    <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                        <ClipboardList className="h-12 w-12 mx-auto text-gray-400 dark:text-gray-600 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No inspections found</h3>
+                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
                             {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' ? 
                                 `No inspections match your current filters` : 
                                 "Get started by creating your first inspection using the 'New Inspection' button above."
@@ -949,9 +949,8 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                     <Select
                                         value={data.status}
                                         onValueChange={(value) => setData('status', value as any)}
-                                        disabled={data.is_template}
                                     >
-                                        <SelectTrigger className={`${errors.status ? 'border-red-500' : ''} ${data.is_template ? 'disabled:opacity-50' : ''}`.trim()}>
+                                        <SelectTrigger className={`${errors.status ? 'border-red-500' : ''}`.trim()}>
                                             <SelectValue placeholder="Select status" />
                                         </SelectTrigger>
                                         <SelectContent>

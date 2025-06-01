@@ -224,11 +224,6 @@ class PartController extends Controller
         
         // If status is attached, make sure drive_id is not null
         if ($newStatus === 'attached' && empty($newDriveId)) {
-            if ($request->wantsJson() || $request->ajax()) {
-                return response()->json([
-                    'errors' => ['drive_id' => 'A drive must be selected when status is attached']
-                ], 422);
-            }
             return back()->withErrors(['drive_id' => 'A drive must be selected when status is attached']);
         }
         
@@ -275,15 +270,7 @@ class PartController extends Controller
             ? 'Part successfully attached to drive'
             : 'Part successfully detached from drive';
             
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => $message,
-                'part' => $part->load('drive:id,name,drive_ref')
-            ]);
-        }
-        
-        return back()->with('success', $message);
+        return redirect()->back()->with('success', $message);
     }
 
     /**
