@@ -4,15 +4,12 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import { CpuIcon, ArrowLeft, Link2Icon, UnlinkIcon, Clock, CheckCircle2, InfoIcon, ClipboardList, CalendarIcon, CircleAlert, ChevronLeft, ChevronRight, FileText, Check, ChevronsUpDown } from 'lucide-react';
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 
@@ -70,7 +67,7 @@ export default function PartShow({ part, attachmentHistory, drives }: PartShowPr
     const [searchTerm, setSearchTerm] = useState('');
     
     // Form for attachment change
-    const { data, setData, put, processing, errors, reset } = useForm({
+    const { data, setData, processing, errors, reset } = useForm({
         status: part.status,
         drive_id: part.drive_id ? part.drive_id.toString() : '',
         attachment_notes: '',

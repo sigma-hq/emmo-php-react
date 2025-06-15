@@ -1,20 +1,19 @@
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { 
     AlertDialog, 
     AlertDialogAction, 
     AlertDialogCancel, 
     AlertDialogContent, 
-    AlertDialogDescription, 
+    AlertDialogDescription,
     AlertDialogFooter, 
-    AlertDialogHeader, 
     AlertDialogTitle 
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { PlusIcon, Pencil, Trash2, CheckCircle, User, Search, X, ArrowRight, Shield } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -191,12 +190,6 @@ export default function Users({ users, isFirstUser = false, flash }: UsersPagePr
             router.delete(route('api.users.destroy', userToDelete.id));
             setShowDeleteDialog(false);
             setUserToDelete(null);
-        }
-    };
-    
-    const goToPage = (url: string | null) => {
-        if (url) {
-            router.get(url);
         }
     };
     

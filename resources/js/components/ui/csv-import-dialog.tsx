@@ -9,9 +9,17 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FileIcon, UploadIcon, XIcon, AlertCircleIcon, CheckCircleIcon, AlertTriangleIcon, FileTextIcon } from 'lucide-react';
+import { UploadIcon, XIcon, AlertCircleIcon, CheckCircleIcon, AlertTriangleIcon, FileTextIcon } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { router } from '@inertiajs/react';
+
+interface PageProps {
+    flash?: {
+        success?: string;
+        error?: string;
+        import_result?: ImportResult;
+    };
+}
 
 interface CSVImportDialogProps {
     isOpen: boolean;
@@ -157,7 +165,7 @@ export function CSVImportDialog({
                     console.log('Import response:', page.props);
                     
                     // For Inertia responses, check for flash messages
-                    const flash = (page.props as any).flash;
+                    const flash = (page.props as PageProps).flash;
                     const flashSuccess = flash?.success;
                     const flashError = flash?.error;
                     const importResult = flash?.import_result;

@@ -1,4 +1,3 @@
-import { type SharedData } from '@/types';
 import { Head } from '@inertiajs/react';
 
 export default function Welcome() {

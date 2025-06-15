@@ -19,15 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,8 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+
 import {
   Wrench,
   Search,
@@ -55,7 +46,7 @@ import {
   Clipboard,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Pagination } from '@/components/ui/pagination';
+
 import MaintenanceChecklist from '@/components/ui/maintenance-checklist';
 
 interface Drive {
@@ -151,21 +142,31 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Maintenances({ maintenances, statuses, filters, drives = [] }: MaintenancesPageProps) {
+interface FormData {
+  drive_id: string;
+  title: string;
+  description: string;
+  maintenance_date: string;
+  technician: string;
+  status: MaintenanceStatus;
+  cost: string;
+  checklist_json: string;
+}
+
+export default function Maintenances({ maintenances, statuses, filters }: MaintenancesPageProps) {
   const [searchTerm, setSearchTerm] = useState(filters.search);
   const [statusFilter, setStatusFilter] = useState(filters.status);
   const [sortField, setSortField] = useState<'title' | 'maintenance_date' | 'status'>('maintenance_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
 
   // Get flash messages from Inertia
-  const { flash } = usePage<any>().props;
+  const { flash } = usePage<{ flash: { success?: string } }>().props;
 
   // Form for creating a new maintenance record
-  const { data, setData, post, processing, errors, reset } = useForm({
+  const { setData } = useForm<FormData>({
     drive_id: '',
     title: '',
     description: '',
@@ -178,7 +179,7 @@ export default function Maintenances({ maintenances, statuses, filters, drives =
 
   // Handle flash messages from the backend
   useEffect(() => {
-    if (flash && flash.success) {
+    if (flash?.success) {
       setSuccessMessage(flash.success);
       setShowSuccessMessage(true);
       
@@ -200,29 +201,6 @@ export default function Maintenances({ maintenances, statuses, filters, drives =
     }, 3000);
   };
 
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    post(route('api.maintenances.store'), {
-      onSuccess: () => {
-        reset();
-        setIsDialogOpen(false);
-        displaySuccessMessage('Maintenance record created successfully');
-      },
-    });
-  };
-
-  // Handle input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setData(name as any, value);
-  };
-
-  // Handle select changes
-  const handleSelectChange = (name: string, value: string) => {
-    setData(name as any, value);
-  };
-
   // Handle search with debounce
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -234,7 +212,7 @@ export default function Maintenances({ maintenances, statuses, filters, drives =
     }, 300);
     
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   // Handle status filter change
   const handleStatusChange = (value: string) => {
@@ -260,7 +238,7 @@ export default function Maintenances({ maintenances, statuses, filters, drives =
     if (!dateStr) return 'N/A';
     try {
       return format(new Date(dateStr), 'MMM d, yyyy');
-    } catch (e) { return dateStr; }
+    } catch { return dateStr; }
   };
 
   // Get status badge
@@ -287,9 +265,6 @@ export default function Maintenances({ maintenances, statuses, filters, drives =
       setSortField(field);
       setSortDirection('asc');
     }
-    
-    // Could implement server-side sorting if needed
-    // For now we'll just do client-side
   };
 
   // Toggle row expansion
@@ -630,9 +605,7 @@ export default function Maintenances({ maintenances, statuses, filters, drives =
                                 <MaintenanceChecklist
                                   maintenanceId={maintenance.id}
                                   checklistItems={checklist}
-                                  onUpdate={(stats) => {
-                                    // Refresh the UI with updated stats
-                                    // This is optional as our component handles the UI updates internally
+                                  onUpdate={() => {
                                   }}
                                 />
                               </div>

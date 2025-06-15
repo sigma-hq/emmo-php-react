@@ -136,7 +136,7 @@ export default function MaintenanceListView({
     // Filter and sort maintenances
     const filteredAndSortedMaintenances = useMemo(() => {
         // First, filter by search term and status
-        let filtered = maintenances.filter(maintenance => {
+        const filtered = maintenances.filter(maintenance => {
             // Filter by status if not "all"
             if (statusFilter !== 'all' && maintenance.status !== statusFilter) {
                 return false;

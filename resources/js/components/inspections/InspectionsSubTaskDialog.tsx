@@ -1,5 +1,5 @@
 import { InspectionSubTask } from "@/pages/inspection/show";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../ui/dialog";
 import InspectionsSubTasksList from "./InspectionsSubTasksList";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
@@ -7,12 +7,26 @@ import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
 import { DialogFooter } from "../ui/dialog";
 
+interface SubTaskFormData {
+    inspection_task_id: string;
+    name: string;
+    description: string;
+    type: 'yes_no' | 'numeric' | 'none';
+    expected_value_boolean: string;
+    expected_value_min: string;
+    expected_value_max: string;
+    unit_of_measure: string;
+    errors?: Record<string, string>;
+    data: SubTaskFormData;
+    setData: (field: keyof SubTaskFormData, value: string) => void;
+}
+
 export default function InspectionsSubTaskDialog({ isSubTaskDialogOpen, setIsSubTaskDialogOpen, editingSubTask, handleSubTaskSubmit, subTaskForm, formError, isSubmitting }: {
     isSubTaskDialogOpen: boolean;
     setIsSubTaskDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
     editingSubTask: InspectionSubTask | null;
     handleSubTaskSubmit: (e: React.FormEvent) => Promise<void>;
-    subTaskForm: any; // TODO: Replace with proper type
+    subTaskForm: SubTaskFormData;
     formError: string | null;
     isSubmitting: boolean;
 }) {

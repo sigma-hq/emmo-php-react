@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -12,24 +12,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, useForm, usePage, Link } from '@inertiajs/react';
+import { Head, router, useForm, Link } from '@inertiajs/react';
 import { PlusIcon, Pencil, Trash2, CheckCircle, CpuIcon, Search, X, ArrowRight, ChevronLeft, ChevronRight, Link2Icon, UnlinkIcon, Check, ChevronsUpDown, UploadIcon } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from '@/components/ui/command';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover';
 import { CSVImportDialog } from '@/components/ui/csv-import-dialog';
 
 interface Drive {
@@ -136,6 +123,27 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
         attachment_notes: '',
     });
     
+    const openCreateDialog = useCallback(() => {
+        reset();
+        setIsEditMode(false);
+        setIsOpen(true);
+    }, [reset]);
+    
+    const openEditDialog = useCallback((part: Part) => {
+        reset();
+        setData({
+            id: part.id.toString(),
+            name: part.name,
+            part_ref: part.part_ref,
+            status: part.status,
+            drive_id: part.drive_id ? part.drive_id.toString() : '',
+            notes: part.notes || '',
+            attachment_notes: '',
+        });
+        setIsEditMode(true);
+        setIsOpen(true);
+    }, [reset, setData]);
+    
     // Handle flash messages from the backend
     useEffect(() => {
         if (flash && flash.success) {
@@ -159,7 +167,7 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
                 openEditDialog(partToEdit);
             }
         }
-    }, [editPart, parts.data]);
+    }, [editPart, parts.data, openEditDialog]);
     
     // Handle search with debounce
     useEffect(() => {
@@ -173,27 +181,6 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
         
         return () => clearTimeout(timeoutId);
     }, [searchTerm]);
-    
-    const openCreateDialog = () => {
-        reset();
-        setIsEditMode(false);
-        setIsOpen(true);
-    };
-    
-    const openEditDialog = (part: Part) => {
-        reset();
-        setData({
-            id: part.id.toString(),
-            name: part.name,
-            part_ref: part.part_ref,
-            status: part.status,
-            drive_id: part.drive_id ? part.drive_id.toString() : '',
-            notes: part.notes || '',
-            attachment_notes: '',
-        });
-        setIsEditMode(true);
-        setIsOpen(true);
-    };
     
     const openDeleteDialog = (part: Part) => {
         setPartToDelete(part);
@@ -263,18 +250,14 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
         }
     };
     
-    // Handle CSV import completion
-    const handleImportComplete = (result: any) => {
+    const handleImportComplete = (result: { success: boolean; imported: number; errors: string[] }) => {
         if (result.success) {
-            setSuccessMessage(`Successfully imported ${result.imported} parts`);
             setShowSuccessNotification(true);
+            setSuccessMessage(`Successfully imported ${result.imported} parts`);
+            setShowImportDialog(false);
             
             // Refresh the parts list
             router.reload({ only: ['parts'] });
-        } else if (result.errors && result.errors.length > 0) {
-            // Show the first error as notification
-            setSuccessMessage(`Import completed with errors: ${result.errors[0]}`);
-            setShowSuccessNotification(true);
         }
     };
     
@@ -368,11 +351,8 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
                                 </tr>
                             </thead>
                             <tbody>
-                                {parts.data.map((part, index) => (
-                                    <tr 
-                                        key={part.id} 
-                                        className={`relative group hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors ${index % 2 === 0 ? 'bg-gray-50/50 dark:bg-gray-900/20' : ''}`}
-                                    >
+                                {parts.data.map((part) => (
+                                    <tr key={part.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                         <td className="px-6 py-4 text-sm">
                                             <Link 
                                                 href={route('api.parts.show', part.id)} 
@@ -942,7 +922,7 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
                                         </div>
                                         
                                         <div className="relative border-l-2 border-gray-200 dark:border-gray-800 pl-6 pt-2 pb-6 ml-4">
-                                            {attachmentHistory.map((record, index) => (
+                                            {attachmentHistory.map((record) => (
                                                 <div key={record.id} className="mb-6 relative">
                                                     {/* Timeline dot */}
                                                     <div className={`absolute w-4 h-4 rounded-full -left-[25px] ${

@@ -1,4 +1,3 @@
-import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
@@ -7,13 +6,9 @@ import {
     Building, 
     Wrench, 
     Package, 
-    AlertTriangle, 
-    CheckCircle, 
-    Clock, 
     Hourglass, 
     TrendingUp, 
     ClipboardCheck, 
-    CalendarClock, 
     FileText, 
     BarChart as BarChartIcon,
     PieChart as PieChartIcon
@@ -25,9 +20,6 @@ import {
     XAxis, 
     YAxis, 
     CartesianGrid, 
-    Tooltip, 
-    Legend, 
-    ResponsiveContainer,
     PieChart,
     Pie,
     Cell,

@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import { 
     AlertDialog, 
     AlertDialogAction, 
@@ -30,12 +30,9 @@ import {
     Eye, 
     Filter,
     ClipboardCheck,
-    ClipboardX,
     Clock,
     Archive,
     BarChart3,
-    ArrowUp,
-    ArrowDown,
     RefreshCcw,
     Copy,
     Calendar,
@@ -46,7 +43,6 @@ import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";

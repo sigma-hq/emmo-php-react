@@ -15,34 +15,6 @@ interface InspectionTask extends BaseInspectionTask {
     target_part_ref?: string;
 }
 
-interface TasksTabProps {
-    tasks: InspectionTask[];
-    openCreateTaskDialog: () => void;
-    openEditTaskDialog: (task: InspectionTask) => void;
-    openDeleteTaskDialog: (task: InspectionTask) => void;
-    openRecordResultDialog: (task: InspectionTask) => void;
-}
-
-// Define the response type from the backend
-interface ApiResponse {
-    success: boolean;
-    message: string;
-    redirect?: string;
-    errors?: Record<string, string>;
-}
-
-// Define the form structure type
-interface SubTaskFormData {
-    inspection_task_id: string;
-    name: string;
-    description: string;
-    type: 'yes_no' | 'numeric' | 'none';
-    expected_value_boolean: string;  // Using string type to match form input
-    expected_value_min: string;
-    expected_value_max: string;
-    unit_of_measure: string;
-}
-
 export default function InspectionTasksTable({ 
     tasks, 
     toggleTaskExpanded, 
