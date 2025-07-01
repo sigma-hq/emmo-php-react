@@ -642,11 +642,6 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                                         </Select>
                                     </div>
                                     
-                                    {taskForm.data.target_type && taskForm.data.target_type !== 'none' && (
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="target_id" className={taskForm.errors.target_id ? "text-red-500" : ""}>
-                                                Select {taskForm.data.target_type === 'drive' ? 'Drive' : 'Part'}
-                                            </Label>
                                                     {taskForm.data.target_type === 'drive' ? (
                                                 // Drive Combobox
                                                 <div className="relative">
@@ -727,85 +722,51 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                                                     )}
                                                 </div>
                                             ) : (
-                                                // Part Combobox
-                                                <div className="relative">
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        onClick={() => setIsPartComboOpen(prev => !prev)}
-                                                         className={cn("w-full justify-between", taskForm.errors.target_id && "border-red-500")}
-                                                    >
-                                                        {taskForm.data.target_id && getSelectedPartName()
-                                                            ? getSelectedPartName()
-                                                            : "Select a part..."}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-
-                                                    {isPartComboOpen && (
-                                                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg overflow-hidden">
-                                                            <div className="p-2 border-b border-gray-100 dark:border-gray-800 flex items-center">
-                                                                <Search className="h-4 w-4 mr-2 text-gray-400 shrink-0" />
-                                                                <Input
-                                                                    type="text"
-                                                                    placeholder="Search parts..."
-                                                                    className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-8 p-0"
-                                                                    value={partComboSearchTerm}
-                                                                    onChange={(e) => setPartComboSearchTerm(e.target.value)}
-                                                                    autoFocus
-                                                                />
-                                                            </div>
-                                                            <div className="max-h-[220px] overflow-y-auto p-1">
-                                                                {parts
-                                                                    .filter(part =>
-                                                                        part.name.toLowerCase().includes(partComboSearchTerm.toLowerCase()) ||
-                                                                        part.part_ref.toLowerCase().includes(partComboSearchTerm.toLowerCase())
-                                                                    )
-                                                                    .map(part => (
-                                                                        <button
-                                                                            key={part.id}
-                                                                            type="button"
-                                                                            className={cn(
-                                                                                "flex items-center w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800",
-                                                                                taskForm.data.target_id === part.id.toString() && "bg-gray-100 dark:bg-gray-800"
-                                                                            )}
-                                                                            onClick={() => {
-                                                                                taskForm.setData('target_id', part.id.toString());
-                                                                                setIsPartComboOpen(false);
-                                                                                setPartComboSearchTerm('');
-                                                                            }}
-                                                                        >
-                                                                            <Check
-                                                                                className={cn(
-                                                                                    "mr-2 h-4 w-4",
-                                                                                    taskForm.data.target_id === part.id.toString() ? "opacity-100" : "opacity-0"
-                                                                                )}
-                                                                            />
-                                                                            <span className="font-medium">{part.name}</span>
-                                                                            <span className="ml-2 text-xs text-gray-500">({part.part_ref})</span>
-                                                                        </button>
-                                                                    ))}
-                                                                {parts.filter(part =>
-                                                                    part.name.toLowerCase().includes(partComboSearchTerm.toLowerCase()) ||
-                                                                    part.part_ref.toLowerCase().includes(partComboSearchTerm.toLowerCase())
-                                                                ).length === 0 && (
-                                                                    <div className="px-2 py-4 text-center text-sm text-gray-500">
-                                                                        No parts found.
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {isPartComboOpen && (
-                                                        <div
-                                                            className="fixed inset-0 z-40"
-                                                            onClick={() => {
-                                                                setIsPartComboOpen(false);
-                                                                setPartComboSearchTerm('');
-                                                            }}
+                                        // Part Select using portaled Select
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="target_id" className={taskForm.errors.target_id ? "text-red-500" : ""}>
+                                                Select Part
+                                            </Label>
+                                            <Select
+                                                value={taskForm.data.target_id || ''}
+                                                onValueChange={value => taskForm.setData('target_id', value)}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a part..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <div className="p-2">
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="Search parts..."
+                                                            className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-8 p-0 mb-2"
+                                                            value={partComboSearchTerm}
+                                                            onChange={e => setPartComboSearchTerm(e.target.value)}
+                                                            autoFocus
                                                         />
-                                                    )}
-                                                </div>
-                                            )}
+                                                    </div>
+                                                    <div className="max-h-56 overflow-y-auto">
+                                                        {parts
+                                                            .filter(part =>
+                                                                part.name.toLowerCase().includes(partComboSearchTerm.toLowerCase()) ||
+                                                                part.part_ref.toLowerCase().includes(partComboSearchTerm.toLowerCase())
+                                                            )
+                                                            .map(part => (
+                                                                <SelectItem key={part.id} value={part.id.toString()}>
+                                                                    {part.name} <span className="ml-2 text-xs text-gray-500">({part.part_ref})</span>
+                                                                </SelectItem>
+                                                            ))}
+                                                        {parts.filter(part =>
+                                                            part.name.toLowerCase().includes(partComboSearchTerm.toLowerCase()) ||
+                                                            part.part_ref.toLowerCase().includes(partComboSearchTerm.toLowerCase())
+                                                        ).length === 0 && (
+                                                            <div className="px-2 py-4 text-center text-sm text-gray-500">
+                                                                No parts found.
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </SelectContent>
+                                            </Select>
                                             {taskForm.errors.target_id && (
                                                 <p className="text-sm text-red-500">{taskForm.errors.target_id}</p>
                                             )}
