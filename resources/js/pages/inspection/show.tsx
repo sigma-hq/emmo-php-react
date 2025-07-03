@@ -642,86 +642,57 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                                         </Select>
                                     </div>
                                     
-                                                    {taskForm.data.target_type === 'drive' ? (
-                                                // Drive Combobox
-                                                <div className="relative">
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        onClick={() => setIsDriveComboOpen(prev => !prev)}
-                                                        className={cn("w-full justify-between", taskForm.errors.target_id && "border-red-500")}
-                                                    >
-                                                        {taskForm.data.target_id && getSelectedDriveName()
-                                                            ? getSelectedDriveName()
-                                                            : "Select a drive..."}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-
-                                                    {isDriveComboOpen && (
-                                                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg overflow-hidden">
-                                                            <div className="p-2 border-b border-gray-100 dark:border-gray-800 flex items-center">
-                                                                <Search className="h-4 w-4 mr-2 text-gray-400 shrink-0" />
-                                                                <Input
-                                                                    type="text"
-                                                                    placeholder="Search drives..."
-                                                                    className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-8 p-0"
-                                                                    value={driveComboSearchTerm}
-                                                                    onChange={(e) => setDriveComboSearchTerm(e.target.value)}
-                                                                    autoFocus
-                                                                />
-                                                            </div>
-                                                            <div className="max-h-[220px] overflow-y-auto p-1">
-                                                                {drives
-                                                                    .filter(drive =>
-                                                                        drive.name.toLowerCase().includes(driveComboSearchTerm.toLowerCase()) ||
-                                                                        drive.drive_ref.toLowerCase().includes(driveComboSearchTerm.toLowerCase())
-                                                                    )
-                                                                    .map(drive => (
-                                                                        <button
-                                                                            key={drive.id}
-                                                                            type="button"
-                                                                            className={cn(
-                                                                                "flex items-center w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800",
-                                                                                taskForm.data.target_id === drive.id.toString() && "bg-gray-100 dark:bg-gray-800"
-                                                                            )}
-                                                                            onClick={() => {
-                                                                                taskForm.setData('target_id', drive.id.toString());
-                                                                                setIsDriveComboOpen(false);
-                                                                                setDriveComboSearchTerm('');
-                                                                            }}
-                                                                        >
-                                                                            <Check
-                                                                                className={cn(
-                                                                                    "mr-2 h-4 w-4",
-                                                                                    taskForm.data.target_id === drive.id.toString() ? "opacity-100" : "opacity-0"
-                                                                                )}
-                                                                            />
-                                                                            <span className="font-medium">{drive.name}</span>
-                                                                            <span className="ml-2 text-xs text-gray-500">({drive.drive_ref})</span>
-                                                                        </button>
-                                                                    ))}
-                                                                {drives.filter(drive =>
-                                                                    drive.name.toLowerCase().includes(driveComboSearchTerm.toLowerCase()) ||
-                                                                    drive.drive_ref.toLowerCase().includes(driveComboSearchTerm.toLowerCase())
-                                                                ).length === 0 && (
-                                                                    <div className="px-2 py-4 text-center text-sm text-gray-500">
-                                                                        No drives found.
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {isDriveComboOpen && (
-                                                        <div
-                                                            className="fixed inset-0 z-40"
-                                                            onClick={() => {
-                                                                setIsDriveComboOpen(false);
-                                                                setDriveComboSearchTerm('');
-                                                            }}
+                                    {taskForm.data.target_type === 'drive' ? (
+                                        // Drive Select using portaled Select
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="target_id" className={taskForm.errors.target_id ? "text-red-500" : ""}>
+                                                Select Drive
+                                            </Label>
+                                            <Select
+                                                value={taskForm.data.target_id || ''}
+                                                onValueChange={value => taskForm.setData('target_id', value)}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a drive..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <div className="p-2">
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="Search drives..."
+                                                            className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-8 p-0 mb-2"
+                                                            value={driveComboSearchTerm}
+                                                            onChange={e => setDriveComboSearchTerm(e.target.value)}
+                                                            autoFocus
                                                         />
-                                                    )}
-                                                </div>
-                                            ) : (
+                                                    </div>
+                                                    <div className="max-h-56 overflow-y-auto">
+                                                        {drives
+                                                            .filter(drive =>
+                                                                drive.name.toLowerCase().includes(driveComboSearchTerm.toLowerCase()) ||
+                                                                drive.drive_ref.toLowerCase().includes(driveComboSearchTerm.toLowerCase())
+                                                            )
+                                                            .map(drive => (
+                                                                <SelectItem key={drive.id} value={drive.id.toString()}>
+                                                                    {drive.name} <span className="ml-2 text-xs text-gray-500">({drive.drive_ref})</span>
+                                                                </SelectItem>
+                                                            ))}
+                                                        {drives.filter(drive =>
+                                                            drive.name.toLowerCase().includes(driveComboSearchTerm.toLowerCase()) ||
+                                                            drive.drive_ref.toLowerCase().includes(driveComboSearchTerm.toLowerCase())
+                                                        ).length === 0 && (
+                                                            <div className="px-2 py-4 text-center text-sm text-gray-500">
+                                                                No drives found.
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </SelectContent>
+                                            </Select>
+                                            {taskForm.errors.target_id && (
+                                                <p className="text-sm text-red-500">{taskForm.errors.target_id}</p>
+                                            )}
+                                        </div>
+                                    ) : (
                                         // Part Select using portaled Select
                                         <div className="grid gap-2">
                                             <Label htmlFor="target_id" className={taskForm.errors.target_id ? "text-red-500" : ""}>
