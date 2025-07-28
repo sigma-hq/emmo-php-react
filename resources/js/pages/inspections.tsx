@@ -293,7 +293,22 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
     
     const goToPage = (url: string | null) => {
         if (url) {
-            router.get(url);
+            // Extract page number from URL
+            const urlParams = new URLSearchParams(url.split('?')[1] || '');
+            const page = urlParams.get('page') || '1';
+            
+            // Navigate with current filters and the new page
+            router.get(
+                route('inspections'),
+                { 
+                    search: searchTerm, 
+                    status: statusFilter !== 'all' ? statusFilter : undefined,
+                    type: typeFilter !== 'all' ? typeFilter : undefined,
+                    per_page: perPage,
+                    page: page
+                },
+                { preserveState: true, preserveScroll: true }
+            );
         }
     };
     
