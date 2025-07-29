@@ -507,13 +507,15 @@ export default function TasksTab({
                     Inspection Tasks
                 </h2>
                 
-                <Button 
-                    onClick={openCreateTaskDialog}
-                    className="sm:self-end bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
-                >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Add Task
-                </Button>
+                {isAdmin && (
+                    <Button 
+                        onClick={openCreateTaskDialog}
+                        className="sm:self-end bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
+                    >
+                        <PlusIcon className="h-4 w-4 mr-2" />
+                        Add Task
+                    </Button>
+                )}
             </div>
             
             {localTasks && localTasks.length > 0 ? (
@@ -538,15 +540,20 @@ export default function TasksTab({
                     </div>
                     <h3 className="mt-4 text-lg font-medium text-gray-900">No tasks yet</h3>
                     <p className="mt-1 text-sm text-gray-500 max-w-sm mx-auto">
-                        Get started by adding your first inspection task to define what needs to be checked.
+                        {isAdmin 
+                            ? 'Get started by adding your first inspection task to define what needs to be checked.'
+                            : 'No inspection tasks have been assigned yet. Contact an administrator to set up tasks for this inspection.'
+                        }
                     </p>
-                    <Button 
-                        onClick={openCreateTaskDialog} 
-                        className="mt-4 bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
-                    >
-                        <PlusIcon className="h-4 w-4 mr-2" />
-                        Add Your First Task
-                    </Button>
+                    {isAdmin && (
+                        <Button 
+                            onClick={openCreateTaskDialog} 
+                            className="mt-4 bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
+                        >
+                            <PlusIcon className="h-4 w-4 mr-2" />
+                            Add Your First Task
+                        </Button>
+                    )}
                 </div>
             )}
             

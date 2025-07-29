@@ -214,6 +214,9 @@ interface DashboardProps {
     inspectionTrend: TrendData[];
     recentInspections: RecentItem[];
     recentMaintenances: RecentItem[];
+    isAdmin?: boolean;
+    userRole?: string;
+    userName?: string;
 }
 
 // After the DashboardProps interface and before the component definition
@@ -239,7 +242,10 @@ export default function Dashboard({
     partsChart,
     inspectionTrend,
     recentInspections,
-    recentMaintenances 
+    recentMaintenances,
+    isAdmin,
+    userRole,
+    userName
 }: DashboardProps) {
     // Update the chart configs to use explicit colors
     const inspectionTrendConfig: ChartConfig = {
@@ -322,42 +328,94 @@ export default function Dashboard({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4 md:p-6">
+                {/* Welcome Message */}
+                <div className="mb-4">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        Welcome back, {userName || (isAdmin ? 'Administrator' : 'Operator')}!
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">
+                        {isAdmin 
+                            ? 'Here\'s an overview of all system activities and statistics.' 
+                            : 'Here\'s your assigned inspections and relevant information.'}
+                    </p>
+                </div>
+
                 {/* Summary Statistics */}
                 <div className="grid auto-rows-min gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <StatCard 
-                        title="Total Drives" 
-                        value={drivesStats.total} 
-                        icon={<Building className="h-4 w-4 text-muted-foreground" />} 
-                        footerLink={route('drive')}
-                        footerText="View all drives"
-                    />
-                    <StatCard 
-                        title="Total Parts" 
-                        value={partsStats.total} 
-                        icon={<Package className="h-4 w-4 text-muted-foreground" />} 
-                        footerLink={route('parts')}
-                        footerText={`${partsStats.attached} attached, ${partsStats.unattached} unattached`}
-                    />
-                    <StatCard 
-                        title="Active Inspections" 
-                        value={inspectionsStats.active} 
-                        icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} 
-                        footerText={`${inspectionsStats.due_soon} due soon, ${inspectionsStats.overdue} overdue`}
-                        footerLink={route('inspections')}
-                    />
-                    <StatCard 
-                        title="Pending Maintenances" 
-                        value={maintenancesStats.needs_scheduling + maintenancesStats.scheduled + maintenancesStats.in_progress}
-                        icon={<Hourglass className="h-4 w-4 text-muted-foreground" />}
-                        footerText={`${maintenancesStats.scheduled} scheduled, ${maintenancesStats.in_progress} in progress`}
-                        footerLink={route('maintenances')}
-                    />
+                    {isAdmin ? (
+                        // Admin sees all statistics
+                        <>
+                            <StatCard 
+                                title="Total Drives" 
+                                value={drivesStats.total} 
+                                icon={<Building className="h-4 w-4 text-muted-foreground" />} 
+                                footerLink={route('drive')}
+                                footerText="View all drives"
+                            />
+                            <StatCard 
+                                title="Total Parts" 
+                                value={partsStats.total} 
+                                icon={<Package className="h-4 w-4 text-muted-foreground" />} 
+                                footerLink={route('parts')}
+                                footerText={`${partsStats.attached} attached, ${partsStats.unattached} unattached`}
+                            />
+                            <StatCard 
+                                title="Active Inspections" 
+                                value={inspectionsStats.active} 
+                                icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} 
+                                footerText={`${inspectionsStats.due_soon} due soon, ${inspectionsStats.overdue} overdue`}
+                                footerLink={route('inspections')}
+                            />
+                            <StatCard 
+                                title="Pending Maintenances" 
+                                value={maintenancesStats.needs_scheduling + maintenancesStats.scheduled + maintenancesStats.in_progress}
+                                icon={<Hourglass className="h-4 w-4 text-muted-foreground" />}
+                                footerText={`${maintenancesStats.scheduled} scheduled, ${maintenancesStats.in_progress} in progress`}
+                                footerLink={route('maintenances')}
+                            />
+                        </>
+                    ) : (
+                        // Operator sees only their relevant statistics
+                        <>
+                            <StatCard 
+                                title="My Assigned Inspections" 
+                                value={inspectionsStats.total} 
+                                icon={<ClipboardCheck className="h-4 w-4 text-muted-foreground" />} 
+                                footerLink={route('inspections')}
+                                footerText="View my inspections"
+                            />
+                            <StatCard 
+                                title="Active Inspections" 
+                                value={inspectionsStats.active} 
+                                icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} 
+                                footerText={`${inspectionsStats.due_soon} due soon, ${inspectionsStats.overdue} overdue`}
+                                footerLink={route('inspections')}
+                            />
+                            <StatCard 
+                                title="Completed Inspections" 
+                                value={inspectionsStats.completed} 
+                                icon={<FileText className="h-4 w-4 text-muted-foreground" />} 
+                                footerText="View completed inspections"
+                                footerLink={route('inspections')}
+                            />
+                            <StatCard 
+                                title="Available Drives" 
+                                value={drivesStats.total} 
+                                icon={<Building className="h-4 w-4 text-muted-foreground" />} 
+                                footerLink={route('drive')}
+                                footerText="View all drives"
+                            />
+                        </>
+                    )}
                 </div>
 
                 {/* Charts Section */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {/* Line Chart - Inspection Trends */}
-                    <Card className="col-span-full lg:col-span-2">
+                    {isAdmin ? (
+                        // Admin sees all charts
+                        <>
+                            {/* Line Chart - Inspection Trends */}
+                            <Card className="col-span-full lg:col-span-2">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <div className="space-y-1">
                                 <CardTitle className="flex items-center gap-2">
@@ -517,74 +575,190 @@ export default function Dashboard({
                             </ChartContainer>
                         </CardContent>
                     </Card>
+                        </>
+                    ) : (
+                        // Operator sees only their inspection status chart
+                        <>
+                            {/* Pie Chart - My Inspection Status */}
+                            <Card className="col-span-full lg:col-span-2">
+                                <CardHeader className="flex flex-row items-center pb-2">
+                                    <div className="space-y-1">
+                                        <CardTitle className="flex items-center gap-2">
+                                            <PieChartIcon className="h-5 w-5" />
+                                            My Inspection Status
+                                        </CardTitle>
+                                        <CardDescription>Distribution of your assigned inspection statuses</CardDescription>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    <ChartContainer config={inspectionStatusConfig} className="min-h-[250px] w-full">
+                                        <PieChart>
+                                            <Pie
+                                                data={transformedInspectionStatusData}
+                                                dataKey={item => item[item.name]}
+                                                nameKey="name"
+                                                cx="50%"
+                                                cy="50%"
+                                                labelLine={false}
+                                                outerRadius={80}
+                                                fill="#8884d8"
+                                            >
+                                                {transformedInspectionStatusData.map((entry, index) => (
+                                                    <Cell key={`cell-${entry.name}`} fill={inspectionStatusConfig[entry.name as keyof typeof inspectionStatusConfig]?.color || CHART_COLORS[index % CHART_COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <ChartTooltip content={<ChartTooltipContent />} />
+                                            <ChartLegend content={<ChartLegendContent />} />
+                                        </PieChart>
+                                    </ChartContainer>
+                                </CardContent>
+                            </Card>
+
+                            {/* Quick Actions Card for Operators */}
+                            <Card>
+                                <CardHeader className="flex flex-row items-center pb-2">
+                                    <div className="space-y-1">
+                                        <CardTitle className="flex items-center gap-2">
+                                            <ClipboardCheck className="h-5 w-5" />
+                                            Quick Actions
+                                        </CardTitle>
+                                        <CardDescription>Common tasks and shortcuts</CardDescription>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <Link 
+                                        href={route('inspections')}
+                                        className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <ClipboardCheck className="h-4 w-4 text-[var(--emmo-green-primary)]" />
+                                        <div>
+                                            <div className="font-medium">View My Inspections</div>
+                                            <div className="text-sm text-gray-500">Check assigned inspections</div>
+                                        </div>
+                                    </Link>
+                                    <Link 
+                                        href={route('drive')}
+                                        className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <Building className="h-4 w-4 text-[var(--emmo-green-primary)]" />
+                                        <div>
+                                            <div className="font-medium">View Drives</div>
+                                            <div className="text-sm text-gray-500">Access drive information</div>
+                                        </div>
+                                    </Link>
+                                </CardContent>
+                            </Card>
+                        </>
+                    )}
                 </div>
 
                 {/* Recent Activity Section */}
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <FileText className="h-5 w-5" />
-                                Recent Inspections
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="divide-y">
-                                {recentInspections.length > 0 ? (
-                                    recentInspections.map((inspection) => (
-                                        <ActivityItem
-                                            key={inspection.id}
-                                            link={route('inspections.show', inspection.id)}
-                                            title={inspection.name || `Inspection #${inspection.id}`}
-                                            description={`Operator: ${inspection.operator_name || 'N/A'} • By: ${inspection.created_by}`}
-                                            timestamp={inspection.created_at}
-                                            status={inspection.status}
-                                            icon={<ClipboardCheck className="h-4 w-4 text-muted-foreground" />}
-                                        />
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-muted-foreground py-4">No recent inspections found.</p>
-                                )}
-                            </div>
-                        </CardContent>
-                        <CardFooter>
-                            <Link href={route('inspections')} className="text-sm text-primary hover:underline">
-                                View all inspections
-                            </Link>
-                        </CardFooter>
-                    </Card>
+                    {isAdmin ? (
+                        // Admin sees both inspections and maintenances
+                        <>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <FileText className="h-5 w-5" />
+                                        Recent Inspections
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="divide-y">
+                                        {recentInspections.length > 0 ? (
+                                            recentInspections.map((inspection) => (
+                                                <ActivityItem
+                                                    key={inspection.id}
+                                                    link={route('inspections.show', inspection.id)}
+                                                    title={inspection.name || `Inspection #${inspection.id}`}
+                                                    description={`Operator: ${inspection.operator_name || 'N/A'} • By: ${inspection.created_by}`}
+                                                    timestamp={inspection.created_at}
+                                                    status={inspection.status}
+                                                    icon={<ClipboardCheck className="h-4 w-4 text-muted-foreground" />}
+                                                />
+                                            ))
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground py-4">No recent inspections found.</p>
+                                        )}
+                                    </div>
+                                </CardContent>
+                                <CardFooter>
+                                    <Link href={route('inspections')} className="text-sm text-primary hover:underline">
+                                        View all inspections
+                                    </Link>
+                                </CardFooter>
+                            </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Wrench className="h-5 w-5" />
-                                Recent Maintenances
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="divide-y">
-                                {recentMaintenances.length > 0 ? (
-                                    recentMaintenances.map((maintenance) => (
-                                        <ActivityItem
-                                            key={maintenance.id}
-                                            title={maintenance.description || `Maintenance #${maintenance.id}`}
-                                            description={`Created by ${maintenance.created_by}`}
-                                            timestamp={maintenance.created_at}
-                                            status={maintenance.status}
-                                            icon={<Wrench className="h-4 w-4 text-muted-foreground" />}
-                                        />
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-muted-foreground py-4">No recent maintenances found.</p>
-                                )}
-                            </div>
-                        </CardContent>
-                        <CardFooter>
-                            <Link href={route('maintenances')} className="text-sm text-primary hover:underline">
-                                View all maintenances
-                            </Link>
-                        </CardFooter>
-                    </Card>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Wrench className="h-5 w-5" />
+                                        Recent Maintenances
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="divide-y">
+                                        {recentMaintenances.length > 0 ? (
+                                            recentMaintenances.map((maintenance) => (
+                                                <ActivityItem
+                                                    key={maintenance.id}
+                                                    title={maintenance.description || `Maintenance #${maintenance.id}`}
+                                                    description={`Created by ${maintenance.created_by}`}
+                                                    timestamp={maintenance.created_at}
+                                                    status={maintenance.status}
+                                                    icon={<Wrench className="h-4 w-4 text-muted-foreground" />}
+                                                />
+                                            ))
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground py-4">No recent maintenances found.</p>
+                                        )}
+                                    </div>
+                                </CardContent>
+                                <CardFooter>
+                                    <Link href={route('maintenances')} className="text-sm text-primary hover:underline">
+                                        View all maintenances
+                                    </Link>
+                                </CardFooter>
+                            </Card>
+                        </>
+                    ) : (
+                        // Operator sees only their assigned inspections
+                        <>
+                            <Card className="col-span-full">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <FileText className="h-5 w-5" />
+                                        My Recent Inspections
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="divide-y">
+                                        {recentInspections.length > 0 ? (
+                                            recentInspections.map((inspection) => (
+                                                <ActivityItem
+                                                    key={inspection.id}
+                                                    link={route('inspections.show', inspection.id)}
+                                                    title={inspection.name || `Inspection #${inspection.id}`}
+                                                    description={`Created by ${inspection.created_by}`}
+                                                    timestamp={inspection.created_at}
+                                                    status={inspection.status}
+                                                    icon={<ClipboardCheck className="h-4 w-4 text-muted-foreground" />}
+                                                />
+                                            ))
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground py-4">No assigned inspections found.</p>
+                                        )}
+                                    </div>
+                                </CardContent>
+                                <CardFooter>
+                                    <Link href={route('inspections')} className="text-sm text-primary hover:underline">
+                                        View my inspections
+                                    </Link>
+                                </CardFooter>
+                            </Card>
+                        </>
+                    )}
                 </div>
             </div>
         </AppLayout>

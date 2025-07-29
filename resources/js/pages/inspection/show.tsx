@@ -562,8 +562,9 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                     </div>
                 </Tabs>
                 
-                {/* Task Form Dialog */}
-                <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
+                {/* Task Form Dialog - Admin Only */}
+                {isAdmin && (
+                    <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
                     <DialogContent className="sm:max-w-[550px] rounded-xl p-0 overflow-hidden">
                         <form onSubmit={handleTaskSubmit} className="flex flex-col h-full">
                             {/* Header with visual treatment */}
@@ -841,6 +842,7 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                         </form>
                     </DialogContent>
                 </Dialog>
+                )}
                 
                 {/* Delete Task Confirmation */}
                 <AlertDialog open={showDeleteTaskDialog} onOpenChange={setShowDeleteTaskDialog}>

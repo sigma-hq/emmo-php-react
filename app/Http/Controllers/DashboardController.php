@@ -17,27 +17,60 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $inspectionsStats = [
-            'total' => Inspection::count(),
-            'active' => Inspection::where('status', 'active')->count(),
-            'pending_review' => Inspection::where('is_template', false)
-                                      ->whereDoesntHave('tasks.results') // Or a more specific status
-                                      ->where('status', '!=', 'completed')
-                                      ->where('status', '!=', 'draft')
-                                      ->count(),
-            'completed' => Inspection::where('status', 'completed')->count(),
-            'draft' => Inspection::where('status', 'draft')->count(),
-            'due_soon' => Inspection::where('is_template', false)
-                                ->where('status', '!=', 'completed')
-                                ->whereNotNull('schedule_next_due_date')
-                                ->whereBetween('schedule_next_due_date', [Carbon::now(), Carbon::now()->addDays(7)])
-                                ->count(),
-            'overdue' => Inspection::where('is_template', false)
-                               ->where('status', '!=', 'completed')
-                               ->whereNotNull('schedule_next_due_date')
-                               ->where('schedule_next_due_date', '<', Carbon::now())
-                               ->count(),
-        ];
+        $user = auth()->user();
+        $isAdmin = $user->isAdmin();
+        
+        // Get role-specific inspection stats
+        if ($isAdmin) {
+            // Admin sees all inspections
+            $inspectionsStats = [
+                'total' => Inspection::count(),
+                'active' => Inspection::where('status', 'active')->count(),
+                'pending_review' => Inspection::where('is_template', false)
+                                          ->whereDoesntHave('tasks.results')
+                                          ->where('status', '!=', 'completed')
+                                          ->where('status', '!=', 'draft')
+                                          ->count(),
+                'completed' => Inspection::where('status', 'completed')->count(),
+                'draft' => Inspection::where('status', 'draft')->count(),
+                'due_soon' => Inspection::where('is_template', false)
+                                    ->where('status', '!=', 'completed')
+                                    ->whereNotNull('schedule_next_due_date')
+                                    ->whereBetween('schedule_next_due_date', [Carbon::now(), Carbon::now()->addDays(7)])
+                                    ->count(),
+                'overdue' => Inspection::where('is_template', false)
+                                   ->where('status', '!=', 'completed')
+                                   ->whereNotNull('schedule_next_due_date')
+                                   ->where('schedule_next_due_date', '<', Carbon::now())
+                                   ->count(),
+            ];
+        } else {
+            // Operator sees only their assigned inspections
+            $inspectionsStats = [
+                'total' => Inspection::where('operator_id', $user->id)->count(),
+                'active' => Inspection::where('operator_id', $user->id)->where('status', 'active')->count(),
+                'pending_review' => Inspection::where('operator_id', $user->id)
+                                          ->where('is_template', false)
+                                          ->whereDoesntHave('tasks.results')
+                                          ->where('status', '!=', 'completed')
+                                          ->where('status', '!=', 'draft')
+                                          ->count(),
+                'completed' => Inspection::where('operator_id', $user->id)->where('status', 'completed')->count(),
+                'draft' => Inspection::where('operator_id', $user->id)->where('status', 'draft')->count(),
+                'due_soon' => Inspection::where('operator_id', $user->id)
+                                    ->where('is_template', false)
+                                    ->where('status', '!=', 'completed')
+                                    ->whereNotNull('schedule_next_due_date')
+                                    ->whereBetween('schedule_next_due_date', [Carbon::now(), Carbon::now()->addDays(7)])
+                                    ->count(),
+                'overdue' => Inspection::where('operator_id', $user->id)
+                                   ->where('is_template', false)
+                                   ->where('status', '!=', 'completed')
+                                   ->whereNotNull('schedule_next_due_date')
+                                   ->where('schedule_next_due_date', '<', Carbon::now())
+                                   ->count(),
+            ];
+        }
 
         // Chart data for inspection status distribution
         $inspectionStatusChart = [
@@ -47,13 +80,27 @@ class DashboardController extends Controller
             ['name' => 'Draft', 'value' => $inspectionsStats['draft']],
         ];
 
-        $maintenancesStats = [
-            'total' => Maintenance::count(),
-            'scheduled' => Maintenance::where('status', 'scheduled')->count(),
-            'in_progress' => Maintenance::where('status', 'in_progress')->count(),
-            'completed' => Maintenance::where('status', 'completed')->count(),
-            'needs_scheduling' => Maintenance::where('status', 'pending')->count(), // Assuming 'pending' means needs scheduling
-        ];
+        // Get role-specific maintenance stats
+        if ($isAdmin) {
+            // Admin sees all maintenances
+            $maintenancesStats = [
+                'total' => Maintenance::count(),
+                'scheduled' => Maintenance::where('status', 'scheduled')->count(),
+                'in_progress' => Maintenance::where('status', 'in_progress')->count(),
+                'completed' => Maintenance::where('status', 'completed')->count(),
+                'needs_scheduling' => Maintenance::where('status', 'pending')->count(),
+            ];
+        } else {
+            // Operator sees only maintenances they're involved with (if any)
+            // For now, operators don't have specific maintenance assignments, so show 0
+            $maintenancesStats = [
+                'total' => 0,
+                'scheduled' => 0,
+                'in_progress' => 0,
+                'completed' => 0,
+                'needs_scheduling' => 0,
+            ];
+        }
 
         // Chart data for maintenance status
         $maintenanceStatusChart = [
@@ -63,15 +110,30 @@ class DashboardController extends Controller
             ['name' => 'Needs Scheduling', 'value' => $maintenancesStats['needs_scheduling']],
         ];
 
-        $drivesStats = [
-            'total' => Drive::count(),
-        ];
+        // Get role-specific drives and parts stats
+        if ($isAdmin) {
+            // Admin sees all drives and parts
+            $drivesStats = [
+                'total' => Drive::count(),
+            ];
 
-        $partsStats = [
-            'total' => Part::count(),
-            'attached' => Part::whereNotNull('drive_id')->count(),
-            'unattached' => Part::whereNull('drive_id')->count(),
-        ];
+            $partsStats = [
+                'total' => Part::count(),
+                'attached' => Part::whereNotNull('drive_id')->count(),
+                'unattached' => Part::whereNull('drive_id')->count(),
+            ];
+        } else {
+            // Operator sees all drives and parts (they need to access them for inspections)
+            $drivesStats = [
+                'total' => Drive::count(),
+            ];
+
+            $partsStats = [
+                'total' => Part::count(),
+                'attached' => Part::whereNotNull('drive_id')->count(),
+                'unattached' => Part::whereNull('drive_id')->count(),
+            ];
+        }
 
         // Chart data for parts (attached vs unattached)
         $partsChart = [
@@ -82,36 +144,60 @@ class DashboardController extends Controller
         // Inspection trend data - last 6 months
         $inspectionTrend = $this->getInspectionTrend();
 
-        // Get recent activities (inspections and maintenances)
-        $recentInspections = Inspection::with(['creator', 'operator'])
-            ->where('is_template', false)
-            ->latest()
-            ->take(5)
-            ->get()
-            ->map(function ($inspection) {
-                return [
-                    'id' => $inspection->id,
-                    'name' => $inspection->name,
-                    'status' => $inspection->status,
-                    'created_at' => $inspection->created_at,
-                    'created_by' => $inspection->creator ? $inspection->creator->name : 'System',
-                    'operator_name' => $inspection->operator ? $inspection->operator->name : 'N/A',
-                ];
-            });
-        
-        $recentMaintenances = Maintenance::with('user')
-            ->latest()
-            ->take(5)
-            ->get()
-            ->map(function ($maintenance) {
-                return [
-                    'id' => $maintenance->id,
-                    'description' => $maintenance->description,
-                    'status' => $maintenance->status,
-                    'created_at' => $maintenance->created_at,
-                    'created_by' => $maintenance->user ? $maintenance->user->name : 'System',
-                ];
-            });
+        // Get role-specific recent activities
+        if ($isAdmin) {
+            // Admin sees all recent activities
+            $recentInspections = Inspection::with(['creator', 'operator'])
+                ->where('is_template', false)
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(function ($inspection) {
+                    return [
+                        'id' => $inspection->id,
+                        'name' => $inspection->name,
+                        'status' => $inspection->status,
+                        'created_at' => $inspection->created_at,
+                        'created_by' => $inspection->creator ? $inspection->creator->name : 'System',
+                        'operator_name' => $inspection->operator ? $inspection->operator->name : 'N/A',
+                    ];
+                });
+            
+            $recentMaintenances = Maintenance::with('user')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(function ($maintenance) {
+                    return [
+                        'id' => $maintenance->id,
+                        'description' => $maintenance->description,
+                        'status' => $maintenance->status,
+                        'created_at' => $maintenance->created_at,
+                        'created_by' => $maintenance->user ? $maintenance->user->name : 'System',
+                    ];
+                });
+        } else {
+            // Operator sees only their assigned inspections
+            $recentInspections = Inspection::with(['creator', 'operator'])
+                ->where('is_template', false)
+                ->where('operator_id', $user->id)
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(function ($inspection) {
+                    return [
+                        'id' => $inspection->id,
+                        'name' => $inspection->name,
+                        'status' => $inspection->status,
+                        'created_at' => $inspection->created_at,
+                        'created_by' => $inspection->creator ? $inspection->creator->name : 'System',
+                        'operator_name' => $inspection->operator ? $inspection->operator->name : 'N/A',
+                    ];
+                });
+            
+            // Operators don't see maintenance activities
+            $recentMaintenances = collect();
+        }
 
         return Inertia::render('dashboard', [
             'inspectionsStats' => $inspectionsStats,
@@ -124,6 +210,9 @@ class DashboardController extends Controller
             'inspectionTrend' => $inspectionTrend,
             'recentInspections' => $recentInspections,
             'recentMaintenances' => $recentMaintenances,
+            'isAdmin' => $isAdmin,
+            'userRole' => $user->role,
+            'userName' => $user->name,
         ]);
     }
 

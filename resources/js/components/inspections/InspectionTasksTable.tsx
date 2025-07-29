@@ -525,16 +525,23 @@ export default function InspectionTasksTable({
                                                     <ListChecks className="h-6 w-6 text-gray-400" />
                                                 </div>
                                                 <p className="text-sm font-medium text-gray-700">No sub-tasks available</p>
-                                                <p className="text-xs text-gray-500 mt-1">Add sub-tasks to break this task into smaller steps</p>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="mt-3 h-8 text-xs bg-white"
-                                                    onClick={() => openAddSubTaskDialog(task.id)}
-                                                >
-                                                    <PlusIcon className="h-3 w-3 mr-1" />
-                                                    Add First Sub-Task
-                                                </Button>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {isAdmin 
+                                                        ? 'Add sub-tasks to break this task into smaller steps'
+                                                        : 'No sub-tasks have been configured for this task'
+                                                    }
+                                                </p>
+                                                {isAdmin && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="mt-3 h-8 text-xs bg-white"
+                                                        onClick={() => openAddSubTaskDialog(task.id)}
+                                                    >
+                                                        <PlusIcon className="h-3 w-3 mr-1" />
+                                                        Add First Sub-Task
+                                                    </Button>
+                                                )}
                                             </div>
                                         )}
                                     </div>
