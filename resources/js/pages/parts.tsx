@@ -83,6 +83,7 @@ interface PartsPageProps {
         success?: string;
     };
     editPart?: number;
+    isAdmin?: boolean;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -96,7 +97,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Parts({ parts, drives, flash, editPart }: PartsPageProps) {
+export default function Parts({ parts, drives, flash, editPart, isAdmin }: PartsPageProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [showSuccessNotification, setShowSuccessNotification] = useState(false);
@@ -290,23 +291,25 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
                             <h1 className="text-2xl font-bold tracking-tight">Parts Management</h1>
                         </div>
                         
-                        <div className="flex gap-3">
-                            <Button 
-                                variant="outline"
-                                onClick={() => setShowImportDialog(true)}
-                                className="flex items-center gap-2 border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-                            >
-                                <UploadIcon className="h-4 w-4 text-[var(--emmo-green-primary)]" />
-                                Import CSV
-                            </Button>
-                            
-                            <Button 
-                                onClick={openCreateDialog} 
-                                className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
-                            >
-                                <PlusIcon className="mr-2 h-4 w-4" /> New Part
-                            </Button>
-                        </div>
+                        {isAdmin && (
+                            <div className="flex gap-3">
+                                <Button 
+                                    variant="outline"
+                                    onClick={() => setShowImportDialog(true)}
+                                    className="flex items-center gap-2 border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                                >
+                                    <UploadIcon className="h-4 w-4 text-[var(--emmo-green-primary)]" />
+                                    Import CSV
+                                </Button>
+                                
+                                <Button 
+                                    onClick={openCreateDialog} 
+                                    className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
+                                >
+                                    <PlusIcon className="mr-2 h-4 w-4" /> New Part
+                                </Button>
+                            </div>
+                        )}
                     </div>
                     
                     <p className="text-gray-500 dark:text-gray-400 max-w-2xl">
@@ -429,12 +432,22 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
                                                         <circle cx="12" cy="12" r="3"></circle>
                                                     </svg>
                                                 </Link>
-                                                <button 
-                                                    onClick={() => openEditDialog(part)}
-                                                    className="text-[var(--emmo-green-primary)] hover:text-[var(--emmo-green-dark)] transition-colors"
-                                                >
-                                                    <Pencil className="h-4 w-4" />
-                                                </button>
+                                                {isAdmin && (
+                                                    <>
+                                                        <button 
+                                                            onClick={() => openEditDialog(part)}
+                                                            className="text-[var(--emmo-green-primary)] hover:text-[var(--emmo-green-dark)] transition-colors"
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => openDeleteDialog(part)}
+                                                            className="text-gray-400 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </>
+                                                )}
                                                 <button 
                                                     onClick={() => viewAttachmentHistory(part)}
                                                     className="text-blue-500 hover:text-blue-700 transition-colors"
@@ -444,12 +457,6 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
                                                         <path d="M12 8v4l3 3"></path>
                                                         <circle cx="12" cy="12" r="9"></circle>
                                                     </svg>
-                                                </button>
-                                                <button 
-                                                    onClick={() => openDeleteDialog(part)}
-                                                    className="text-gray-400 hover:text-red-500 transition-colors"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
                                                 </button>
                                             </div>
                                         </td>
@@ -471,7 +478,7 @@ export default function Parts({ parts, drives, flash, editPart }: PartsPageProps
                                     : 'Get started by creating your first part to track and manage your machinery components.'}
                             </p>
                             
-                            {!searchTerm && (
+                            {!searchTerm && isAdmin && (
                                 <Button 
                                     onClick={openCreateDialog} 
                                     className="inline-flex items-center bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] text-white font-medium rounded-full px-4 py-2"

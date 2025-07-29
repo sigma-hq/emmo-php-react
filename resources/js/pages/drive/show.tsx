@@ -35,9 +35,10 @@ interface Drive {
 interface DriveShowProps {
     drive: Drive;
     operators: { id: number; name: string }[];
+    isAdmin?: boolean;
 }
 
-export default function DriveShow({ drive, operators }: DriveShowProps) {
+export default function DriveShow({ drive, operators, isAdmin }: DriveShowProps) {
     const [activeTab, setActiveTab] = useState('overview');
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -108,14 +109,16 @@ export default function DriveShow({ drive, operators }: DriveShowProps) {
                                     Share
                                 </Link>
                             </Button>
-                            <Button
-                                className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] h-9"
-                                asChild
-                            >
-                                <Link href={route('api.drives.update', drive.id)}>
-                                    Edit Drive
-                                </Link>
-                            </Button>
+                            {isAdmin && (
+                                <Button
+                                    className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] h-9"
+                                    asChild
+                                >
+                                    <Link href={route('api.drives.update', drive.id)}>
+                                        Edit Drive
+                                    </Link>
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -160,7 +163,7 @@ export default function DriveShow({ drive, operators }: DriveShowProps) {
                         </TabsContent>
                         
                         <TabsContent value="maintenance" className="h-full">
-                            <MaintenanceTab drive={drive} operators={operators} />
+                            <MaintenanceTab drive={drive} operators={operators} isAdmin={isAdmin} />
                         </TabsContent>
                     </div>
                 </Tabs>

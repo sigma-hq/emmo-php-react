@@ -14,6 +14,9 @@ class MaintenanceController extends Controller
      */
     public function index(Request $request)
     {
+        $user = auth()->user();
+        $isAdmin = $user->isAdmin();
+        
         $maintenances = Maintenance::with(['drive:id,name,drive_ref', 'user:id,name'])
             ->select(['id', 'drive_id', 'title', 'description', 'maintenance_date', 'technician', 'status', 'cost', 'user_id', 'checklist_json', 'created_at', 'updated_at'])
             ->when($request->input('search'), function($query, $search) {
@@ -43,6 +46,7 @@ class MaintenanceController extends Controller
                 'status' => $request->input('status', ''),
             ],
             'drives' => $drives,
+            'isAdmin' => $isAdmin,
         ]);
     }
 

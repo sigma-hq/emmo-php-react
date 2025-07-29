@@ -109,6 +109,7 @@ interface InspectionsPageProps {
     flash?: {
         success?: string;
     };
+    isAdmin?: boolean;
 }
 
 interface InspectionFormData {
@@ -158,7 +159,7 @@ const calculateProgress = (inspection: Inspection): number => {
     return Math.round((completedTasks / inspection.tasks_count) * 100);
 };
 
-export default function Inspections({ inspections, users, filters, flash }: InspectionsPageProps) {
+export default function Inspections({ inspections, users, filters, flash, isAdmin }: InspectionsPageProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [showSuccessNotification, setShowSuccessNotification] = useState(false);
@@ -381,10 +382,12 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                             <ClipboardList className="h-6 w-6 text-[var(--emmo-green-primary)]" />
                             <h1 className="text-2xl font-bold tracking-tight">Inspection Management</h1>
                         </div>
-                        <Button onClick={openCreateDialog} className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]">
-                            <PlusIcon className="h-4 w-4 mr-2" />
-                            New Inspection
-                        </Button>
+                        {isAdmin && (
+                            <Button onClick={openCreateDialog} className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]">
+                                <PlusIcon className="h-4 w-4 mr-2" />
+                                New Inspection
+                            </Button>
+                        )}
                     </div>
                     <p className="text-sm text-gray-500">
                         Create and manage inspection procedures for drives and parts.
@@ -813,24 +816,28 @@ export default function Inspections({ inspections, users, filters, flash }: Insp
                                                     >
                                                         <Eye className="h-4 w-4" />
                                                     </Link>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        onClick={() => openEditDialog(inspection)}
-                                                    >
-                                                        <Pencil className="h-3.5 w-3.5" />
-                                                        <span className="sr-only">Edit</span>
-                                                    </Button>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0 text-red-500 dark:text-red-400"
-                                                        onClick={() => openDeleteDialog(inspection)}
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                        <span className="sr-only">Delete</span>
-                                                    </Button>
+                                                    {isAdmin && (
+                                                        <>
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="sm"
+                                                                className="h-8 w-8 p-0"
+                                                                onClick={() => openEditDialog(inspection)}
+                                                            >
+                                                                <Pencil className="h-3.5 w-3.5" />
+                                                                <span className="sr-only">Edit</span>
+                                                            </Button>
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="sm"
+                                                                className="h-8 w-8 p-0 text-red-500 dark:text-red-400"
+                                                                onClick={() => openDeleteDialog(inspection)}
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                                <span className="sr-only">Delete</span>
+                                                            </Button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

@@ -63,6 +63,7 @@ interface MaintenanceListViewProps {
     onStatusUpdate: (maintenanceId: number, newStatus: MaintenanceStatus) => Promise<void>;
     onEditMaintenance: (maintenance: Maintenance) => void;
     onDeleteMaintenance: (maintenanceId: number) => void;
+    isAdmin?: boolean;
 }
 
 interface ChecklistItem {
@@ -80,7 +81,8 @@ export default function MaintenanceListView({
     onOpenAddDialog,
     onStatusUpdate,
     onEditMaintenance,
-    onDeleteMaintenance
+    onDeleteMaintenance,
+    isAdmin
 }: MaintenanceListViewProps) {
     const [sortField, setSortField] = useState<'title' | 'maintenance_date' | 'technician' | 'status' | 'created_at'>('maintenance_date');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -487,14 +489,18 @@ export default function MaintenanceListView({
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end" className="w-[160px]">
-                                                        <DropdownMenuItem onClick={() => onEditMaintenance(maintenance)}>
-                                                            <Edit3 className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
-                                                            Edit
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => onDeleteMaintenance(maintenance.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-700/20 dark:focus:text-red-500">
-                                                            <Trash2 className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
-                                                            Delete
-                                                        </DropdownMenuItem>
+                                                        {isAdmin && (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => onEditMaintenance(maintenance)}>
+                                                                    <Edit3 className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
+                                                                    Edit
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => onDeleteMaintenance(maintenance.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-700/20 dark:focus:text-red-500">
+                                                                    <Trash2 className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
+                                                                    Delete
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>

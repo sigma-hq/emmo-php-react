@@ -158,6 +158,7 @@ interface InspectionShowProps {
     flash?: {
         success?: string;
     };
+    isAdmin?: boolean;
 }
 
 // Simple Progress component since we don't have the UI component
@@ -170,7 +171,7 @@ const Progress = ({ value, className = "" }: { value: number, className?: string
     </div>
 );
 
-export default function InspectionShow({ inspection, drives, parts, flash }: InspectionShowProps) {
+export default function InspectionShow({ inspection, drives, parts, flash, isAdmin }: InspectionShowProps) {
     const [showSuccessNotification, setShowSuccessNotification] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     
@@ -493,15 +494,17 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                         
                         <div className="flex gap-3 self-start md:self-center">
                             {/* Optional: Add Edit/Share buttons here if needed, similar to Drive page */}
-                             <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={openCreateTaskDialog} // Keep Add Task accessible 
-                                className="h-9"
-                            >
-                                <PlusIcon className="h-4 w-4 mr-2" />
-                                Add Task
-                            </Button>
+                            {isAdmin && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={openCreateTaskDialog} // Keep Add Task accessible 
+                                    className="h-9"
+                                >
+                                    <PlusIcon className="h-4 w-4 mr-2" />
+                                    Add Task
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -546,6 +549,7 @@ export default function InspectionShow({ inspection, drives, parts, flash }: Ins
                                 openEditTaskDialog={openEditTaskDialog}
                                 openDeleteTaskDialog={openDeleteTaskDialog}
                                 openRecordResultDialog={openRecordResultDialog}
+                                isAdmin={isAdmin}
                            />
                         </TabsContent>
                         

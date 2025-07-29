@@ -6,15 +6,15 @@ import { Link, usePage } from '@inertiajs/react';
 import { LayoutGrid, HardDrive, Wrench, ClipboardCheck, Hammer, Users as UsersIcon } from 'lucide-react';
 import AppLogo from './app-logo';
 
-// Define navigation items with potential grouping info
-const navItems: (NavItem & { group: string })[] = [
+// Define navigation items with potential grouping info and role requirements
+const navItems: (NavItem & { group: string; adminOnly?: boolean })[] = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, group: 'Overview' },
     { title: 'Drive', href: '/drive', icon: HardDrive, group: 'Operations' },
     { title: 'Inspections', href: '/inspections', icon: ClipboardCheck, group: 'Operations' },
     { title: 'Maintenances', href: '/maintenances', icon: Hammer, group: 'Operations' },
     // { title: 'View Items', href: '/view-items', icon: List, group: 'Operations' },
     { title: 'Parts', href: '/parts', icon: Wrench, group: 'Resources' },
-    { title: 'Users', href: '/users', icon: UsersIcon, group: 'Admin' },
+    { title: 'Users', href: '/users', icon: UsersIcon, group: 'Admin', adminOnly: true },
 ];
 
 const footerNavItems: NavItem[] = [
@@ -31,16 +31,28 @@ const footerNavItems: NavItem[] = [
 ];
 
 // Helper function to group items
-const groupNavItems = (items: (NavItem & { group: string })[]) => {
+const groupNavItems = (items: (NavItem & { group: string; adminOnly?: boolean })[]) => {
     return items.reduce((acc, item) => {
         (acc[item.group] = acc[item.group] || []).push(item);
         return acc;
-    }, {} as Record<string, NavItem[]>);
+    }, {} as Record<string, (NavItem & { adminOnly?: boolean })[]>);
 };
 
 export function AppSidebar() {
     const page = usePage();
-    const groupedNavItems = groupNavItems(navItems);
+    const { auth } = page.props;
+    const isAdmin = auth.user.role === 'admin';
+    
+    // Filter navigation items based on user role
+    const filteredNavItems = navItems.filter(item => {
+        // If item is admin-only and user is not admin, hide it
+        if (item.adminOnly && !isAdmin) {
+            return false;
+        }
+        return true;
+    });
+    
+    const groupedNavItems = groupNavItems(filteredNavItems);
 
     return (
         <Sidebar collapsible="icon" variant="inset">

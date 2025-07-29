@@ -86,6 +86,9 @@ class InspectionController extends Controller
      */
     public function index(Request $request)
     {
+        $user = auth()->user();
+        $isAdmin = $user->isAdmin();
+        
         // Get pagination settings from request or use defaults
         $perPage = $request->input('per_page', 10);
         
@@ -125,7 +128,8 @@ class InspectionController extends Controller
                 'type' => $request->input('type', 'all'),
                 'status' => $request->input('status', 'all'),
                 'per_page' => $perPage
-            ]
+            ],
+            'isAdmin' => $isAdmin
         ]);
     }
 
@@ -167,6 +171,9 @@ class InspectionController extends Controller
      */
     public function show(Inspection $inspection)
     {
+        $user = auth()->user();
+        $isAdmin = $user->isAdmin();
+        
         $inspection->load([
             'creator:id,name',
             'parentTemplate:id,name', // Load parent if it's an instance
@@ -196,6 +203,7 @@ class InspectionController extends Controller
             'inspection' => $inspection,
             'drives' => Drive::select('id', 'name', 'drive_ref')->get(),
             'parts' => Part::select('id', 'name', 'part_ref')->get(),
+            'isAdmin' => $isAdmin,
         ];
         
         // Force relationship to be included in response

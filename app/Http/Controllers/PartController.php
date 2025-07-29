@@ -16,6 +16,9 @@ class PartController extends Controller
      */
     public function index(Request $request)
     {
+        $user = auth()->user();
+        $isAdmin = $user->isAdmin();
+        
         $parts = Part::with('drive:id,name,drive_ref')
             ->when($request->input('search'), function($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
@@ -36,6 +39,7 @@ class PartController extends Controller
         return Inertia::render('parts', [
             'parts' => $parts,
             'drives' => $drives,
+            'isAdmin' => $isAdmin,
         ]);
     }
 

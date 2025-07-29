@@ -26,7 +26,8 @@ export default function InspectionTasksTable({
     toggleSubTaskStatus, 
     getComplianceBadge, 
     openEditSubTaskDialog, 
-    deleteSubTask 
+    deleteSubTask,
+    isAdmin
 }: {
     tasks: InspectionTask[];
     toggleTaskExpanded: (taskId: number) => void;
@@ -39,6 +40,7 @@ export default function InspectionTasksTable({
     getComplianceBadge: (compliance: InspectionSubTask["compliance"]) => JSX.Element;
     openEditSubTaskDialog: (subTask: InspectionSubTask) => void;
     deleteSubTask: (subTaskId: number) => void;
+    isAdmin?: boolean;
 }): React.ReactNode {
     return <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
         <table className="min-w-full divide-y divide-gray-200">
@@ -262,24 +264,28 @@ export default function InspectionTasksTable({
                                     </Button>
                                     )}
 
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700"
-                                        onClick={() => openEditTaskDialog(task)}
-                                    >
-                                        <span className="sr-only">Edit</span>
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
-                                        onClick={() => openDeleteTaskDialog(task)}
-                                    >
-                                        <span className="sr-only">Delete</span>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    {isAdmin && (
+                                        <>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700"
+                                                onClick={() => openEditTaskDialog(task)}
+                                            >
+                                                <span className="sr-only">Edit</span>
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                                onClick={() => openDeleteTaskDialog(task)}
+                                            >
+                                                <span className="sr-only">Delete</span>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </>
+                                    )}
                                 </div>
                             </td>
                         </tr>
@@ -294,15 +300,17 @@ export default function InspectionTasksTable({
                                                 <ListChecks className="h-4 w-4 mr-1.5 text-gray-500" />
                                                 Sub-Tasks
                                             </h4>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-7 text-xs bg-white hover:bg-gray-50 border-gray-200 text-gray-700"
-                                                onClick={() => openAddSubTaskDialog(task.id)}
-                                            >
-                                                <PlusIcon className="h-3 w-3 mr-1" />
-                                                Add Sub-Task
-                                            </Button>
+                                            {isAdmin && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 text-xs bg-white hover:bg-gray-50 border-gray-200 text-gray-700"
+                                                    onClick={() => openAddSubTaskDialog(task.id)}
+                                                >
+                                                    <PlusIcon className="h-3 w-3 mr-1" />
+                                                    Add Sub-Task
+                                                </Button>
+                                            )}
                                         </div>
 
                                         {task.sub_tasks && task.sub_tasks.length > 0 ? (

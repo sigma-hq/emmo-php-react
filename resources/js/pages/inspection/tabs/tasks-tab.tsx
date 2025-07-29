@@ -32,6 +32,7 @@ interface TasksTabProps {
     openEditTaskDialog: (task: InspectionTask) => void;
     openDeleteTaskDialog: (task: InspectionTask) => void;
     openRecordResultDialog: (task: InspectionTask) => void;
+    isAdmin?: boolean;
 }
 
 // Define the response type from the backend
@@ -59,7 +60,8 @@ export default function TasksTab({
     openCreateTaskDialog, 
     openEditTaskDialog, 
     openDeleteTaskDialog, 
-    openRecordResultDialog 
+    openRecordResultDialog,
+    isAdmin
 }: TasksTabProps) {
     // Track which tasks have expanded sub-task sections
     const [expandedTaskIds, setExpandedTaskIds] = useState<number[]>([]);
@@ -527,6 +529,7 @@ export default function TasksTab({
                     getComplianceBadge={getComplianceBadge} 
                     openEditSubTaskDialog={openEditSubTaskDialog} 
                     deleteSubTask={deleteSubTask}
+                    isAdmin={isAdmin}
                 />
             ) : (
                 <div className="text-center p-8 border rounded-md bg-gray-50/50">

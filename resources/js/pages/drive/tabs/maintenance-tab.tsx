@@ -59,6 +59,7 @@ interface Drive {
 interface MaintenanceTabProps {
     drive: Drive;
     operators: { id: number; name: string }[];
+    isAdmin?: boolean;
 }
 
 // Status configuration for the Kanban board
@@ -89,7 +90,7 @@ const statusConfig = [
     },
 ];
 
-export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps) {
+export default function MaintenanceTab({ drive, operators, isAdmin }: MaintenanceTabProps) {
     const [maintenances, setMaintenances] = useState<Maintenance[]>(drive.maintenances || []);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -236,6 +237,7 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
                     <Wrench className="h-6 w-6 text-[var(--emmo-green-primary)]" />
                     <h2 className="text-xl font-semibold">Maintenance Records</h2>
                 </div>
+                {isAdmin && (
                     <Button 
                         onClick={() => {
                         setEditingMaintenance(null);
@@ -246,6 +248,7 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
                         <PlusIcon className="h-4 w-4 mr-2" /> 
                         Log Maintenance
                     </Button>
+                )}
             </div>
 
             {/* Content */}
@@ -260,6 +263,7 @@ export default function MaintenanceTab({ drive, operators }: MaintenanceTabProps
                 onEditMaintenance={handleOpenEditDialog}
                 onDeleteMaintenance={handleDeleteConfirmation}
                 statusConfig={statusConfig}
+                isAdmin={isAdmin}
             />
             
             {/* Log Maintenance Dialog */}

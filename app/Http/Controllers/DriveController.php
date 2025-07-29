@@ -15,6 +15,9 @@ class DriveController extends Controller
      */
     public function index(Request $request)
     {
+        $user = auth()->user();
+        $isAdmin = $user->isAdmin();
+        
         $drives = Drive::withCount('parts')
             ->when($request->input('search'), function($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
@@ -27,6 +30,7 @@ class DriveController extends Controller
         
         return Inertia::render('drive', [
             'drives' => $drives,
+            'isAdmin' => $isAdmin,
         ]);
     }
 
@@ -55,6 +59,9 @@ class DriveController extends Controller
      */
     public function show(Drive $drive)
     {
+        $user = auth()->user();
+        $isAdmin = $user->isAdmin();
+        
         $drive->load([
             'parts' => function($query) {
                 $query->latest();
@@ -67,6 +74,7 @@ class DriveController extends Controller
         return Inertia::render('drive/show', [
             'drive' => $drive,
             'operators' => $operators,
+            'isAdmin' => $isAdmin,
         ]);
     }
 

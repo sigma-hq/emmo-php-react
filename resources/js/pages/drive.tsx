@@ -58,6 +58,7 @@ interface DrivePageProps {
     flash?: {
         success?: string;
     };
+    isAdmin?: boolean;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -71,7 +72,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Drive({ drives, flash }: DrivePageProps) {
+export default function Drive({ drives, flash, isAdmin }: DrivePageProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [showSuccessNotification, setShowSuccessNotification] = useState(false);
@@ -228,23 +229,25 @@ export default function Drive({ drives, flash }: DrivePageProps) {
                             <h1 className="text-2xl font-bold tracking-tight">Drive Management</h1>
                         </div>
                         
-                        <div className="flex gap-3">
-                            <Button 
-                                variant="outline"
-                                onClick={() => setShowImportDialog(true)}
-                                className="flex items-center gap-2 border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-                            >
-                                <UploadIcon className="h-4 w-4 text-[var(--emmo-green-primary)]" />
-                                Import CSV
-                            </Button>
-                        
-                        <Button 
-                            onClick={openCreateDialog} 
-                            className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
-                        >
-                            <PlusIcon className="mr-2 h-4 w-4" /> New Drive
-                        </Button>
-                        </div>
+                        {isAdmin && (
+                            <div className="flex gap-3">
+                                <Button 
+                                    variant="outline"
+                                    onClick={() => setShowImportDialog(true)}
+                                    className="flex items-center gap-2 border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                                >
+                                    <UploadIcon className="h-4 w-4 text-[var(--emmo-green-primary)]" />
+                                    Import CSV
+                                </Button>
+                            
+                                <Button 
+                                    onClick={openCreateDialog} 
+                                    className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] rounded-full px-4 transition-all duration-200 hover:shadow-md"
+                                >
+                                    <PlusIcon className="mr-2 h-4 w-4" /> New Drive
+                                </Button>
+                            </div>
+                        )}
                     </div>
                     
                     <p className="text-gray-500 dark:text-gray-400 max-w-2xl">
@@ -334,18 +337,22 @@ export default function Drive({ drives, flash }: DrivePageProps) {
                                                 >
                                                     <Eye className="h-4 w-4" />
                                                 </Link>
-                                                <button 
-                                                    onClick={() => openEditDialog(drive)}
-                                                    className="text-[var(--emmo-green-primary)] hover:text-[var(--emmo-green-dark)] transition-colors"
-                                                >
-                                                    <Pencil className="h-4 w-4" />
-                                                </button>
-                                                <button 
-                                                    onClick={() => openDeleteDialog(drive)}
-                                                    className="text-gray-400 hover:text-red-500 transition-colors"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
+                                                {isAdmin && (
+                                                    <>
+                                                        <button 
+                                                            onClick={() => openEditDialog(drive)}
+                                                            className="text-[var(--emmo-green-primary)] hover:text-[var(--emmo-green-dark)] transition-colors"
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => openDeleteDialog(drive)}
+                                                            className="text-gray-400 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -366,7 +373,7 @@ export default function Drive({ drives, flash }: DrivePageProps) {
                                     : 'Get started by creating your first drive to track and manage your equipment.'}
                             </p>
                             
-                            {!searchTerm && (
+                            {!searchTerm && isAdmin && (
                                 <Button 
                                     onClick={openCreateDialog} 
                                     className="inline-flex items-center bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] text-white font-medium rounded-full px-4 py-2"

@@ -44,10 +44,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('api/unattached-parts', [PartController::class, 'getUnattachedParts'])->name('api.parts.unattached');
 
     Route::get('inspections', [InspectionController::class, 'index'])->name('inspections');
-    Route::post('inspections', [InspectionController::class, 'store'])->name('api.inspections.store');
+    
+    // Admin-only inspection management routes
+    Route::middleware(['can:manage,App\Models\User'])->group(function () {
+        Route::post('inspections', [InspectionController::class, 'store'])->name('api.inspections.store');
+        Route::put('inspections/{inspection}', [InspectionController::class, 'update'])->name('api.inspections.update');
+        Route::delete('inspections/{inspection}', [InspectionController::class, 'destroy'])->name('api.inspections.destroy');
+    });
+    
     Route::get('inspections/{inspection}', [InspectionController::class, 'show'])->name('inspections.show');
-    Route::put('inspections/{inspection}', [InspectionController::class, 'update'])->name('api.inspections.update');
-    Route::delete('inspections/{inspection}', [InspectionController::class, 'destroy'])->name('api.inspections.destroy');
 
     // Maintenance routes
     Route::get('maintenances', [MaintenanceController::class, 'index'])->name('maintenances');
@@ -86,19 +91,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]);
     })->name('debug.inspection-task');
 
-    // Inspection Tasks routes
-    Route::post('inspection-tasks', [InspectionTaskController::class, 'store'])->name('inspection-tasks.store');
-    Route::get('inspection-tasks/{task}', [InspectionTaskController::class, 'show'])->name('inspection-tasks.show');
-    Route::put('inspection-tasks/{task}', [InspectionTaskController::class, 'update'])->name('inspection-tasks.update');
-    Route::delete('inspection-tasks/{task}', [InspectionTaskController::class, 'destroy'])->name('inspection-tasks.destroy');
-    Route::post('inspection-tasks/{task}/results', [InspectionTaskController::class, 'recordResult'])->name('inspection-tasks.record-result');
+    // Inspection Tasks routes - Admin only for management, operators can record results
+    Route::middleware(['can:manage,App\Models\User'])->group(function () {
+        Route::post('inspection-tasks', [InspectionTaskController::class, 'store'])->name('inspection-tasks.store');
+        Route::put('inspection-tasks/{task}', [InspectionTaskController::class, 'update'])->name('inspection-tasks.update');
+        Route::delete('inspection-tasks/{task}', [InspectionTaskController::class, 'destroy'])->name('inspection-tasks.destroy');
+        
+        // Inspection Sub-Tasks routes - Admin only
+        Route::post('inspection-sub-tasks', [InspectionSubTaskController::class, 'store'])->name('api.inspection-sub-tasks.store');
+        Route::put('inspection-sub-tasks/{subTask}', [InspectionSubTaskController::class, 'update'])->name('api.inspection-sub-tasks.update');
+        Route::delete('inspection-sub-tasks/{subTask}', [InspectionSubTaskController::class, 'destroy'])->name('api.inspection-sub-tasks.destroy');
+        Route::post('inspection-sub-tasks/reorder', [InspectionSubTaskController::class, 'reorder'])->name('api.inspection-sub-tasks.reorder');
+    });
     
-    // Inspection Sub-Tasks routes
-    Route::post('inspection-sub-tasks', [InspectionSubTaskController::class, 'store'])->name('api.inspection-sub-tasks.store');
-    Route::put('inspection-sub-tasks/{subTask}', [InspectionSubTaskController::class, 'update'])->name('api.inspection-sub-tasks.update');
-    Route::delete('inspection-sub-tasks/{subTask}', [InspectionSubTaskController::class, 'destroy'])->name('api.inspection-sub-tasks.destroy');
+    // Operator routes - can view and record results
+    Route::get('inspection-tasks/{task}', [InspectionTaskController::class, 'show'])->name('inspection-tasks.show');
+    Route::post('inspection-tasks/{task}/results', [InspectionTaskController::class, 'recordResult'])->name('inspection-tasks.record-result');
     Route::patch('inspection-sub-tasks/{subTask}/toggle-status', [InspectionSubTaskController::class, 'toggleStatus'])->name('api.inspection-sub-tasks.toggle-status');
-    Route::post('inspection-sub-tasks/reorder', [InspectionSubTaskController::class, 'reorder'])->name('api.inspection-sub-tasks.reorder');
     Route::post('inspection-sub-tasks/{subTask}/results', [InspectionSubTaskController::class, 'recordResult'])->name('api.inspection-sub-tasks.record-result');
 });
 
