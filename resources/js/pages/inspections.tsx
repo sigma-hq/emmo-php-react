@@ -100,6 +100,16 @@ interface InspectionsPageProps {
         data: Inspection[];
     } & Pagination;
     users: User[];
+    statistics: {
+        total: number;
+        templates: number;
+        instances: number;
+        active: number;
+        draft: number;
+        completed: number;
+        failed: number;
+        archived: number;
+    };
     filters: {
         search: string;
         type: string;
@@ -159,7 +169,7 @@ const calculateProgress = (inspection: Inspection): number => {
     return Math.round((completedTasks / inspection.tasks_count) * 100);
 };
 
-export default function Inspections({ inspections, users, filters, flash, isAdmin }: InspectionsPageProps) {
+export default function Inspections({ inspections, users, statistics, filters, flash, isAdmin }: InspectionsPageProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [showSuccessNotification, setShowSuccessNotification] = useState(false);
@@ -347,16 +357,16 @@ export default function Inspections({ inspections, users, filters, flash, isAdmi
         }
     };
     
-    // Count inspections by status for statistics cards
+    // Use statistics from backend instead of calculating from paginated data
     const statusCounts = {
-        draft: inspections.data.filter(i => i.status === 'draft').length,
-        active: inspections.data.filter(i => i.status === 'active').length,
-        completed: inspections.data.filter(i => i.status === 'completed').length,
-        failed: inspections.data.filter(i => i.status === 'failed').length,
-        archived: inspections.data.filter(i => i.status === 'archived').length,
-        templates: inspections.data.filter(i => i.is_template).length,
-        instances: inspections.data.filter(i => !i.is_template).length,
-        all: inspections.data.length
+        draft: statistics.draft,
+        active: statistics.active,
+        completed: statistics.completed,
+        failed: statistics.failed,
+        archived: statistics.archived,
+        templates: statistics.templates,
+        instances: statistics.instances,
+        all: statistics.total
     };
     
     return (

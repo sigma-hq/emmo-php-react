@@ -119,10 +119,23 @@ class InspectionController extends Controller
             
         // Get all users for the operator dropdown
         $users = \App\Models\User::select('id', 'name')->orderBy('name')->get();
+        
+        // Calculate statistics from the database (not from paginated data)
+        $statistics = [
+            'total' => Inspection::count(),
+            'templates' => Inspection::where('is_template', true)->count(),
+            'instances' => Inspection::where('is_template', false)->count(),
+            'active' => Inspection::where('status', 'active')->count(),
+            'draft' => Inspection::where('status', 'draft')->count(),
+            'completed' => Inspection::where('status', 'completed')->count(),
+            'failed' => Inspection::where('status', 'failed')->count(),
+            'archived' => Inspection::where('status', 'archived')->count(),
+        ];
             
         return Inertia::render('inspections', [
             'inspections' => $inspections,
             'users' => $users,
+            'statistics' => $statistics,
             'filters' => [
                 'search' => $request->input('search', ''),
                 'type' => $request->input('type', 'all'),
