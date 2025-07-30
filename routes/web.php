@@ -8,6 +8,8 @@ use App\Http\Controllers\InspectionTaskController;
 use App\Http\Controllers\InspectionSubTaskController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\DashboardController;
+
+use App\Http\Controllers\DrivePerformanceController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
@@ -28,8 +30,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('drives', [DriveController::class, 'store'])->name('api.drives.store');
     Route::post('drives/import', [DriveController::class, 'import'])->name('api.drives.import');
     Route::get('drives/{drive}', [DriveController::class, 'show'])->name('api.drives.show');
-    Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.drives.update');
+Route::get('drives/{drive}/edit', [DriveController::class, 'edit'])->name('drives.edit');
+Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.drives.update');
     Route::delete('drives/{drive}', [DriveController::class, 'destroy'])->name('api.drives.destroy');
+    
+    // Drive alerts API
+    Route::get('api/drives/alerts', [DriveController::class, 'getAlerts'])->name('api.drives.alerts');
+    
+    // Drive performance API
+    Route::get('api/drives/{drive}/performance', [DriveController::class, 'getPerformance'])->name('api.drives.performance');
 
     Route::get('parts', [PartController::class, 'index'])->name('parts');
     Route::post('parts', [PartController::class, 'store'])->name('api.parts.store');
@@ -79,6 +88,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('users/{user}', [UserController::class, 'show'])->name('api.users.show');
         Route::put('users/{user}', [UserController::class, 'update'])->name('api.users.update');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('api.users.destroy');
+        
+        // User performance dashboard
+        
     });
 
     // Debug route for inspection tasks

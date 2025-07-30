@@ -235,10 +235,13 @@ class InspectionSubTaskController extends Controller
                 $isPassing = $subTask->isPassing($updateData['recorded_value_boolean'], null);
                 if ($isPassing) {
                     $subTask->complete(Auth::id());
+                    $message = 'Sub-task result recorded';
                 } else {
                     $subTask->resetToPending(); // Or just set status, if resetToPending does too much
+                    // Create maintenance record for failed sub-task
+                    $maintenanceCreated = $this->createMaintenanceFromFailedSubTask($subTask, $validated['notes'] ?? null);
+                    $message = $maintenanceCreated ? 'Sub-task failed - Maintenance record created automatically' : 'Sub-task result recorded';
                 }
-                $message = 'Sub-task result recorded';
             } else if ($validated['sub_task_type'] === 'numeric') {
                 $updateData['recorded_value_numeric'] = $validated['value_numeric'] ?? null;
                 $updateData['recorded_value_boolean'] = null; // Ensure other type is null
@@ -246,14 +249,23 @@ class InspectionSubTaskController extends Controller
                 $isPassing = $subTask->isPassing(null, $updateData['recorded_value_numeric']);
                 if ($isPassing) {
                     $subTask->complete(Auth::id());
+                    $message = 'Sub-task result recorded';
                 } else {
                     $subTask->resetToPending();
+                    // Create maintenance record for failed sub-task
+                    $maintenanceCreated = $this->createMaintenanceFromFailedSubTask($subTask, $validated['notes'] ?? null);
+                    $message = $maintenanceCreated ? 'Sub-task failed - Maintenance record created automatically' : 'Sub-task result recorded';
                 }
-                $message = 'Sub-task result recorded';
             }
             
             // Save the recorded values
             $subTask->update($updateData);
+            
+            // Update inspection status based on all task and sub-task results
+            $inspection = $task->inspection;
+            if ($inspection) {
+                $inspection->updateStatusBasedOnResults();
+            }
             
             // Get the task and inspection ID for redirecting
             $task = InspectionTask::findOrFail($subTask->inspection_task_id);
@@ -265,6 +277,125 @@ class InspectionSubTaskController extends Controller
             Log::error('Failed to record sub-task result: ' . $e->getMessage());
             
             return redirect()->back()->withErrors(['error' => 'Failed to record sub-task result: ' . $e->getMessage()]);
+        }
+    }
+    
+    /**
+     * Create a maintenance record when a sub-task fails
+     */
+    private function createMaintenanceFromFailedSubTask(InspectionSubTask $subTask, ?string $notes = null): bool
+    {
+        try {
+            // Get the task and inspection
+            $task = $subTask->task;
+            $inspection = $task->inspection;
+            
+            if (!$task || !$inspection) {
+                Log::warning('Cannot create maintenance: missing task or inspection', [
+                    'sub_task_id' => $subTask->id,
+                    'task_id' => $subTask->inspection_task_id,
+                    'inspection_id' => $task?->inspection_id
+                ]);
+                return false;
+            }
+            
+            // Get the target (drive or part)
+            $target = $task->target;
+            if (!$target) {
+                Log::warning('Cannot create maintenance: no target found for task', [
+                    'task_id' => $task->id,
+                    'target_type' => $task->target_type,
+                    'target_id' => $task->target_id
+                ]);
+                return false;
+            }
+            
+            // Only create maintenance for drive targets (since maintenance table only supports drive_id)
+            if ($task->target_type !== 'drive') {
+                Log::info('Skipping maintenance creation for non-drive target', [
+                    'task_id' => $task->id,
+                    'target_type' => $task->target_type,
+                    'target_id' => $task->target_id
+                ]);
+                return false;
+            }
+            
+            // Check if maintenance already exists for this failed sub-task
+            $existingMaintenance = \App\Models\Maintenance::where('inspection_id', $inspection->id)
+                ->where('inspection_task_id', $task->id)
+                ->where('created_from_inspection', true)
+                ->first();
+                
+            if ($existingMaintenance) {
+                Log::info('Maintenance already exists for this failed sub-task', [
+                    'sub_task_id' => $subTask->id,
+                    'maintenance_id' => $existingMaintenance->id
+                ]);
+                return false;
+            }
+            
+            // Create maintenance record
+            $maintenance = \App\Models\Maintenance::create([
+                'drive_id' => $task->target_id,
+                'title' => "Maintenance Required - {$subTask->name}",
+                'description' => "Automatic maintenance created due to failed inspection sub-task: {$subTask->name}. " .
+                                "Task: {$task->name}. Inspection: {$inspection->name}. " .
+                                ($notes ? "Notes: {$notes}" : ""),
+                'maintenance_date' => now(),
+                'status' => 'pending',
+                'user_id' => Auth::id(),
+                'created_from_inspection' => true,
+                'inspection_id' => $inspection->id,
+                'inspection_task_id' => $task->id,
+                'inspection_result_id' => null, // We don't have a specific result ID for sub-tasks
+                'checklist_json' => [
+                    [
+                        'id' => uniqid(),
+                        'text' => "Review and fix: {$subTask->name}",
+                        'status' => 'pending',
+                        'notes' => $notes
+                    ],
+                    [
+                        'id' => uniqid(),
+                        'text' => "Verify inspection task: {$task->name}",
+                        'status' => 'pending',
+                        'notes' => null
+                    ],
+                    [
+                        'id' => uniqid(),
+                        'text' => "Re-run inspection after maintenance",
+                        'status' => 'pending',
+                        'notes' => null
+                    ]
+                ]
+            ]);
+            
+            Log::info('Created maintenance from failed sub-task', [
+                'sub_task_id' => $subTask->id,
+                'task_id' => $task->id,
+                'inspection_id' => $inspection->id,
+                'maintenance_id' => $maintenance->id,
+                'drive_id' => $task->target_id
+            ]);
+            
+            // Update inspection status to failed if it's not already
+            if ($inspection->status !== 'failed') {
+                $inspection->update(['status' => 'failed']);
+                Log::info('Updated inspection status to failed', [
+                    'inspection_id' => $inspection->id,
+                    'previous_status' => $inspection->getOriginal('status')
+                ]);
+            }
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to create maintenance from failed sub-task', [
+                'sub_task_id' => $subTask->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
         }
     }
 }

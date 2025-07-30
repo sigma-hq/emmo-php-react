@@ -81,9 +81,11 @@ class DriveController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function edit(Drive $drive)
     {
-        //
+        return Inertia::render('drive/edit', [
+            'drive' => $drive,
+        ]);
     }
 
     /**
@@ -407,5 +409,58 @@ class DriveController extends Controller
                 'import_result' => $result
             ]
         ]);
+    }
+
+    /**
+     * Get drive alerts for the sidebar notification.
+     */
+    public function getAlerts()
+    {
+        $user = auth()->user();
+        
+        if (!$user->isAdmin()) {
+            return response()->json(['alert_count' => 0]);
+        }
+
+        // Count drives with alerts
+        $alertCount = Drive::where(function ($query) {
+            // Drives with failed inspection results
+            $query->whereHas('inspectionResults', function ($subQuery) {
+                $subQuery->where('is_passing', false)
+                    ->where('created_at', '>=', now()->subDays(30));
+            })
+            // Or drives with pending maintenances
+            ->orWhereHas('maintenances', function ($subQuery) {
+                $subQuery->where('status', 'pending');
+            });
+        })->count();
+
+        return response()->json([
+            'alert_count' => $alertCount
+        ]);
+    }
+
+    /**
+     * Get performance data for a specific drive.
+     */
+    public function getPerformance(Drive $drive)
+    {
+        $user = auth()->user();
+        
+        if (!$user->isAdmin()) {
+            return response()->json(['error' => 'Access denied'], 403);
+        }
+
+        // Get performance data using the DrivePerformanceController logic
+        $drivePerformanceController = new \App\Http\Controllers\DrivePerformanceController();
+        
+        // Use reflection to access the private method
+        $reflection = new \ReflectionClass($drivePerformanceController);
+        $method = $reflection->getMethod('getDrivePerformance');
+        $method->setAccessible(true);
+        
+        $performanceData = $method->invoke($drivePerformanceController, $drive, 30); // Last 30 days
+        
+        return response()->json($performanceData);
     }
 }

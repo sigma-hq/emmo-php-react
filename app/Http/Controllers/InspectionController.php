@@ -21,7 +21,7 @@ class InspectionController extends Controller
         return [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'status' => ['required', Rule::in(['draft', 'active', 'completed', 'archived'])],
+            'status' => ['required', Rule::in(['draft', 'active', 'completed', 'archived', 'failed'])],
             'operator_id' => ['nullable', 'exists:users,id'],
             // Scheduling fields (conditional validation)
             'is_template' => ['sometimes', 'boolean'],
@@ -270,7 +270,24 @@ class InspectionController extends Controller
              }
         }
         
+        $oldStatus = $inspection->status;
+        \Log::info("Inspection status update", [
+            'inspection_id' => $inspection->id,
+            'old_status' => $oldStatus,
+            'new_status' => $validated['status'],
+            'will_create_maintenance' => ($oldStatus !== 'failed' && $validated['status'] === 'failed')
+        ]);
+        
         $inspection->update($validated);
+        
+        // If status changed to 'failed', automatically create maintenance
+        if ($oldStatus !== 'failed' && $validated['status'] === 'failed') {
+            \Log::info("Creating maintenance from failed inspection", [
+                'inspection_id' => $inspection->id,
+                'inspection_name' => $inspection->name
+            ]);
+            $this->createMaintenanceFromFailedInspection($inspection);
+        }
         
         // Use inspection detail route if available, otherwise fallback
         $routeName = $inspection->is_template ? 'inspections' : 'inspections.show';
@@ -290,5 +307,144 @@ class InspectionController extends Controller
         $inspection->delete();
         
         return redirect()->route('inspections')->with('success', 'Inspection deleted successfully');
+    }
+
+    /**
+     * Create a maintenance record from a failed inspection.
+     */
+    private function createMaintenanceFromFailedInspection(Inspection $inspection): void
+    {
+        \Log::info("Starting maintenance creation for failed inspection", [
+            'inspection_id' => $inspection->id,
+            'inspection_name' => $inspection->name
+        ]);
+        
+        // Get the target (drive or part) from the first task
+        $firstTask = $inspection->tasks()->first();
+        
+        if (!$firstTask) {
+            \Log::warning("No tasks found for inspection - creating generic maintenance", [
+                'inspection_id' => $inspection->id
+            ]);
+            
+            // Create a generic maintenance record without specific drive association
+            $maintenance = \App\Models\Maintenance::create([
+                'drive_id' => 1, // Default to first drive or we could make this nullable
+                'title' => "Maintenance Required - {$inspection->name}",
+                'description' => "Automatic maintenance created due to failed inspection: {$inspection->name}. This inspection had no specific drive/part tasks assigned.",
+                'maintenance_date' => now(),
+                'status' => 'pending',
+                'user_id' => auth()->id(),
+                'created_from_inspection' => true,
+                'inspection_id' => $inspection->id,
+                'checklist_json' => [
+                    [
+                        'id' => 1,
+                        'task' => "Review and fix issues identified in inspection: {$inspection->name}",
+                        'completed' => false,
+                        'notes' => ''
+                    ],
+                    [
+                        'id' => 2,
+                        'task' => 'Verify all inspection criteria are met',
+                        'completed' => false,
+                        'notes' => ''
+                    ],
+                    [
+                        'id' => 3,
+                        'task' => 'Schedule follow-up inspection if required',
+                        'completed' => false,
+                        'notes' => ''
+                    ],
+                    [
+                        'id' => 4,
+                        'task' => 'Add specific tasks to this inspection for future reference',
+                        'completed' => false,
+                        'notes' => ''
+                    ]
+                ]
+            ]);
+
+            \Log::info("Created generic maintenance from failed inspection", [
+                'inspection_id' => $inspection->id,
+                'maintenance_id' => $maintenance->id
+            ]);
+            return;
+        }
+
+        $targetType = $firstTask->target_type; // 'drive' or 'part'
+        $targetId = $firstTask->target_id;
+        
+        \Log::info("Task details for maintenance creation", [
+            'inspection_id' => $inspection->id,
+            'task_id' => $firstTask->id,
+            'target_type' => $targetType,
+            'target_id' => $targetId
+        ]);
+        
+        // Only create maintenance for drives (since maintenance table only has drive_id)
+        if ($targetType !== 'drive') {
+            \Log::info("Skipping maintenance creation for non-drive target", [
+                'inspection_id' => $inspection->id,
+                'target_type' => $targetType,
+                'target_id' => $targetId
+            ]);
+            return;
+        }
+        
+        // Get the drive name
+        $drive = \App\Models\Drive::find($targetId);
+        if (!$drive) {
+            \Log::warning("Drive not found for maintenance creation", [
+                'inspection_id' => $inspection->id,
+                'target_id' => $targetId
+            ]);
+            return;
+        }
+
+        \Log::info("Creating maintenance record", [
+            'inspection_id' => $inspection->id,
+            'drive_id' => $targetId,
+            'drive_name' => $drive->name
+        ]);
+        
+        // Create maintenance record
+        $maintenance = \App\Models\Maintenance::create([
+            'drive_id' => $targetId,
+            'title' => "Maintenance Required - {$inspection->name}",
+            'description' => "Automatic maintenance created due to failed inspection: {$inspection->name}. Drive: {$drive->name}",
+            'maintenance_date' => now(),
+            'status' => 'pending',
+            'user_id' => auth()->id(),
+            'created_from_inspection' => true,
+            'inspection_id' => $inspection->id,
+            'checklist_json' => [
+                [
+                    'id' => 1,
+                    'task' => "Review and fix issues identified in inspection: {$inspection->name}",
+                    'completed' => false,
+                    'notes' => ''
+                ],
+                [
+                    'id' => 2,
+                    'task' => 'Verify all inspection criteria are met',
+                    'completed' => false,
+                    'notes' => ''
+                ],
+                [
+                    'id' => 3,
+                    'task' => 'Schedule follow-up inspection if required',
+                    'completed' => false,
+                    'notes' => ''
+                ]
+            ]
+        ]);
+
+        \Log::info("Created maintenance from failed inspection", [
+            'inspection_id' => $inspection->id,
+            'maintenance_id' => $maintenance->id,
+            'drive_id' => $targetId,
+            'drive_name' => $drive->name
+        ]);
     }
 }

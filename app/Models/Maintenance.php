@@ -26,6 +26,10 @@ class Maintenance extends Model
         'parts_replaced',
         'user_id',
         'checklist_json',
+        'created_from_inspection',
+        'inspection_id',
+        'inspection_task_id',
+        'inspection_result_id',
     ];
 
     /**
@@ -54,6 +58,30 @@ class Maintenance extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the inspection that triggered this maintenance (if created from inspection).
+     */
+    public function inspection(): BelongsTo
+    {
+        return $this->belongsTo(Inspection::class);
+    }
+
+    /**
+     * Get the inspection task that triggered this maintenance (if created from inspection).
+     */
+    public function inspectionTask(): BelongsTo
+    {
+        return $this->belongsTo(InspectionTask::class);
+    }
+
+    /**
+     * Get the inspection result that triggered this maintenance (if created from inspection).
+     */
+    public function inspectionResult(): BelongsTo
+    {
+        return $this->belongsTo(InspectionResult::class);
     }
 
     /**

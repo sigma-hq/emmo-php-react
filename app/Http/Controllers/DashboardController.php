@@ -176,6 +176,10 @@ class DashboardController extends Controller
                         'created_by' => $maintenance->user ? $maintenance->user->name : 'System',
                     ];
                 });
+                
+            // Get user performance data for admin dashboard
+            $userPerformanceData = $this->getUserPerformanceData();
+            $overallPerformanceStats = $this->getOverallPerformanceStats();
         } else {
             // Operator sees only their assigned inspections
             $recentInspections = Inspection::with(['creator', 'operator'])
@@ -210,6 +214,8 @@ class DashboardController extends Controller
             'inspectionTrend' => $inspectionTrend,
             'recentInspections' => $recentInspections,
             'recentMaintenances' => $recentMaintenances,
+            'userPerformanceData' => $userPerformanceData ?? null,
+            'overallPerformanceStats' => $overallPerformanceStats ?? null,
             'isAdmin' => $isAdmin,
             'userRole' => $user->role,
             'userName' => $user->name,
@@ -273,5 +279,119 @@ class DashboardController extends Controller
 
         // Convert associative array to indexed array for recharts
         return array_values($trend);
+    }
+    
+    /**
+     * Get individual user performance data for dashboard
+     */
+    private function getUserPerformanceData()
+    {
+        try {
+            $users = \App\Models\User::withCount([
+                // Inspections assigned to this user as operator (what they actually perform)
+                'assignedInspections',
+                'assignedInspections as completed_inspections' => function($query) {
+                    $query->where('status', 'completed');
+                },
+                'assignedInspections as failed_inspections' => function($query) {
+                    $query->where('status', 'failed');
+                },
+                // Maintenances created by this user (since we can't track who performs them)
+                'maintenances',
+                'maintenances as completed_maintenances' => function($query) {
+                    $query->where('status', 'completed');
+                },
+                'maintenances as pending_maintenances' => function($query) {
+                    $query->where('status', 'pending');
+                }
+            ])->get();
+            
+            return $users->map(function($user) {
+                $completionRate = $user->assigned_inspections_count > 0 
+                    ? round(($user->completed_inspections / $user->assigned_inspections_count) * 100, 1)
+                    : 0;
+                
+                $failureRate = $user->assigned_inspections_count > 0 
+                    ? round(($user->failed_inspections / $user->assigned_inspections_count) * 100, 1)
+                    : 0;
+                
+                $maintenanceCompletionRate = $user->maintenances_count > 0 
+                    ? round(($user->completed_maintenances / $user->maintenances_count) * 100, 1)
+                    : 0;
+                
+                return [
+                    'user_id' => $user->id,
+                    'user_name' => $user->name,
+                    'user_email' => $user->email,
+                    'role' => $user->role,
+                    'total_inspections' => $user->assigned_inspections_count,
+                    'completed_inspections' => $user->completed_inspections,
+                    'failed_inspections' => $user->failed_inspections,
+                    'completion_rate' => $completionRate,
+                    'failure_rate' => $failureRate,
+                    'total_maintenances' => $user->maintenances_count,
+                    'completed_maintenances' => $user->completed_maintenances,
+                    'pending_maintenances' => $user->pending_maintenances,
+                    'maintenance_completion_rate' => $maintenanceCompletionRate,
+                    'created_at' => $user->created_at->toISOString(),
+                ];
+            })->toArray();
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+    
+    /**
+     * Get overall performance statistics for dashboard
+     */
+    private function getOverallPerformanceStats()
+    {
+        try {
+            $users = \App\Models\User::withCount([
+                'assignedInspections',
+                'assignedInspections as completed_inspections' => function($query) {
+                    $query->where('status', 'completed');
+                }
+            ])->get();
+            
+            if ($users->isEmpty()) {
+                return [
+                    'total_users' => 0,
+                    'active_performers' => 0,
+                    'avg_completion_rate' => 0,
+                    'total_inspections_performed' => 0,
+                    'total_maintenances_created' => 0,
+                ];
+            }
+            
+            $activePerformers = $users->filter(function($user) {
+                return $user->assigned_inspections_count > 0 || $user->maintenances_count > 0;
+            })->count();
+            
+            $totalCompletionRate = $users->sum(function($user) {
+                if ($user->assigned_inspections_count === 0) {
+                    return 0;
+                }
+                return ($user->completed_inspections / $user->assigned_inspections_count) * 100;
+            });
+            
+            $avgCompletionRate = $users->count() > 0 ? round($totalCompletionRate / $users->count(), 1) : 0;
+            
+            return [
+                'total_users' => $users->count(),
+                'active_performers' => $activePerformers,
+                'avg_completion_rate' => $avgCompletionRate,
+                'total_inspections_performed' => $users->sum('assigned_inspections_count'),
+                'total_maintenances_created' => $users->sum('maintenances_count'),
+            ];
+        } catch (\Exception $e) {
+            return [
+                'total_users' => 0,
+                'active_performers' => 0,
+                'avg_completion_rate' => 0,
+                'total_inspections_performed' => 0,
+                'total_maintenances_created' => 0,
+            ];
+        }
     }
 } 

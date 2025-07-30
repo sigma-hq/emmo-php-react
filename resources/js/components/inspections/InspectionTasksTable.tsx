@@ -1,6 +1,6 @@
 import { InspectionTask as BaseInspectionTask, InspectionSubTask } from '@/pages/inspection/show';
 import React from "react";
-import { ChevronDown, ChevronRight, ClipboardCheck, Pencil, Trash2, AlertTriangle, Check, CalendarClock, User, Hash, ListChecks, PlusIcon, Target, CheckIcon, XIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardCheck, Pencil, Trash2, AlertTriangle, Check, CalendarClock, User, Hash, ListChecks, PlusIcon, Target, CheckIcon, XIcon, Wrench } from "lucide-react";
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -382,6 +382,14 @@ export default function InspectionTasksTable({
                                                                     </h5>
                                                                     <div className="flex items-center gap-1.5 flex-shrink-0">
                                                                         {getComplianceBadge(subTask.compliance)}
+
+                                                                        {/* Maintenance indicator for failed sub-tasks */}
+                                                                        {(subTask.compliance === 'failing' || subTask.compliance === 'warning') && (
+                                                                            <Badge variant="outline" className="text-xs py-0.5 px-2 font-normal bg-orange-50 text-orange-700 border-orange-200 flex items-center gap-1">
+                                                                                <Wrench className="h-3 w-3" />
+                                                                                Maintenance
+                                                                            </Badge>
+                                                                        )}
 
                                                                         {subTask.type !== 'none' && (
                                                                             <Badge variant="outline" className={`text-xs py-0.5 px-2 font-normal ${subTask.type === 'yes_no'

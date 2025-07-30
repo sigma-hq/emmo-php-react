@@ -56,7 +56,7 @@ interface Inspection {
     id: number;
     name: string;
     description: string | null;
-    status: 'draft' | 'active' | 'completed' | 'archived';
+    status: 'draft' | 'active' | 'completed' | 'archived' | 'failed';
     created_by: number;
     created_at: string;
     updated_at: string;
@@ -117,7 +117,7 @@ interface InspectionFormData {
     id: string;
     name: string;
     description: string;
-    status: 'draft' | 'active' | 'completed' | 'archived';
+    status: 'draft' | 'active' | 'completed' | 'archived' | 'failed';
     operator_id: string | null;
     is_template: boolean;
     schedule_frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -321,6 +321,8 @@ export default function Inspections({ inspections, users, filters, flash, isAdmi
                 return 'bg-blue-100 text-blue-800';
             case 'completed':
                 return 'bg-green-100 text-green-800';
+            case 'failed':
+                return 'bg-red-100 text-red-800';
             case 'archived':
                 return 'bg-amber-100 text-amber-800';
             default:
@@ -336,6 +338,8 @@ export default function Inspections({ inspections, users, filters, flash, isAdmi
                 return <ClipboardList className="h-4 w-4" />;
             case 'completed':
                 return <ClipboardCheck className="h-4 w-4" />;
+            case 'failed':
+                return <X className="h-4 w-4" />;
             case 'archived':
                 return <Archive className="h-4 w-4" />;
             default:
@@ -348,6 +352,7 @@ export default function Inspections({ inspections, users, filters, flash, isAdmi
         draft: inspections.data.filter(i => i.status === 'draft').length,
         active: inspections.data.filter(i => i.status === 'active').length,
         completed: inspections.data.filter(i => i.status === 'completed').length,
+        failed: inspections.data.filter(i => i.status === 'failed').length,
         archived: inspections.data.filter(i => i.status === 'archived').length,
         templates: inspections.data.filter(i => i.is_template).length,
         instances: inspections.data.filter(i => !i.is_template).length,
@@ -975,6 +980,7 @@ export default function Inspections({ inspections, users, filters, flash, isAdmi
                                             <SelectItem value="draft">Draft</SelectItem>
                                             <SelectItem value="active">Active</SelectItem>
                                             <SelectItem value="completed">Completed</SelectItem>
+                                            <SelectItem value="failed">Failed</SelectItem>
                                             <SelectItem value="archived">Archived</SelectItem>
                                         </SelectContent>
                                     </Select>

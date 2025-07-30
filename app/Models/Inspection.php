@@ -126,4 +126,81 @@ class Inspection extends Model
     {
         return $this->hasMany(Inspection::class, 'parent_inspection_id');
     }
+    
+    /**
+     * Update inspection status based on task and sub-task results
+     */
+    public function updateStatusBasedOnResults(): void
+    {
+        // Get all tasks for this inspection with their results
+        $tasks = $this->tasks()->with(['results', 'subTasks'])->get();
+        
+        if ($tasks->isEmpty()) {
+            return; // No tasks to evaluate
+        }
+        
+        $hasFailedTasks = false;
+        $allTasksCompleted = true;
+        
+        foreach ($tasks as $task) {
+            // Check if task has results
+            if ($task->results->isEmpty()) {
+                $allTasksCompleted = false;
+                continue;
+            }
+            
+            // Get the latest result for this task
+            $latestResult = $task->results->sortByDesc('created_at')->first();
+            
+            // If the latest result failed, mark inspection as failed
+            if (!$latestResult->is_passing) {
+                $hasFailedTasks = true;
+                break;
+            }
+            
+            // Check sub-tasks if they exist
+            if ($task->subTasks->isNotEmpty()) {
+                $subTasks = $task->subTasks;
+                $totalSubTasks = $subTasks->count();
+                $completedSubTasks = $subTasks->where('status', 'completed')->count();
+                $failedSubTasks = $subTasks->filter(function($subTask) {
+                    // Check if sub-task has recorded values but is not passing
+                    if ($subTask->type === 'yes_no' && $subTask->recorded_value_boolean !== null) {
+                        return !$subTask->isPassing($subTask->recorded_value_boolean, null);
+                    } elseif ($subTask->type === 'numeric' && $subTask->recorded_value_numeric !== null) {
+                        return !$subTask->isPassing(null, $subTask->recorded_value_numeric);
+                    }
+                    return false;
+                })->count();
+                
+                // If any sub-task has failed, mark inspection as failed
+                if ($failedSubTasks > 0) {
+                    $hasFailedTasks = true;
+                    break;
+                }
+                
+                // If not all sub-tasks are completed, inspection is not complete
+                if ($completedSubTasks !== $totalSubTasks) {
+                    $allTasksCompleted = false;
+                }
+            }
+        }
+        
+        // Update inspection status based on results
+        if ($hasFailedTasks) {
+            if ($this->status !== 'failed') {
+                $this->update(['status' => 'failed']);
+                \Log::info('Updated inspection status to failed due to failed tasks/sub-tasks', [
+                    'inspection_id' => $this->id
+                ]);
+            }
+        } elseif ($allTasksCompleted) {
+            if ($this->status !== 'completed') {
+                $this->update(['status' => 'completed']);
+                \Log::info('Updated inspection status to completed', [
+                    'inspection_id' => $this->id
+                ]);
+            }
+        }
+    }
 }

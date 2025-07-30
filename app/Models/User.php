@@ -66,4 +66,30 @@ class User extends Authenticatable
     {
         return $this->role === 'operator';
     }
+    
+    /**
+     * Get the inspections created by the user.
+     */
+    public function inspections()
+    {
+        return $this->hasMany(Inspection::class, 'created_by');
+    }
+    
+    /**
+     * Get the inspections assigned to this user as operator.
+     */
+    public function assignedInspections()
+    {
+        return $this->hasMany(Inspection::class, 'operator_id');
+    }
+    
+    /**
+     * Get the maintenances created by the user.
+     */
+    public function maintenances()
+    {
+        return $this->hasMany(Maintenance::class, 'user_id');
+    }
+    
+
 }

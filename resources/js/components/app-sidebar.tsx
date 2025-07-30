@@ -3,8 +3,9 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarGroup, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, HardDrive, Wrench, ClipboardCheck, Hammer, Users as UsersIcon } from 'lucide-react';
+import { LayoutGrid, HardDrive, Wrench, ClipboardCheck, Hammer, Users as UsersIcon, BarChart3 } from 'lucide-react';
 import AppLogo from './app-logo';
+import { useState, useEffect } from 'react';
 
 // Define navigation items with potential grouping info and role requirements
 const navItems: (NavItem & { group: string; adminOnly?: boolean })[] = [
@@ -42,6 +43,21 @@ export function AppSidebar() {
     const page = usePage();
     const { auth } = page.props;
     const isAdmin = auth.user.role === 'admin';
+    const [driveAlerts, setDriveAlerts] = useState(0);
+    
+    // Fetch drive alerts for admin users
+    useEffect(() => {
+        if (isAdmin) {
+            fetch('/api/drives/alerts')
+                .then(response => response.json())
+                .then(data => {
+                    setDriveAlerts(data.alert_count || 0);
+                })
+                .catch(error => {
+                    console.error('Failed to fetch drive alerts:', error);
+                });
+        }
+    }, [isAdmin]);
     
     // Filter navigation items based on user role
     const filteredNavItems = navItems.filter(item => {
@@ -80,7 +96,17 @@ export function AppSidebar() {
                                         tooltip={{ children: item.title }}
                                     >
                                         <Link href={item.href} prefetch>
-                                            {item.icon && <item.icon />}
+                                            <div className="relative">
+                                                {item.icon && <item.icon />}
+                                                {/* Show red dot for drive alerts */}
+                                                {item.title === 'Drive' && isAdmin && driveAlerts > 0 && (
+                                                    <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full flex items-center justify-center">
+                                                        <span className="text-xs text-white font-bold">
+                                                            {driveAlerts > 9 ? '9+' : driveAlerts}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
                                             <span>{item.title}</span>
                                         </Link>
                                     </SidebarMenuButton>

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage, Link } from '@inertiajs/react';
 import { PlusIcon, Pencil, Trash2, CheckCircle, HardDrive, Info, Search, X, ArrowRight, ChevronLeft, ChevronRight, Eye, UploadIcon } from 'lucide-react';
@@ -25,6 +26,7 @@ interface Drive {
     drive_ref: string;
     location: string | null;
     notes: string | null;
+    status: 'active' | 'inactive' | 'maintenance' | 'retired';
     parts_count: number;
     created_at: string;
     updated_at: string;
@@ -88,6 +90,7 @@ export default function Drive({ drives, flash, isAdmin }: DrivePageProps) {
         drive_ref: '',
         location: '',
         notes: '',
+        status: 'active',
     });
     
     // Handle flash messages from the backend
@@ -132,6 +135,7 @@ export default function Drive({ drives, flash, isAdmin }: DrivePageProps) {
             drive_ref: drive.drive_ref,
             location: drive.location || '',
             notes: drive.notes || '',
+            status: drive.status,
         });
         setIsEditMode(true);
         setIsOpen(true);
@@ -286,6 +290,7 @@ export default function Drive({ drives, flash, isAdmin }: DrivePageProps) {
                                     <th className="sticky top-0 bg-white dark:bg-gray-900 z-10 text-left px-6 py-3 border-b border-gray-200 dark:border-gray-800 font-semibold text-gray-700 dark:text-gray-300 text-sm">Name</th>
                                     <th className="sticky top-0 bg-white dark:bg-gray-900 z-10 text-left px-6 py-3 border-b border-gray-200 dark:border-gray-800 font-semibold text-gray-700 dark:text-gray-300 text-sm">Reference</th>
                                     <th className="sticky top-0 bg-white dark:bg-gray-900 z-10 text-left px-6 py-3 border-b border-gray-200 dark:border-gray-800 font-semibold text-gray-700 dark:text-gray-300 text-sm">Location</th>
+                                    <th className="sticky top-0 bg-white dark:bg-gray-900 z-10 text-left px-6 py-3 border-b border-gray-200 dark:border-gray-800 font-semibold text-gray-700 dark:text-gray-300 text-sm">Status</th>
                                     <th className="sticky top-0 bg-white dark:bg-gray-900 z-10 text-left px-6 py-3 border-b border-gray-200 dark:border-gray-800 font-semibold text-gray-700 dark:text-gray-300 text-sm">Parts</th>
                                     <th className="sticky top-0 bg-white dark:bg-gray-900 z-10 text-left px-6 py-3 border-b border-gray-200 dark:border-gray-800 font-semibold text-gray-700 dark:text-gray-300 text-sm">Notes</th>
                                     <th className="sticky top-0 bg-white dark:bg-gray-900 z-10 text-right px-6 py-3 border-b border-gray-200 dark:border-gray-800 font-semibold text-gray-700 dark:text-gray-300 text-sm">Actions</th>
@@ -307,6 +312,16 @@ export default function Drive({ drives, flash, isAdmin }: DrivePageProps) {
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                             {drive.location || '—'}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                drive.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300' :
+                                                drive.status === 'inactive' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300' :
+                                                drive.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300' :
+                                                'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+                                            }`}>
+                                                {drive.status.charAt(0).toUpperCase() + drive.status.slice(1)}
+                                            </span>
                                         </td>
                                         <td className="px-6 py-4 text-sm">
                                             {drive.parts_count > 0 ? (
@@ -342,9 +357,17 @@ export default function Drive({ drives, flash, isAdmin }: DrivePageProps) {
                                                         <button 
                                                             onClick={() => openEditDialog(drive)}
                                                             className="text-[var(--emmo-green-primary)] hover:text-[var(--emmo-green-dark)] transition-colors"
+                                                            title="Quick Edit"
                                                         >
                                                             <Pencil className="h-4 w-4" />
                                                         </button>
+                                                        <Link
+                                                            href={`/drives/${drive.id}/edit`}
+                                                            className="text-blue-500 hover:text-blue-700 transition-colors text-sm font-medium"
+                                                            title="Full Edit Page"
+                                                        >
+                                                            Edit
+                                                        </Link>
                                                         <button 
                                                             onClick={() => openDeleteDialog(drive)}
                                                             className="text-gray-400 hover:text-red-500 transition-colors"
@@ -541,6 +564,26 @@ export default function Drive({ drives, flash, isAdmin }: DrivePageProps) {
                                         />
                                         {errors.location && (
                                             <p className="text-red-500 text-sm mt-1">{errors.location}</p>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <Label htmlFor="status" className="text-sm font-medium block">
+                                            Status <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Select value={data.status} onValueChange={(value) => setData('status', value)}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select drive status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="active">Active</SelectItem>
+                                                <SelectItem value="inactive">Inactive</SelectItem>
+                                                <SelectItem value="maintenance">Maintenance</SelectItem>
+                                                <SelectItem value="retired">Retired</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.status && (
+                                            <p className="text-red-500 text-sm mt-1">{errors.status}</p>
                                         )}
                                     </div>
                                     

@@ -2,13 +2,14 @@ import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { HardDrive, ArrowLeft, FileText, CpuIcon, ClipboardList, Wrench } from 'lucide-react';
-import { useState } from 'react';
+import { HardDrive, ArrowLeft, FileText, CpuIcon, ClipboardList, Wrench, BarChart3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OverviewTab from './tabs/overview-tab';
 import PartsTab from './tabs/parts-tab';
 import InspectionsTab from './tabs/inspections-tab';
 import MaintenanceTab from './tabs/maintenance-tab';
+import PerformanceTab from './tabs/performance-tab';
 
 interface Part {
     id: number;
@@ -32,6 +33,33 @@ interface Drive {
     updated_at: string;
 }
 
+interface DrivePerformance {
+    stats: {
+        total_inspections: number;
+        completed_inspections: number;
+        completion_rate: number;
+        total_results: number;
+        passed_results: number;
+        failed_results: number;
+        pass_rate: number;
+        total_maintenances: number;
+        completed_maintenances: number;
+        pending_maintenances: number;
+        health_score: number;
+    };
+    recent_issues: Array<{
+        type: 'failed_inspection' | 'pending_maintenance';
+        id: number;
+        task_name?: string;
+        title?: string;
+        performed_by?: string;
+        created_by?: string;
+        created_at: string;
+        notes?: string;
+        created_from_inspection?: boolean;
+    }>;
+}
+
 interface DriveShowProps {
     drive: Drive;
     operators: { id: number; name: string }[];
@@ -40,6 +68,26 @@ interface DriveShowProps {
 
 export default function DriveShow({ drive, operators, isAdmin }: DriveShowProps) {
     const [activeTab, setActiveTab] = useState('overview');
+    const [performanceData, setPerformanceData] = useState<DrivePerformance | null>(null);
+    const [loadingPerformance, setLoadingPerformance] = useState(false);
+
+    // Simple performance data fetch
+    useEffect(() => {
+        if (activeTab === 'performance' && !performanceData && !loadingPerformance) {
+            setLoadingPerformance(true);
+            fetch(`/api/drives/${drive.id}/performance`)
+                .then(response => response.json())
+                .then(data => {
+                    setPerformanceData(data);
+                })
+                .catch(error => {
+                    console.error('Failed to fetch drive performance:', error);
+                })
+                .finally(() => {
+                    setLoadingPerformance(false);
+                });
+        }
+    }, [activeTab, drive.id, performanceData, loadingPerformance]);
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -114,9 +162,9 @@ export default function DriveShow({ drive, operators, isAdmin }: DriveShowProps)
                                     className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)] h-9"
                                     asChild
                                 >
-                                    <Link href={route('api.drives.update', drive.id)}>
-                                        Edit Drive
-                                    </Link>
+                                                                    <Link href={`/drives/${drive.id}/edit`}>
+                                    Edit Drive
+                                </Link>
                                 </Button>
                             )}
                         </div>
@@ -125,7 +173,7 @@ export default function DriveShow({ drive, operators, isAdmin }: DriveShowProps)
                 
                 {/* Tabs */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                    <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+                    <TabsList className="grid grid-cols-5 w-full max-w-3xl">
                         <TabsTrigger value="overview" className="flex items-center gap-2">
                             <HardDrive className="h-4 w-4" />
                             <span>Overview</span>
@@ -147,6 +195,10 @@ export default function DriveShow({ drive, operators, isAdmin }: DriveShowProps)
                             <Wrench className="h-4 w-4" />
                             <span>Maintenance</span>
                         </TabsTrigger>
+                        <TabsTrigger value="performance" className="flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4" />
+                            <span>Performance</span>
+                        </TabsTrigger>
                     </TabsList>
                     
                     <div className="mt-6 flex-1">
@@ -164,6 +216,15 @@ export default function DriveShow({ drive, operators, isAdmin }: DriveShowProps)
                         
                         <TabsContent value="maintenance" className="h-full">
                             <MaintenanceTab drive={drive} operators={operators} isAdmin={isAdmin} />
+                        </TabsContent>
+                        
+                        <TabsContent value="performance" className="h-full">
+                            <PerformanceTab 
+                                drive={drive} 
+                                performanceData={performanceData} 
+                                loading={loadingPerformance} 
+                                isAdmin={isAdmin} 
+                            />
                         </TabsContent>
                     </div>
                 </Tabs>

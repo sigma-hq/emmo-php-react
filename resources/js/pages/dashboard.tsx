@@ -11,7 +11,12 @@ import {
     ClipboardCheck, 
     FileText, 
     BarChart as BarChartIcon,
-    PieChart as PieChartIcon
+    PieChart as PieChartIcon,
+    Users,
+    Activity,
+    CheckCircle,
+    XCircle,
+    AlertTriangle
 } from 'lucide-react';
 
 import { 
@@ -203,6 +208,31 @@ interface RecentItem {
     operator_name?: string;
 }
 
+interface UserPerformanceData {
+    user_id: number;
+    user_name: string;
+    user_email: string;
+    role: string;
+    total_inspections: number;
+    completed_inspections: number;
+    failed_inspections: number;
+    completion_rate: number;
+    failure_rate: number;
+    total_maintenances: number;
+    completed_maintenances: number;
+    pending_maintenances: number;
+    maintenance_completion_rate: number;
+    created_at: string;
+}
+
+interface OverallPerformanceStats {
+    total_users: number;
+    active_performers: number;
+    avg_completion_rate: number;
+    total_inspections_performed: number;
+    total_maintenances_created: number;
+}
+
 interface DashboardProps {
     inspectionsStats: InspectionsStats;
     maintenancesStats: MaintenancesStats;
@@ -214,6 +244,8 @@ interface DashboardProps {
     inspectionTrend: TrendData[];
     recentInspections: RecentItem[];
     recentMaintenances: RecentItem[];
+    userPerformanceData?: UserPerformanceData[];
+    overallPerformanceStats?: OverallPerformanceStats;
     isAdmin?: boolean;
     userRole?: string;
     userName?: string;
@@ -243,6 +275,8 @@ export default function Dashboard({
     inspectionTrend,
     recentInspections,
     recentMaintenances,
+    userPerformanceData,
+    overallPerformanceStats,
     isAdmin,
     userRole,
     userName
@@ -760,6 +794,171 @@ export default function Dashboard({
                         </>
                     )}
                 </div>
+
+                {/* User Performance Section - Admin Only */}
+                {isAdmin && userPerformanceData && userPerformanceData.length > 0 && (
+                    <div className="space-y-4">
+                        {/* Performance Summary Cards */}
+                        {overallPerformanceStats && (
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                                <StatCard 
+                                    title="Total Users" 
+                                    value={overallPerformanceStats.total_users} 
+                                    icon={<Users className="h-4 w-4 text-muted-foreground" />} 
+                                />
+                                <StatCard 
+                                    title="Active Performers" 
+                                    value={overallPerformanceStats.active_performers} 
+                                    icon={<Activity className="h-4 w-4 text-muted-foreground" />} 
+                                />
+                                <StatCard 
+                                    title="Avg Completion Rate" 
+                                    value={`${overallPerformanceStats.avg_completion_rate}%`} 
+                                    icon={<CheckCircle className="h-4 w-4 text-muted-foreground" />} 
+                                />
+                                <StatCard 
+                                    title="Inspections Performed" 
+                                    value={overallPerformanceStats.total_inspections_performed} 
+                                    icon={<ClipboardCheck className="h-4 w-4 text-muted-foreground" />} 
+                                />
+                                <StatCard 
+                                    title="Maintenances Created" 
+                                    value={overallPerformanceStats.total_maintenances_created} 
+                                    icon={<Wrench className="h-4 w-4 text-muted-foreground" />} 
+                                />
+                            </div>
+                        )}
+
+                        {/* Top Performers */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <BarChartIcon className="h-5 w-5" />
+                                    Top Performers
+                                </CardTitle>
+                                <CardDescription>
+                                    Users with the highest completion rates and performance metrics
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {userPerformanceData
+                                        .filter(user => user.total_inspections > 0 || user.total_maintenances > 0)
+                                        .sort((a, b) => b.completion_rate - a.completion_rate)
+                                        .slice(0, 5)
+                                        .map((user, index) => (
+                                            <div key={user.user_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                                                        index === 0 ? 'bg-yellow-500' :
+                                                        index === 1 ? 'bg-gray-400' :
+                                                        index === 2 ? 'bg-orange-600' : 'bg-blue-500'
+                                                    }`}>
+                                                        {index + 1}
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                                            user.role === 'admin' ? 'bg-red-100 dark:bg-red-900/20' : 'bg-blue-100 dark:bg-blue-900/20'
+                                                        }`}>
+                                                            <Users className={`h-5 w-5 ${
+                                                                user.role === 'admin' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'
+                                                            }`} />
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="font-medium text-gray-900 dark:text-white">{user.user_name}</h3>
+                                                            <p className="text-sm text-gray-500">{user.user_email}</p>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                                    user.role === 'admin' 
+                                                                        ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300' 
+                                                                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
+                                                                }`}>
+                                                                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                                        {user.completion_rate}%
+                                                    </div>
+                                                    <div className="text-sm text-gray-500">
+                                                        {user.completed_inspections} of {user.total_inspections} inspections
+                                                    </div>
+                                                    <div className="text-xs text-gray-400 mt-1">
+                                                        {user.total_maintenances} maintenances created
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            </CardContent>
+                            <CardFooter>
+                                <Link href={route('users')} className="text-sm text-primary hover:underline">
+                                    View detailed performance metrics
+                                </Link>
+                            </CardFooter>
+                        </Card>
+
+                        {/* Performance Alerts */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                                    Performance Alerts
+                                </CardTitle>
+                                <CardDescription>
+                                    Users who may need attention or support
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-3">
+                                    {userPerformanceData
+                                        .filter(user => 
+                                            (user.total_inspections > 0 && user.completion_rate < 60) ||
+                                            (user.total_inspections > 0 && user.failure_rate > 20) ||
+                                            (user.total_inspections === 0 && user.total_maintenances === 0)
+                                        )
+                                        .map((user) => (
+                                            <div key={user.user_id} className="flex items-center justify-between p-3 border border-orange-200 rounded-lg bg-orange-50 dark:bg-orange-900/10 dark:border-orange-800">
+                                                <div className="flex items-center gap-3">
+                                                    <XCircle className="h-4 w-4 text-orange-600" />
+                                                    <div>
+                                                        <h4 className="font-medium text-gray-900 dark:text-white">{user.user_name}</h4>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                            {user.total_inspections === 0 && user.total_maintenances === 0 
+                                                                ? 'No activity recorded'
+                                                                : user.completion_rate < 60 
+                                                                    ? `Low completion rate: ${user.completion_rate}%`
+                                                                    : `High failure rate: ${user.failure_rate}%`
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <Link 
+                                                    href={route('users')} 
+                                                    className="text-sm text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300"
+                                                >
+                                                    Review
+                                                </Link>
+                                            </div>
+                                        ))}
+                                    {userPerformanceData.filter(user => 
+                                        (user.total_inspections > 0 && user.completion_rate < 60) ||
+                                        (user.total_inspections > 0 && user.failure_rate > 20) ||
+                                        (user.total_inspections === 0 && user.total_maintenances === 0)
+                                    ).length === 0 && (
+                                        <div className="text-center py-4">
+                                            <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                                            <p className="text-sm text-gray-500">All users are performing well!</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
             </div>
         </AppLayout>
     );

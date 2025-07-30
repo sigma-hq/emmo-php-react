@@ -246,22 +246,36 @@ class InspectionTaskController extends Controller
         
             $result->save();
             
+            // Update inspection status based on all task and sub-task results
+            $inspection = $task->inspection;
+            if ($inspection) {
+                $inspection->updateStatusBasedOnResults();
+            }
+            
+            // If the result failed, automatically create a maintenance record
+            if (!$isPassing) {
+                $this->createMaintenanceFromFailedInspection($task, $result);
+            }
+            
+            // Determine success message based on result
+            $message = $isPassing ? 'Result recorded successfully' : 'Task failed - Maintenance record created automatically';
+            
             // Check if this is an Inertia request
             if ($request->header('X-Inertia')) {
                 return redirect()->route('inspections.show', $task->inspection_id)
-                    ->with('success', 'Result recorded successfully');
+                    ->with('success', $message);
             }
             
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Result recorded successfully',
+                    'message' => $message,
                     'result' => $result->fresh()->load('performer')
                 ]);
             }
             
             return redirect()->route('inspections.show', $task->inspection_id)
-                ->with('success', 'Result recorded successfully');
+                ->with('success', $message);
         } catch (\Exception $e) {
             Log::error('InspectionTask recordResult - error:', [
                 'message' => $e->getMessage(),
@@ -296,5 +310,65 @@ class InspectionTaskController extends Controller
             'success' => true,
             'task' => $task->load(['results.performer', 'subTasks.completedBy']),
         ]);
+    }
+
+    /**
+     * Create a maintenance record from a failed inspection result.
+     */
+    private function createMaintenanceFromFailedInspection(InspectionTask $task, InspectionResult $result): void
+    {
+        try {
+            // Get the inspection and drive information
+            $inspection = $task->inspection;
+            $drive = null;
+            
+            // Determine the drive from the task target or inspection context
+            if ($task->target_type === 'drive') {
+                $drive = \App\Models\Drive::find($task->target_id);
+            } elseif ($task->target_type === 'part') {
+                $part = \App\Models\Part::find($task->target_id);
+                $drive = $part ? $part->drive : null;
+            }
+            
+            // If no drive found, try to get from inspection context
+            if (!$drive && $inspection) {
+                // You might need to add a drive_id field to inspections table
+                // For now, we'll create maintenance without drive association
+            }
+            
+            // Create maintenance record
+            $maintenance = \App\Models\Maintenance::create([
+                'drive_id' => $drive ? $drive->id : null,
+                'title' => "Maintenance Required: {$task->name}",
+                'description' => "Automatic maintenance created due to failed inspection task: {$task->name}. " .
+                                "Task: {$task->description}. " .
+                                "Result: " . ($result->value_boolean !== null ? 
+                                    ($result->value_boolean ? 'Yes' : 'No') : 
+                                    $result->value_numeric) .
+                                ($result->notes ? " Notes: {$result->notes}" : ''),
+                'maintenance_date' => now(),
+                'status' => 'pending',
+                'user_id' => auth()->id(),
+                'created_from_inspection' => true,
+                'inspection_id' => $inspection->id,
+                'inspection_task_id' => $task->id,
+                'inspection_result_id' => $result->id,
+            ]);
+            
+            \Log::info('Maintenance created from failed inspection', [
+                'maintenance_id' => $maintenance->id,
+                'inspection_id' => $inspection->id,
+                'task_id' => $task->id,
+                'result_id' => $result->id,
+                'drive_id' => $drive ? $drive->id : null,
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Failed to create maintenance from inspection failure', [
+                'error' => $e->getMessage(),
+                'task_id' => $task->id,
+                'result_id' => $result->id,
+            ]);
+        }
     }
 }
