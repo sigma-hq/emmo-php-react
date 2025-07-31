@@ -161,9 +161,11 @@ const ActivityItem: React.FC<ActivityItemProps & { link?: string }> = ({ title, 
 
 interface InspectionsStats {
     total: number;
+    total_assigned?: number; // Total assigned (including completed)
     active: number;
     pending_review: number;
     completed: number;
+    failed?: number; // Failed inspections count
     draft: number;
     due_soon: number;
     overdue: number;
@@ -375,7 +377,7 @@ export default function Dashboard({
                 </div>
 
                 {/* Summary Statistics */}
-                <div className="grid auto-rows-min gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid auto-rows-min gap-4 md:grid-cols-2 lg:grid-cols-6">
                     {isAdmin ? (
                         // Admin sees all statistics
                         <>
@@ -412,11 +414,11 @@ export default function Dashboard({
                         // Operator sees only their relevant statistics
                         <>
                             <StatCard 
-                                title="My Assigned Inspections" 
+                                title="Remaining Inspections" 
                                 value={inspectionsStats.total} 
                                 icon={<ClipboardCheck className="h-4 w-4 text-muted-foreground" />} 
                                 footerLink={route('inspections')}
-                                footerText="View my inspections"
+                                footerText={`${inspectionsStats.total_assigned || 0} total assigned`}
                             />
                             <StatCard 
                                 title="Active Inspections" 
@@ -431,6 +433,20 @@ export default function Dashboard({
                                 icon={<FileText className="h-4 w-4 text-muted-foreground" />} 
                                 footerText="View completed inspections"
                                 footerLink={route('inspections')}
+                            />
+                            <StatCard 
+                                title="Failed Inspections" 
+                                value={inspectionsStats.failed || 0} 
+                                icon={<XCircle className="h-4 w-4 text-muted-foreground" />} 
+                                footerText="View failed inspections"
+                                footerLink={route('inspections')}
+                            />
+                            <StatCard 
+                                title="My Maintenances" 
+                                value={maintenancesStats.total} 
+                                icon={<Wrench className="h-4 w-4 text-muted-foreground" />} 
+                                footerLink={route('maintenances')}
+                                footerText={`${maintenancesStats.in_progress} in progress, ${maintenancesStats.completed} completed`}
                             />
                             <StatCard 
                                 title="Available Drives" 
@@ -800,7 +816,7 @@ export default function Dashboard({
                     <div className="space-y-4">
                         {/* Performance Summary Cards */}
                         {overallPerformanceStats && (
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                            <div className="grid gap-4 grid-cols-5">
                                 <StatCard 
                                     title="Total Users" 
                                     value={overallPerformanceStats.total_users} 

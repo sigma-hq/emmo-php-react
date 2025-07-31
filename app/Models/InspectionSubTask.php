@@ -102,7 +102,14 @@ class InspectionSubTask extends Model
         $this->completed_by = $userId;
         $this->completed_at = now();
         
-        return $this->save();
+        $saved = $this->save();
+        
+        // Update the inspection status after saving the sub-task
+        if ($saved) {
+            $this->task->inspection->updateStatusBasedOnResults();
+        }
+        
+        return $saved;
     }
 
     /**
@@ -118,7 +125,14 @@ class InspectionSubTask extends Model
         $this->recorded_value_boolean = null;
         $this->recorded_value_numeric = null;
         
-        return $this->save();
+        $saved = $this->save();
+        
+        // Update the inspection status after saving the sub-task
+        if ($saved) {
+            $this->task->inspection->updateStatusBasedOnResults();
+        }
+        
+        return $saved;
     }
 
     /**

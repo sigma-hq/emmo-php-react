@@ -31,6 +31,13 @@ class MaintenanceController extends Controller
             ->when($request->input('status'), function($query, $status) {
                 $query->where('status', $status);
             })
+            // Filter by user role - operators see maintenances they created OR are assigned to
+            ->when(!$isAdmin, function($query) use ($user) {
+                $query->where(function($q) use ($user) {
+                    $q->where('user_id', $user->id)  // Maintenances they created
+                      ->orWhere('technician', $user->name); // Maintenances they're assigned to
+                });
+            })
             ->latest()
             ->paginate(10)
             ->withQueryString();
@@ -177,7 +184,16 @@ class MaintenanceController extends Controller
      */
     public function forDrive(Drive $drive)
     {
+        $user = auth()->user();
+        $isAdmin = $user->isAdmin();
+        
         $maintenances = $drive->maintenances()
+            ->when(!$isAdmin, function($query) use ($user) {
+                $query->where(function($q) use ($user) {
+                    $q->where('user_id', $user->id)  // Maintenances they created
+                      ->orWhere('technician', $user->name); // Maintenances they're assigned to
+                });
+            })
             ->with('user:id,name')
             ->latest()
             ->get();

@@ -23,6 +23,7 @@ class Inspection extends Model
         'status',
         'created_by',
         'operator_id',
+        'completed_by',
         // Scheduling related fields
         'is_template',
         'parent_inspection_id',
@@ -64,6 +65,14 @@ class Inspection extends Model
     public function operator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'operator_id');
+    }
+
+    /**
+     * Get the operator who completed this inspection.
+     */
+    public function completedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'completed_by');
     }
 
     /**
@@ -196,11 +205,39 @@ class Inspection extends Model
             }
         } elseif ($allTasksCompleted) {
             if ($this->status !== 'completed') {
-                $this->update(['status' => 'completed']);
-                \Log::info('Updated inspection status to completed', [
-                    'inspection_id' => $this->id
+                // Set the completed_by field to the current user (operator who completed it)
+                $this->update([
+                    'status' => 'completed',
+                    'completed_by' => auth()->id()
                 ]);
+                \Log::info('Updated inspection status to completed', [
+                    'inspection_id' => $this->id,
+                    'completed_by' => auth()->id()
+                ]);
+                
+                // Update related maintenance records to completed
+                $this->updateRelatedMaintenanceStatus();
             }
+        }
+    }
+    
+    /**
+     * Update related maintenance records when inspection is completed
+     */
+    private function updateRelatedMaintenanceStatus(): void
+    {
+        // Find all maintenance records related to this inspection
+        $relatedMaintenances = \App\Models\Maintenance::where('inspection_id', $this->id)
+            ->where('created_from_inspection', true)
+            ->where('status', '!=', 'completed')
+            ->get();
+            
+        foreach ($relatedMaintenances as $maintenance) {
+            $maintenance->update(['status' => 'completed']);
+            \Log::info('Updated maintenance status to completed due to inspection completion', [
+                'inspection_id' => $this->id,
+                'maintenance_id' => $maintenance->id
+            ]);
         }
     }
 }

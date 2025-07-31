@@ -34,7 +34,7 @@ interface Maintenance {
     title: string;
     description: string | null;
     maintenance_date: string;
-    technician: string | null;
+    technician: string | null; // This maps to the database field, but we'll show "Operator" in UI
     status: MaintenanceStatus;
     cost: number | null;
     parts_replaced: { id: number; name: string }[] | null;
@@ -303,9 +303,9 @@ export default function LogMaintenanceDialog({
                                         {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status}</p>}
                                     </div>
                                 </div>
-                                {/* Technician (Custom Combobox) */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="technician" className="text-sm font-medium block">Technician</Label>
+                                                    {/* Operator (Custom Combobox) */}
+                    <div className="space-y-2">
+                        <Label htmlFor="technician" className="text-sm font-medium block">Operator</Label>
                                     <div className="relative">
                                         <Button
                                             type="button"
@@ -313,9 +313,9 @@ export default function LogMaintenanceDialog({
                                             onClick={() => setIsTechComboOpen(true)}
                                             className="w-full justify-between"
                                         >
-                                            {data.technician
-                                                ? operators.find(op => op.name === data.technician)?.name || data.technician
-                                                : "Select technician..."}
+                                                                        {data.technician
+                                ? operators.find(op => op.name === data.technician)?.name || data.technician
+                                : "Select operator..."}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                         {isTechComboOpen && (
@@ -323,7 +323,7 @@ export default function LogMaintenanceDialog({
                                                 <div className="p-2 border-b border-gray-100 dark:border-gray-800">
                                                     <Input
                                                         type="text"
-                                                        placeholder="Search technicians..."
+                                                        placeholder="Search operators..."
                                                         className="w-full"
                                                         value={techSearchTerm}
                                                         onChange={(e) => setTechSearchTerm(e.target.value)}
@@ -359,7 +359,7 @@ export default function LogMaintenanceDialog({
                                                         ))}
                                                     {operators.filter(op => op.name.toLowerCase().includes(techSearchTerm.toLowerCase())).length === 0 && (
                                                         <div className="px-2 py-4 text-center text-sm text-gray-500">
-                                                            No technicians found
+                                                            No operators found
                                                         </div>
                                                     )}
                                                 </div>

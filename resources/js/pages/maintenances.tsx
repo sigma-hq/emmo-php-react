@@ -423,7 +423,7 @@ export default function Maintenances({ maintenances, statuses, filters }: Mainte
                       )}
                     </div>
                   </TableHead>
-                  <TableHead>Technician</TableHead>
+                                          <TableHead>Operator</TableHead>
                   <TableHead onClick={() => toggleSort('status')} className="cursor-pointer">
                     <div className="flex items-center gap-1">
                       Status

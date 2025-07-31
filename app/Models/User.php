@@ -82,6 +82,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(Inspection::class, 'operator_id');
     }
+
+    /**
+     * Get the inspections completed by this user.
+     */
+    public function completedInspections()
+    {
+        return $this->hasMany(Inspection::class, 'completed_by');
+    }
     
     /**
      * Get the maintenances created by the user.

@@ -520,7 +520,10 @@ export default function TasksTab({
             
             {localTasks && localTasks.length > 0 ? (
                 <InspectionTasksTable 
-                    tasks={localTasks} 
+                    tasks={localTasks.filter(task => {
+                        // Filter out tasks that have results (completed tasks)
+                        return !task.results || task.results.length === 0;
+                    })} 
                     toggleTaskExpanded={toggleTaskExpanded} 
                     expandedTaskIds={expandedTaskIds} 
                     openRecordResultDialog={openRecordResultDialog} 

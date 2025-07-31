@@ -46,8 +46,17 @@ class DashboardController extends Controller
             ];
         } else {
             // Operator sees only their assigned inspections
+            $totalAssigned = Inspection::where('operator_id', $user->id)->count();
+            $completedCount = Inspection::where('operator_id', $user->id)->where('status', 'completed')->count();
+            $failedCount = Inspection::where('operator_id', $user->id)->where('status', 'failed')->count();
+            
+            // Remaining inspections = total assigned - completed - failed
+            // (since both completed and failed inspections are "done" and shouldn't be counted as remaining)
+            $remainingCount = $totalAssigned - $completedCount - $failedCount;
+            
             $inspectionsStats = [
-                'total' => Inspection::where('operator_id', $user->id)->count(),
+                'total' => $remainingCount, // Show only truly remaining inspections
+                'total_assigned' => $totalAssigned, // Keep track of total assigned for reference
                 'active' => Inspection::where('operator_id', $user->id)->where('status', 'active')->count(),
                 'pending_review' => Inspection::where('operator_id', $user->id)
                                           ->where('is_template', false)
@@ -55,17 +64,20 @@ class DashboardController extends Controller
                                           ->where('status', '!=', 'completed')
                                           ->where('status', '!=', 'draft')
                                           ->count(),
-                'completed' => Inspection::where('operator_id', $user->id)->where('status', 'completed')->count(),
+                'completed' => $completedCount,
+                'failed' => $failedCount,
                 'draft' => Inspection::where('operator_id', $user->id)->where('status', 'draft')->count(),
                 'due_soon' => Inspection::where('operator_id', $user->id)
                                     ->where('is_template', false)
                                     ->where('status', '!=', 'completed')
+                                    ->where('status', '!=', 'failed')
                                     ->whereNotNull('schedule_next_due_date')
                                     ->whereBetween('schedule_next_due_date', [Carbon::now(), Carbon::now()->addDays(7)])
                                     ->count(),
                 'overdue' => Inspection::where('operator_id', $user->id)
                                    ->where('is_template', false)
                                    ->where('status', '!=', 'completed')
+                                   ->where('status', '!=', 'failed')
                                    ->whereNotNull('schedule_next_due_date')
                                    ->where('schedule_next_due_date', '<', Carbon::now())
                                    ->count(),
@@ -91,14 +103,24 @@ class DashboardController extends Controller
                 'needs_scheduling' => Maintenance::where('status', 'pending')->count(),
             ];
         } else {
-            // Operator sees only maintenances they're involved with (if any)
-            // For now, operators don't have specific maintenance assignments, so show 0
+            // Operator sees maintenances they created OR are assigned to
             $maintenancesStats = [
-                'total' => 0,
-                'scheduled' => 0,
-                'in_progress' => 0,
-                'completed' => 0,
-                'needs_scheduling' => 0,
+                'total' => Maintenance::where(function($query) use ($user) {
+                    $query->where('user_id', $user->id)  // Maintenances they created
+                          ->orWhere('technician', $user->name); // Maintenances they're assigned to
+                })->count(),
+                'scheduled' => Maintenance::where('status', 'scheduled')->where(function($query) use ($user) {
+                    $query->where('user_id', $user->id)->orWhere('technician', $user->name);
+                })->count(),
+                'in_progress' => Maintenance::where('status', 'in_progress')->where(function($query) use ($user) {
+                    $query->where('user_id', $user->id)->orWhere('technician', $user->name);
+                })->count(),
+                'completed' => Maintenance::where('status', 'completed')->where(function($query) use ($user) {
+                    $query->where('user_id', $user->id)->orWhere('technician', $user->name);
+                })->count(),
+                'needs_scheduling' => Maintenance::where('status', 'pending')->where(function($query) use ($user) {
+                    $query->where('user_id', $user->id)->orWhere('technician', $user->name);
+                })->count(),
             ];
         }
 
@@ -287,13 +309,12 @@ class DashboardController extends Controller
     private function getUserPerformanceData()
     {
         try {
-            $users = \App\Models\User::withCount([
-                // Inspections assigned to this user as operator (what they actually perform)
+            $users = \App\Models\User::where('role', 'operator')->withCount([
+                // Inspections assigned to this user as operator
                 'assignedInspections',
-                'assignedInspections as completed_inspections' => function($query) {
-                    $query->where('status', 'completed');
-                },
-                'assignedInspections as failed_inspections' => function($query) {
+                // Inspections actually completed by this user
+                'completedInspections',
+                'completedInspections as failed_inspections' => function($query) {
                     $query->where('status', 'failed');
                 },
                 // Maintenances created by this user (since we can't track who performs them)
@@ -308,7 +329,7 @@ class DashboardController extends Controller
             
             return $users->map(function($user) {
                 $completionRate = $user->assigned_inspections_count > 0 
-                    ? round(($user->completed_inspections / $user->assigned_inspections_count) * 100, 1)
+                    ? round(($user->completed_inspections_count / $user->assigned_inspections_count) * 100, 1)
                     : 0;
                 
                 $failureRate = $user->assigned_inspections_count > 0 
@@ -325,7 +346,7 @@ class DashboardController extends Controller
                     'user_email' => $user->email,
                     'role' => $user->role,
                     'total_inspections' => $user->assigned_inspections_count,
-                    'completed_inspections' => $user->completed_inspections,
+                    'completed_inspections' => $user->completed_inspections_count,
                     'failed_inspections' => $user->failed_inspections,
                     'completion_rate' => $completionRate,
                     'failure_rate' => $failureRate,
@@ -347,11 +368,9 @@ class DashboardController extends Controller
     private function getOverallPerformanceStats()
     {
         try {
-            $users = \App\Models\User::withCount([
+            $users = \App\Models\User::where('role', 'operator')->withCount([
                 'assignedInspections',
-                'assignedInspections as completed_inspections' => function($query) {
-                    $query->where('status', 'completed');
-                }
+                'completedInspections'
             ])->get();
             
             if ($users->isEmpty()) {
@@ -372,7 +391,7 @@ class DashboardController extends Controller
                 if ($user->assigned_inspections_count === 0) {
                     return 0;
                 }
-                return ($user->completed_inspections / $user->assigned_inspections_count) * 100;
+                return ($user->completed_inspections_count / $user->assigned_inspections_count) * 100;
             });
             
             $avgCompletionRate = $users->count() > 0 ? round($totalCompletionRate / $users->count(), 1) : 0;

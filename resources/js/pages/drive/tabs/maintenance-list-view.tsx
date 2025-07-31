@@ -28,7 +28,7 @@ interface Maintenance {
     title: string;
     description: string | null;
     maintenance_date: string;
-    technician: string | null;
+    technician: string | null; // Maps to database field, shown as "Operator" in UI
     status: MaintenanceStatus;
     cost: number | null;
     parts_replaced: Part[] | null;
@@ -144,7 +144,7 @@ export default function MaintenanceListView({
                 return false;
             }
             
-            // Search in title, technician, and description
+            // Search in title, operator, and description
             if (search) {
                 const searchLower = search.toLowerCase();
                 return (
@@ -315,7 +315,7 @@ export default function MaintenanceListView({
                                     onClick={() => toggleSort('technician')}
                                 >
                                     <div className="flex items-center">
-                                        Technician
+                                        Operator
                                         <ArrowUpDown className={`ml-1 h-4 w-4 ${sortField === 'technician' ? 'text-[var(--emmo-green-primary)]' : 'text-gray-400'}`} />
                                     </div>
                                 </TableHead>

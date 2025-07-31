@@ -533,7 +533,7 @@ export default function Users({
                         <TabsContent value="performance" className="h-full">
                             {/* Performance Tab */}
                             <div className="space-y-6">
-                                {/* Performance Search/Filter */}
+                                {/* Performance Search */}
                                 <div className="flex items-center gap-4">
                                     <div className="relative flex-1 max-w-md">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -541,22 +541,12 @@ export default function Users({
                                         </div>
                                         <Input 
                                             type="text" 
-                                            placeholder="Search users by name..." 
+                                            placeholder="Search operators by name..." 
                                             className="pl-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm focus:ring-[var(--emmo-green-primary)] focus:border-[var(--emmo-green-primary)]"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                         />
                                     </div>
-                                    <Select value="all" onValueChange={() => {}}>
-                                        <SelectTrigger className="w-40">
-                                            <SelectValue placeholder="Filter by role" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Roles</SelectItem>
-                                            <SelectItem value="admin">Admins Only</SelectItem>
-                                            <SelectItem value="operator">Operators Only</SelectItem>
-                                        </SelectContent>
-                                    </Select>
                                 </div>
                                 {/* Performance Overview */}
                                 {overallStats && (
@@ -569,7 +559,7 @@ export default function Users({
                                             <CardContent>
                                                 <div className="text-2xl font-bold">{overallStats.total_users}</div>
                                                 <p className="text-xs text-muted-foreground">
-                                                    Active system users
+                                                    Active operators
                                                 </p>
                                             </CardContent>
                                         </Card>
@@ -626,12 +616,12 @@ export default function Users({
                                         </CardHeader>
                                         <CardContent>
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                <div className="text-center">
-                                                    <div className="text-2xl font-bold text-blue-600">
-                                                        {userPerformanceData.filter(u => u.total_inspections > 0 || u.total_maintenances > 0).length}
-                                                    </div>
-                                                    <div className="text-sm text-gray-500">Active Performers</div>
+                                                                                            <div className="text-center">
+                                                <div className="text-2xl font-bold text-blue-600">
+                                                    {userPerformanceData.filter(u => u.total_inspections > 0 || u.total_maintenances > 0).length}
                                                 </div>
+                                                <div className="text-sm text-gray-500">Active Operators</div>
+                                            </div>
                                                 <div className="text-center">
                                                     <div className="text-2xl font-bold text-green-600">
                                                         {Math.round(userPerformanceData.reduce((sum, u) => sum + u.completion_rate, 0) / userPerformanceData.length)}
@@ -658,9 +648,9 @@ export default function Users({
                                 {/* Individual User Performance */}
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle>Individual User Performance</CardTitle>
+                                        <CardTitle>Operator Performance</CardTitle>
                                         <CardDescription>
-                                            Performance metrics for inspections performed and maintenances created by each user/operator
+                                            Performance metrics for inspections performed and maintenances created by each operator
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent>
@@ -831,8 +821,8 @@ export default function Users({
                                             ) : (
                                                 <div className="text-center py-8">
                                                     <BarChart3 className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                                                    <p className="text-gray-500">No user performance data available</p>
-                                                    <p className="text-sm text-gray-400 mt-2">Performance data will appear once users start creating inspections and maintenances.</p>
+                                                    <p className="text-gray-500">No operator performance data available</p>
+                                                    <p className="text-sm text-gray-400 mt-2">Performance data will appear once operators start creating inspections and maintenances.</p>
                                                 </div>
                                             )}
                                         </div>

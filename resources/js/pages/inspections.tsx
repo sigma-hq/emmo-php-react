@@ -37,7 +37,8 @@ import {
     Copy,
     Calendar,
     ChevronsUpDown,
-    Check
+    Check,
+    User
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -62,6 +63,7 @@ interface Inspection {
     updated_at: string;
     creator?: User;
     operator?: User;
+    completedBy?: User;
     is_template: boolean;
     parent_inspection_id?: number | null;
     schedule_frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
@@ -326,17 +328,17 @@ export default function Inspections({ inspections, users, statistics, filters, f
     const getStatusBadgeClasses = (status: string) => {
         switch (status) {
             case 'draft':
-                return 'bg-gray-200 text-gray-800';
+                return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700';
             case 'active':
-                return 'bg-blue-100 text-blue-800';
+                return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800';
             case 'completed':
-                return 'bg-green-100 text-green-800';
+                return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800';
             case 'failed':
-                return 'bg-red-100 text-red-800';
+                return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800';
             case 'archived':
-                return 'bg-amber-100 text-amber-800';
+                return 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800';
             default:
-                return 'bg-gray-200 text-gray-800';
+                return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700';
         }
     };
     
@@ -646,9 +648,9 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 {inspections.data.length > 0 ? (
                     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
-                            <table className="w-full">
+                            <table className="w-full border-collapse">
                                 <thead>
-                                    <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                    <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
                                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-6"></th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inspection</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">Description</th>
@@ -657,12 +659,13 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">Created</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Creator</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Operator</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Completed By</th>
                                         <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                     {inspections.data.map((inspection) => (
-                                        <tr key={inspection.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150">
+                                        <tr key={inspection.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 border-b border-gray-100 dark:border-gray-800">
                                             {/* Type indicator Icon */}
                                             <td className="px-4 py-4 text-center">
                                                 {inspection.is_template ? (
@@ -819,6 +822,27 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                                     </div>
                                                 ) : (
                                                     <span className="text-gray-400 dark:text-gray-500 italic">Not assigned</span>
+                                                )}
+                                            </td>
+                                            
+                                            {/* Completed By */}
+                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 hidden xl:table-cell">
+                                                {inspection.completedBy ? (
+                                                    <div className="flex items-center">
+                                                        <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 mr-2">
+                                                            {inspection.completedBy.name.charAt(0)}
+                                                        </div>
+                                                        <span className="font-medium">{inspection.completedBy.name}</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center">
+                                                        <div className="h-8 w-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 dark:text-gray-500 mr-2">
+                                                            <User className="h-4 w-4" />
+                                                        </div>
+                                                        <span className="text-gray-400 dark:text-gray-500 italic">
+                                                            {inspection.status === 'completed' ? 'Unknown' : 'Not completed'}
+                                                        </span>
+                                                    </div>
                                                 )}
                                             </td>
                                             

@@ -34,7 +34,7 @@ class UserController extends Controller
         if (auth()->user()->isAdmin()) {
             // Calculate overall stats
             $overallStats = [
-                'total_users' => User::count(),
+                'total_users' => User::where('role', 'operator')->count(),
                 'total_inspections' => \App\Models\Inspection::count(),
                 'total_maintenances' => \App\Models\Maintenance::count(),
                 'average_completion_rate' => $this->calculateAverageCompletionRate(),
@@ -169,9 +169,7 @@ class UserController extends Controller
     private function calculateAverageCompletionRate()
     {
         try {
-            $users = User::withCount(['assignedInspections', 'assignedInspections as completed_inspections' => function($query) {
-                $query->where('status', 'completed');
-            }])->get();
+            $users = User::where('role', 'operator')->withCount(['assignedInspections', 'completedInspections'])->get();
             
             if ($users->isEmpty()) {
                 return 0;
@@ -181,7 +179,7 @@ class UserController extends Controller
                 if ($user->assigned_inspections_count === 0) {
                     return 0;
                 }
-                return ($user->completed_inspections / $user->assigned_inspections_count) * 100;
+                return ($user->completed_inspections_count / $user->assigned_inspections_count) * 100;
             });
             
             return round($totalCompletionRate / $users->count(), 1);
@@ -196,13 +194,12 @@ class UserController extends Controller
     private function getUserPerformanceData()
     {
         try {
-            $users = User::withCount([
-                // Inspections assigned to this user as operator (what they actually perform)
+            $users = User::where('role', 'operator')->withCount([
+                // Inspections assigned to this user as operator
                 'assignedInspections',
-                'assignedInspections as completed_inspections' => function($query) {
-                    $query->where('status', 'completed');
-                },
-                'assignedInspections as failed_inspections' => function($query) {
+                // Inspections actually completed by this user
+                'completedInspections',
+                'completedInspections as failed_inspections' => function($query) {
                     $query->where('status', 'failed');
                 },
                 // Maintenances created by this user (since we can't track who performs them)
@@ -217,7 +214,7 @@ class UserController extends Controller
             
             return $users->map(function($user) {
                 $completionRate = $user->assigned_inspections_count > 0 
-                    ? round(($user->completed_inspections / $user->assigned_inspections_count) * 100, 1)
+                    ? round(($user->completed_inspections_count / $user->assigned_inspections_count) * 100, 1)
                     : 0;
                 
                 $failureRate = $user->assigned_inspections_count > 0 
@@ -234,7 +231,7 @@ class UserController extends Controller
                     'user_email' => $user->email,
                     'role' => $user->role,
                     'total_inspections' => $user->assigned_inspections_count,
-                    'completed_inspections' => $user->completed_inspections,
+                    'completed_inspections' => $user->completed_inspections_count,
                     'failed_inspections' => $user->failed_inspections,
                     'completion_rate' => $completionRate,
                     'failure_rate' => $failureRate,

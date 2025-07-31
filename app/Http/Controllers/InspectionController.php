@@ -21,7 +21,7 @@ class InspectionController extends Controller
         return [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'status' => ['required', Rule::in(['draft', 'active', 'completed', 'archived', 'failed'])],
+            'status' => ['nullable', Rule::in(['draft', 'active', 'completed', 'archived', 'failed'])],
             'operator_id' => ['nullable', 'exists:users,id'],
             // Scheduling fields (conditional validation)
             'is_template' => ['sometimes', 'boolean'],
@@ -92,7 +92,7 @@ class InspectionController extends Controller
         // Get pagination settings from request or use defaults
         $perPage = $request->input('per_page', 10);
         
-        $inspections = Inspection::with(['creator:id,name', 'operator:id,name'])
+        $inspections = Inspection::with(['creator:id,name', 'operator:id,name', 'completedBy:id,name'])
             ->when($request->input('search'), function($query, $search) {
                 $query->where(function($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -108,6 +108,10 @@ class InspectionController extends Controller
             ->when($request->input('status') && $request->input('status') !== 'all', function($query) use ($request) {
                 $query->where('status', $request->input('status'));
             })
+            // Filter by user role - operators only see their assigned inspections
+            ->when(!$isAdmin, function($query) use ($user) {
+                $query->where('operator_id', $user->id);
+            })
             ->withCount(['tasks', 'tasks as completed_tasks_count' => function($query) {
                 $query->whereHas('results', function($query) {
                     $query->where('is_passing', true);
@@ -122,14 +126,14 @@ class InspectionController extends Controller
         
         // Calculate statistics from the database (not from paginated data)
         $statistics = [
-            'total' => Inspection::count(),
-            'templates' => Inspection::where('is_template', true)->count(),
-            'instances' => Inspection::where('is_template', false)->count(),
-            'active' => Inspection::where('status', 'active')->count(),
-            'draft' => Inspection::where('status', 'draft')->count(),
-            'completed' => Inspection::where('status', 'completed')->count(),
-            'failed' => Inspection::where('status', 'failed')->count(),
-            'archived' => Inspection::where('status', 'archived')->count(),
+            'total' => $isAdmin ? Inspection::count() : Inspection::where('operator_id', $user->id)->count(),
+            'templates' => $isAdmin ? Inspection::where('is_template', true)->count() : 0, // Operators don't see templates
+            'instances' => $isAdmin ? Inspection::where('is_template', false)->count() : Inspection::where('is_template', false)->where('operator_id', $user->id)->count(),
+            'active' => $isAdmin ? Inspection::where('status', 'active')->count() : Inspection::where('status', 'active')->where('operator_id', $user->id)->count(),
+            'draft' => $isAdmin ? Inspection::where('status', 'draft')->count() : Inspection::where('status', 'draft')->where('operator_id', $user->id)->count(),
+            'completed' => $isAdmin ? Inspection::where('status', 'completed')->count() : Inspection::where('status', 'completed')->where('operator_id', $user->id)->count(),
+            'failed' => $isAdmin ? Inspection::where('status', 'failed')->count() : Inspection::where('status', 'failed')->where('operator_id', $user->id)->count(),
+            'archived' => $isAdmin ? Inspection::where('status', 'archived')->count() : Inspection::where('status', 'archived')->where('operator_id', $user->id)->count(),
         ];
             
         return Inertia::render('inspections', [
@@ -155,6 +159,11 @@ class InspectionController extends Controller
         
         $validated['created_by'] = auth()->id();
         $validated['is_template'] = $request->boolean('is_template');
+        
+        // Set default status if not provided
+        if (!isset($validated['status'])) {
+            $validated['status'] = 'draft'; // Default status for new inspections
+        }
 
         // Clear schedule fields if not a template
         if (!$validated['is_template']) {
@@ -189,6 +198,8 @@ class InspectionController extends Controller
         
         $inspection->load([
             'creator:id,name',
+            'operator:id,name',
+            'completedBy:id,name',
             'parentTemplate:id,name', // Load parent if it's an instance
             'tasks' => function($query) {
                 $query->with([

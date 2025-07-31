@@ -753,6 +753,30 @@ export default function OverviewTab({
                                     </dd>
                                 </div>
                                 
+                                {inspection.operator && (
+                                    <div>
+                                        <dt className="text-gray-500">Assigned Operator</dt>
+                                        <dd className="mt-1 font-medium flex items-center gap-1.5">
+                                            <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center text-xs text-blue-600">
+                                                {inspection.operator.name.charAt(0)}
+                                            </div>
+                                            <span>{inspection.operator.name}</span>
+                                        </dd>
+                                    </div>
+                                )}
+                                
+                                {inspection.completedBy && (
+                                    <div>
+                                        <dt className="text-gray-500">Completed By</dt>
+                                        <dd className="mt-1 font-medium flex items-center gap-1.5">
+                                            <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center text-xs text-green-600">
+                                                {inspection.completedBy.name.charAt(0)}
+                                            </div>
+                                            <span>{inspection.completedBy.name}</span>
+                                        </dd>
+                                    </div>
+                                )}
+                                
                                 <div>
                                     <dt className="text-gray-500">Created Date</dt>
                                     <dd className="mt-1 font-medium">

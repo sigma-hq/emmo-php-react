@@ -136,9 +136,13 @@ export interface Inspection {
     description: string | null;
     status: 'draft' | 'active' | 'completed' | 'archived' | 'failed';
     created_by: number;
+    operator_id?: number | null;
+    completed_by?: number | null;
     created_at: string;
     updated_at: string;
     creator?: User;
+    operator?: User;
+    completedBy?: User;
     tasks?: InspectionTask[];
     is_template: boolean;
     parent_inspection_id?: number | null;
