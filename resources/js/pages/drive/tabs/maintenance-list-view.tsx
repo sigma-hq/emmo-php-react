@@ -1,7 +1,7 @@
 import React, { useState, useMemo, Fragment } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusIcon, Wrench, Calendar, User, Clock, CheckCircle2, ArrowUpDown, Filter, Search, ChevronDown, MoreVertical, Edit3, Trash2, ChevronRight, Clipboard } from 'lucide-react';
+import { PlusIcon, Wrench, Calendar, User, Clock, CheckCircle2, ArrowUpDown, Filter, Search, ChevronDown, MoreVertical, Edit3, Trash2, ChevronRight, Clipboard, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import MaintenanceChecklist from '@/components/ui/maintenance-checklist';
@@ -453,26 +453,37 @@ export default function MaintenanceListView({
                                                 </DropdownMenu>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {(() => {
-                                                    try {
-                                                        if (!maintenance.checklist_json) return '0 / 0';
-                                                        
-                                                        const checklist = typeof maintenance.checklist_json === 'string' 
-                                                            ? JSON.parse(maintenance.checklist_json) 
-                                                            : maintenance.checklist_json;
+                                                <div className="flex items-center justify-end gap-1">
+                                                    {(() => {
+                                                        try {
+                                                            if (!maintenance.checklist_json) return '0 / 0';
                                                             
-                                                        if (!Array.isArray(checklist)) return '0 / 0';
-                                                        
-                                                        const total = checklist.length;
-                                                        const completed = checklist.filter(item => 
-                                                            item.status === 'completed' || (item.completed === true && !('status' in item))
-                                                        ).length;
-                                                        
-                                                        return `${completed} / ${total}`;
-                                                    } catch (e) {
-                                                        return '0 / 0';
-                                                    }
-                                                })()}
+                                                            const checklist = typeof maintenance.checklist_json === 'string' 
+                                                                ? JSON.parse(maintenance.checklist_json) 
+                                                                : maintenance.checklist_json;
+                                                                
+                                                            if (!Array.isArray(checklist)) return '0 / 0';
+                                                            
+                                                            const total = checklist.length;
+                                                            const completed = checklist.filter(item => 
+                                                                item.status === 'completed' || (item.completed === true && !('status' in item))
+                                                            ).length;
+                                                            
+                                                            const hasNotes = checklist.some(item => item.notes && item.notes.trim());
+                                                            
+                                                            return (
+                                                                <>
+                                                                    <span>{completed} / {total}</span>
+                                                                    {hasNotes && (
+                                                                        <MessageSquare className="h-3 w-3 text-blue-500" title="Tasks have notes" />
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        } catch (e) {
+                                                            return '0 / 0';
+                                                        }
+                                                    })()}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-1.5 text-sm text-gray-500">

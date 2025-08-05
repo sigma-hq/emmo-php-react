@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Wrench, PlusIcon, CheckCircle2, Clock, X, List } from 'lucide-react';
+import { Wrench, PlusIcon, CheckCircle2, Clock, X, List, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import LogMaintenanceDialog from './log-maintenance-dialog';
 import MaintenanceListView from './maintenance-list-view';
@@ -237,18 +237,34 @@ export default function MaintenanceTab({ drive, operators, isAdmin }: Maintenanc
                     <Wrench className="h-6 w-6 text-[var(--emmo-green-primary)]" />
                     <h2 className="text-xl font-semibold">Maintenance Records</h2>
                 </div>
-                {isAdmin && (
+                <div className="flex gap-2">
                     <Button 
+                        variant="outline"
                         onClick={() => {
-                        setEditingMaintenance(null);
-                            setIsAddDialogOpen(true);
+                            window.open(`/drives/${drive.id}/maintenances/export`, '_blank');
+                            // Show success message
+                            setSuccessMessage('CSV export initiated. Check your downloads folder.');
+                            setShowSuccessMessage(true);
+                            setTimeout(() => setShowSuccessMessage(false), 3000);
                         }}
-                    className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)]"
+                        className="border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
                     >
-                        <PlusIcon className="h-4 w-4 mr-2" /> 
-                        Log Maintenance
+                        <Download className="h-4 w-4 mr-2" />
+                        Export CSV
                     </Button>
-                )}
+                    {isAdmin && (
+                        <Button 
+                            onClick={() => {
+                            setEditingMaintenance(null);
+                                setIsAddDialogOpen(true);
+                            }}
+                        className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-dark)]"
+                        >
+                            <PlusIcon className="h-4 w-4 mr-2" /> 
+                            Log Maintenance
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Content */}

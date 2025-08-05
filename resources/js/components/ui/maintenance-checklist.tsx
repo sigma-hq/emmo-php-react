@@ -12,7 +12,8 @@ import {
     Check, 
     AlertCircle, 
     Trash,
-    PencilLine 
+    PencilLine,
+    MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useForm, router, usePage } from '@inertiajs/react';
@@ -367,12 +368,15 @@ export default function MaintenanceChecklist({
                             
                             {/* Task text and notes */}
                             <div className="flex-1 min-w-0">
-                                <div className={`text-sm font-medium ${getStatusClass(item.status)}`}>
+                                <div className={`text-sm font-medium ${getStatusClass(item.status)} flex items-center gap-2`}>
                                     {item.text}
+                                    {item.notes && (
+                                        <MessageSquare className="h-3 w-3 text-blue-500 flex-shrink-0" title="Has notes" />
+                                    )}
                                 </div>
                                 {item.notes && (
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                                        {item.notes}
+                                    <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 break-words bg-blue-50 dark:bg-blue-900/20 p-2 rounded border-l-2 border-blue-300 dark:border-blue-600">
+                                        <span className="font-medium text-gray-700 dark:text-gray-200">Notes:</span> {item.notes}
                                     </div>
                                 )}
                             </div>

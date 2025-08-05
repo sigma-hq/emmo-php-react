@@ -1,6 +1,6 @@
 import { InspectionTask as BaseInspectionTask, InspectionSubTask } from '@/pages/inspection/show';
 import React from "react";
-import { ChevronDown, ChevronRight, ClipboardCheck, Pencil, Trash2, AlertTriangle, Check, CalendarClock, User, Hash, ListChecks, PlusIcon, Target, CheckIcon, XIcon, Wrench } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardCheck, Pencil, Trash2, AlertTriangle, Check, CalendarClock, User, Hash, ListChecks, PlusIcon, Target, CheckIcon, XIcon, Wrench, MessageSquare } from "lucide-react";
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -373,12 +373,15 @@ export default function InspectionTasksTable({
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex flex-col">
                                                                 <div className="flex items-start justify-between gap-2">
-                                                                    <h5 className={`font-medium ${subTask.status === 'completed'
+                                                                    <h5 className={`font-medium flex items-center gap-2 ${subTask.status === 'completed'
                                                                             ? 'text-gray-600'
                                                                             : subTask.compliance === 'failing' || subTask.compliance === 'warning'
                                                                                 ? 'text-red-700'
                                                                                 : 'text-gray-800'}`}>
                                                                         {subTask.name}
+                                                                        {subTask.notes && (
+                                                                            <MessageSquare className="h-3 w-3 text-blue-500 flex-shrink-0" title="Has notes" />
+                                                                        )}
                                                                     </h5>
                                                                     <div className="flex items-center gap-1.5 flex-shrink-0">
                                                                         {getComplianceBadge(subTask.compliance)}
@@ -481,6 +484,16 @@ export default function InspectionTasksTable({
                                                                             )}
                                                                         </div>
                                                                     )}
+
+                                                                    {/* Notes */}
+                                                                    {subTask.notes && (
+                                                                        <div className="flex items-start gap-1 text-gray-600">
+                                                                            <FileText className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                                                                            <span className="text-xs">
+                                                                                <span className="font-medium">Notes:</span> {subTask.notes}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -489,36 +502,18 @@ export default function InspectionTasksTable({
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className={`h-8 w-8 p-0 rounded-full ${subTask.recorded_value_boolean !== null ||
-                                                                            subTask.recorded_value_numeric !== null
-                                                                            ? 'text-gray-300 cursor-not-allowed'
-                                                                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
-                                                                    onClick={() => {
-                                                                        if (subTask.recorded_value_boolean === null &&
-                                                                            subTask.recorded_value_numeric === null) {
-                                                                            openEditSubTaskDialog(subTask);
-                                                                        }
-                                                                    } }
-                                                                    disabled={subTask.recorded_value_boolean !== null ||
-                                                                        subTask.recorded_value_numeric !== null}
+                                                                    className="h-8 w-8 p-0 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                                                    onClick={() => openEditSubTaskDialog(subTask)}
+                                                                    title="Edit sub-task"
                                                                 >
                                                                     <Pencil className="h-3.5 w-3.5" />
                                                                 </Button>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className={`h-8 w-8 p-0 rounded-full ${subTask.recorded_value_boolean !== null ||
-                                                                            subTask.recorded_value_numeric !== null
-                                                                            ? 'text-red-200 cursor-not-allowed'
-                                                                            : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}
-                                                                    onClick={() => {
-                                                                        if (subTask.recorded_value_boolean === null &&
-                                                                            subTask.recorded_value_numeric === null) {
-                                                                            deleteSubTask(subTask.id);
-                                                                        }
-                                                                    } }
-                                                                    disabled={subTask.recorded_value_boolean !== null ||
-                                                                        subTask.recorded_value_numeric !== null}
+                                                                    className="h-8 w-8 p-0 rounded-full text-red-400 hover:text-red-600 hover:bg-red-50"
+                                                                    onClick={() => deleteSubTask(subTask.id)}
+                                                                    title="Delete sub-task"
                                                                 >
                                                                     <Trash2 className="h-3.5 w-3.5" />
                                                                 </Button>

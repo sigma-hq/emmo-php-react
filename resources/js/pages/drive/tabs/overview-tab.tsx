@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, MapPin, FileText, Zap, CpuIcon, ClockIcon } from 'lucide-react';
+import { Calendar, MapPin, FileText, Zap, CpuIcon, ClockIcon, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Drive {
@@ -15,9 +15,13 @@ interface Drive {
 
 interface OverviewTabProps {
     drive: Drive;
+    failedInspections?: any[];
+    pendingMaintenances?: any[];
+    operationalStatus?: 'operational' | 'needs_attention';
+    hasAlerts?: boolean;
 }
 
-export default function OverviewTab({ drive }: OverviewTabProps) {
+export default function OverviewTab({ drive, failedInspections = [], pendingMaintenances = [], operationalStatus = 'operational', hasAlerts = false }: OverviewTabProps) {
     const partsCount = drive.parts.length;
     
     return (
@@ -27,31 +31,54 @@ export default function OverviewTab({ drive }: OverviewTabProps) {
                 {/* Left column (65%) - Main content */}
                 <div className="w-full lg:w-7/12 space-y-8">
                     {/* Large status indicator box */}
-                    <div className="relative overflow-hidden bg-gradient-to-r from-[var(--emmo-green-light)] to-[var(--emmo-green-primary)]/20 rounded-2xl p-6 shadow-sm">
+                    <div className={`relative overflow-hidden rounded-2xl p-6 shadow-sm ${
+                        operationalStatus === 'operational' 
+                            ? 'bg-gradient-to-r from-[var(--emmo-green-light)] to-[var(--emmo-green-primary)]/20' 
+                            : 'bg-gradient-to-r from-yellow-100 to-yellow-200 dark:from-yellow-900/20 dark:to-yellow-800/20'
+                    }`}>
                         <div className="absolute right-0 top-0 h-full w-1/2 overflow-hidden">
                             <svg className="absolute -right-6 -top-6 h-40 w-40 opacity-10" viewBox="0 0 24 24" fill="none">
                                 <path d="M15 19.5L7.5 12L15 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         </div>
                         <div className="flex items-center mb-2">
-                            <div className="flex-shrink-0 h-3 w-3 rounded-full bg-green-500 mr-2"></div>
-                            <h3 className="text-lg font-semibold text-[var(--emmo-green-dark)]">Operational</h3>
+                            <div className={`flex-shrink-0 h-3 w-3 rounded-full mr-2 ${
+                                operationalStatus === 'operational' ? 'bg-green-500' : 'bg-yellow-500'
+                            }`}></div>
+                            <h3 className={`text-lg font-semibold ${
+                                operationalStatus === 'operational' 
+                                    ? 'text-[var(--emmo-green-dark)]' 
+                                    : 'text-yellow-800 dark:text-yellow-200'
+                            }`}>
+                                {operationalStatus === 'operational' ? 'Operational' : 'Needs Attention'}
+                            </h3>
                         </div>
-                        <p className="text-sm text-[var(--emmo-green-dark)]/80 max-w-md">
-                            This drive is currently functioning normally with no pending alerts or maintenance issues.
+                        <p className={`text-sm max-w-md ${
+                            operationalStatus === 'operational' 
+                                ? 'text-[var(--emmo-green-dark)]/80' 
+                                : 'text-yellow-800/80 dark:text-yellow-200/80'
+                        }`}>
+                            {operationalStatus === 'operational' 
+                                ? 'This drive is currently functioning normally with no pending alerts or maintenance issues.'
+                                : `This drive has ${failedInspections.length} failed inspection${failedInspections.length !== 1 ? 's' : ''} and ${pendingMaintenances.length} pending maintenance${pendingMaintenances.length !== 1 ? 's' : ''} that require attention.`
+                            }
                         </p>
-                        <div className="mt-6 flex items-center justify-between text-[var(--emmo-green-dark)]/90">
+                        <div className={`mt-6 flex items-center justify-between ${
+                            operationalStatus === 'operational' 
+                                ? 'text-[var(--emmo-green-dark)]/90' 
+                                : 'text-yellow-800/90 dark:text-yellow-200/90'
+                        }`}>
                             <div className="text-sm">
-                                <span className="block font-medium">Uptime</span>
-                                <span className="text-xs">100%</span>
+                                <span className="block font-medium">Failed Inspections</span>
+                                <span className="text-xs">{failedInspections.length}</span>
                             </div>
                             <div className="text-sm">
-                                <span className="block font-medium">Last Inspection</span>
-                                <span className="text-xs">Not available</span>
+                                <span className="block font-medium">Pending Maintenance</span>
+                                <span className="text-xs">{pendingMaintenances.length}</span>
                             </div>
                             <div className="text-sm">
-                                <span className="block font-medium">Next Maintenance</span>
-                                <span className="text-xs">Not scheduled</span>
+                                <span className="block font-medium">Status</span>
+                                <span className="text-xs">{operationalStatus === 'operational' ? 'Healthy' : 'Needs Attention'}</span>
                             </div>
                         </div>
                     </div>
@@ -85,6 +112,76 @@ export default function OverviewTab({ drive }: OverviewTabProps) {
                             </div>
                         )}
                     </div>
+                    
+                    {/* Alerts and Issues Section */}
+                    {hasAlerts && (
+                        <div className="bg-white dark:bg-gray-950 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+                            <div className="flex items-center gap-2 mb-4">
+                                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Active Issues</h3>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                {/* Failed Inspections */}
+                                {failedInspections.length > 0 && (
+                                    <div>
+                                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">Failed Inspections ({failedInspections.length})</h4>
+                                        <div className="space-y-2">
+                                            {failedInspections.slice(0, 3).map((inspection, index) => (
+                                                <div key={index} className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border-l-4 border-red-400">
+                                                    <div className="text-sm font-medium text-red-800 dark:text-red-200">
+                                                        {inspection.task?.name || 'Unknown Task'}
+                                                    </div>
+                                                    <div className="text-xs text-red-600 dark:text-red-300 mt-1">
+                                                        Failed by: {inspection.performer?.name || 'Unknown'} • {format(new Date(inspection.created_at), 'MMM d, yyyy')}
+                                                    </div>
+                                                    {inspection.notes && (
+                                                        <div className="text-xs text-red-600 dark:text-red-300 mt-1">
+                                                            Notes: {inspection.notes}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {failedInspections.length > 3 && (
+                                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                    +{failedInspections.length - 3} more failed inspections
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* Pending Maintenance */}
+                                {pendingMaintenances.length > 0 && (
+                                    <div>
+                                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">Pending Maintenance ({pendingMaintenances.length})</h4>
+                                        <div className="space-y-2">
+                                            {pendingMaintenances.slice(0, 3).map((maintenance, index) => (
+                                                <div key={index} className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border-l-4 border-yellow-400">
+                                                    <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                                                        {maintenance.title}
+                                                    </div>
+                                                    <div className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
+                                                        Created by: {maintenance.user?.name || 'Unknown'} • {format(new Date(maintenance.created_at), 'MMM d, yyyy')}
+                                                    </div>
+                                                    {maintenance.created_from_inspection && (
+                                                        <div className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
+                                                            Auto-created from failed inspection
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {pendingMaintenances.length > 3 && (
+                                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                    +{pendingMaintenances.length - 3} more pending maintenance tasks
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                     
                     {/* Activity Timeline Placeholder */}
                     <div className="bg-white dark:bg-gray-950 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">

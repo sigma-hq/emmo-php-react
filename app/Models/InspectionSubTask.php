@@ -27,6 +27,7 @@ class InspectionSubTask extends Model
         'unit_of_measure',
         'recorded_value_boolean',
         'recorded_value_numeric',
+        'notes',
         'completed_by',
         'completed_at',
         'sort_order',

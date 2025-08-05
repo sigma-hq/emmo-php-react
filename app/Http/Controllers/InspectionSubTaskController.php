@@ -258,8 +258,10 @@ class InspectionSubTaskController extends Controller
                 }
             }
             
-            // Save the recorded values
-            $subTask->update($updateData);
+            // Save the recorded values and notes
+            $subTask->update(array_merge($updateData, [
+                'notes' => $validated['notes'] ?? null
+            ]));
             
             // Update inspection status based on all task and sub-task results
             $inspection = $task->inspection;
@@ -396,6 +398,84 @@ class InspectionSubTaskController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             return false;
+        }
+    }
+
+    /**
+     * Update recorded result for a sub-task.
+     */
+    public function updateResult(Request $request, InspectionSubTask $subTask)
+    {
+        try {
+            $validated = $request->validate([
+                'value_boolean' => 'nullable|boolean|required_if:sub_task_type,yes_no',
+                'value_numeric' => 'nullable|numeric|required_if:sub_task_type,numeric',
+                'notes' => 'nullable|string',
+                'sub_task_type' => 'required|in:yes_no,numeric,none',
+            ]);
+
+            $updateData = [];
+
+            if ($validated['sub_task_type'] === 'none') {
+                // For 'none' type, we only update notes
+                $updateData['recorded_value_boolean'] = null;
+                $updateData['recorded_value_numeric'] = null;
+            } else if ($validated['sub_task_type'] === 'yes_no') {
+                $updateData['recorded_value_boolean'] = $validated['value_boolean'] ?? null;
+                $updateData['recorded_value_numeric'] = null;
+            } else if ($validated['sub_task_type'] === 'numeric') {
+                $updateData['recorded_value_numeric'] = $validated['value_numeric'] ?? null;
+                $updateData['recorded_value_boolean'] = null;
+            }
+
+            // Update the sub-task with new values and notes
+            $subTask->update(array_merge($updateData, [
+                'notes' => $validated['notes'] ?? null,
+                'completed_at' => now(),
+                'completed_by' => Auth::id()
+            ]));
+
+            // Update the inspection status
+            $subTask->task->inspection->updateStatusBasedOnResults();
+
+            // Check if this update creates a need for maintenance (if it's now failing)
+            if ($validated['sub_task_type'] !== 'none') {
+                $isPassing = $subTask->isPassing(
+                    $updateData['recorded_value_boolean'] ?? null,
+                    $updateData['recorded_value_numeric'] ?? null
+                );
+                
+                if (!$isPassing) {
+                    $this->createMaintenanceFromFailedSubTask($subTask, $validated['notes'] ?? null);
+                }
+            }
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Result updated successfully',
+                    'sub_task' => $subTask->fresh()->load('completedBy')
+                ]);
+            }
+
+            return redirect()->back()->with('success', 'Result updated successfully');
+
+        } catch (\Exception $e) {
+            Log::error('Failed to update sub-task result: ' . $e->getMessage(), [
+                'sub_task_id' => $subTask->id,
+                'request_data' => $request->all(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to update result: ' . $e->getMessage()
+                ], 500);
+            }
+
+            return redirect()->back()->withErrors(['error' => 'Failed to update result: ' . $e->getMessage()]);
         }
     }
 }

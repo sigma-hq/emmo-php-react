@@ -16,6 +16,7 @@ import axios from 'axios';
 import InspectionTasksTable from '@/components/inspections/InspectionTasksTable';
 import InspectionsSubTasksList from '@/components/inspections/InspectionsSubTasksList';
 import InspectionsSubTaskDialog from '@/components/inspections/InspectionsSubTaskDialog';
+import EditSubTaskResultDialog from '@/components/inspections/EditSubTaskResultDialog';
 
 // Extend the imported interface to add sub_tasks
 interface InspectionTask extends BaseInspectionTask {
@@ -73,6 +74,10 @@ export default function TasksTab({
     const [formError, setFormError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
+    // For edit result dialog
+    const [isEditResultDialogOpen, setIsEditResultDialogOpen] = useState(false);
+    const [editingResultSubTask, setEditingResultSubTask] = useState<InspectionSubTask | null>(null);
+    
     // Add local state to maintain tasks with updated subtasks
     const [localTasks, setLocalTasks] = useState<InspectionTask[]>(tasks);
     
@@ -118,21 +123,29 @@ export default function TasksTab({
     
     // Open dialog to edit an existing sub-task
     const openEditSubTaskDialog = (subTask: InspectionSubTask) => {
-        setCurrentTaskId(subTask.inspection_task_id);
-        setEditingSubTask(subTask);
-        setFormError(null);
-        subTaskForm.reset();
-        subTaskForm.setData({
-            inspection_task_id: subTask.inspection_task_id.toString(),
-            name: subTask.name,
-            description: subTask.description || '',
-            type: subTask.type || 'none',
-            expected_value_boolean: subTask.expected_value_boolean !== null ? subTask.expected_value_boolean.toString() : 'true',
-            expected_value_min: subTask.expected_value_min !== null ? subTask.expected_value_min.toString() : '',
-            expected_value_max: subTask.expected_value_max !== null ? subTask.expected_value_max.toString() : '',
-            unit_of_measure: subTask.unit_of_measure || '',
-        });
-        setIsSubTaskDialogOpen(true);
+        // Check if this sub-task has recorded results
+        if (subTask.recorded_value_boolean !== null || subTask.recorded_value_numeric !== null || subTask.status === 'completed') {
+            // Open the edit result dialog instead
+            setEditingResultSubTask(subTask);
+            setIsEditResultDialogOpen(true);
+        } else {
+            // Open the regular edit dialog for sub-task configuration
+            setCurrentTaskId(subTask.inspection_task_id);
+            setEditingSubTask(subTask);
+            setFormError(null);
+            subTaskForm.reset();
+            subTaskForm.setData({
+                inspection_task_id: subTask.inspection_task_id.toString(),
+                name: subTask.name,
+                description: subTask.description || '',
+                type: subTask.type || 'none',
+                expected_value_boolean: subTask.expected_value_boolean !== null ? subTask.expected_value_boolean.toString() : 'true',
+                expected_value_min: subTask.expected_value_min !== null ? subTask.expected_value_min.toString() : '',
+                expected_value_max: subTask.expected_value_max !== null ? subTask.expected_value_max.toString() : '',
+                unit_of_measure: subTask.unit_of_measure || '',
+            });
+            setIsSubTaskDialogOpen(true);
+        }
     };
     
     // Handle sub-task form submission
@@ -569,6 +582,17 @@ export default function TasksTab({
                 subTaskForm={subTaskForm} 
                 formError={formError} 
                 isSubmitting={isSubmitting}
+            />
+            
+            {/* Edit Result Dialog */}
+            <EditSubTaskResultDialog
+                isOpen={isEditResultDialogOpen}
+                setIsOpen={setIsEditResultDialogOpen}
+                subTask={editingResultSubTask}
+                onSuccess={() => {
+                    // Refresh the page to show updated data
+                    window.location.reload();
+                }}
             />
             
             {/* Numeric Result Dialog for Subtasks */}

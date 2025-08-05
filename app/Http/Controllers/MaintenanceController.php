@@ -6,6 +6,7 @@ use App\Models\Drive;
 use App\Models\Maintenance;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Http\Response;
 
 class MaintenanceController extends Controller
 {
@@ -200,6 +201,141 @@ class MaintenanceController extends Controller
         
         return response()->json($maintenances);
     }
+
+    /**
+     * Export maintenance records for a specific drive to CSV.
+     */
+    public function exportForDrive(Drive $drive)
+    {
+        $user = auth()->user();
+        $isAdmin = $user->isAdmin();
+        
+        // Get maintenance records for this specific drive
+        $maintenances = $drive->maintenances()
+            ->when(!$isAdmin, function($query) use ($user) {
+                $query->where(function($q) use ($user) {
+                    $q->where('user_id', $user->id)  // Maintenances they created
+                      ->orWhere('technician', $user->name); // Maintenances they're assigned to
+                });
+            })
+            ->with('user:id,name')
+            ->latest()
+            ->get();
+
+        // Generate CSV content
+        $csvData = [];
+        
+        // Add headers
+        $csvData[] = [
+            'ID',
+            'Title',
+            'Description',
+            'Drive Name',
+            'Drive Reference',
+            'Maintenance Date',
+            'Technician',
+            'Status',
+            'Cost',
+            'Parts Replaced',
+            'Created By',
+            'Created At',
+            'Updated At',
+            'Total Tasks',
+            'Completed Tasks',
+            'Failed Tasks',
+            'Task Notes'
+        ];
+
+        // Add data rows
+        foreach ($maintenances as $maintenance) {
+            // Parse checklist items to get task statistics
+            $totalTasks = 0;
+            $completedTasks = 0;
+            $failedTasks = 0;
+            $taskNotes = [];
+            
+            if ($maintenance->checklist_json) {
+                try {
+                    $checklist = is_string($maintenance->checklist_json) 
+                        ? json_decode($maintenance->checklist_json, true) 
+                        : $maintenance->checklist_json;
+                    
+                    if (is_array($checklist)) {
+                        $totalTasks = count($checklist);
+                        foreach ($checklist as $item) {
+                            if (isset($item['status'])) {
+                                if ($item['status'] === 'completed') {
+                                    $completedTasks++;
+                                } elseif ($item['status'] === 'failed') {
+                                    $failedTasks++;
+                                }
+                            } elseif (isset($item['completed']) && $item['completed']) {
+                                $completedTasks++;
+                            }
+                            
+                            // Collect notes
+                            if (isset($item['notes']) && !empty(trim($item['notes']))) {
+                                $taskNotes[] = "Task: {$item['text']} - Notes: {$item['notes']}";
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // If JSON parsing fails, keep counts at 0
+                }
+            }
+
+            // Format parts replaced
+            $partsReplaced = '';
+            if ($maintenance->parts_replaced && is_array($maintenance->parts_replaced)) {
+                $partsReplaced = implode('; ', array_map(function($part) {
+                    return is_array($part) ? ($part['name'] ?? $part['part_ref'] ?? 'Unknown Part') : $part;
+                }, $maintenance->parts_replaced));
+            }
+
+            $csvData[] = [
+                $maintenance->id,
+                $maintenance->title,
+                $maintenance->description ?? '',
+                $drive->name,
+                $drive->drive_ref,
+                $maintenance->maintenance_date,
+                $maintenance->technician ?? 'Not assigned',
+                ucfirst(str_replace('_', ' ', $maintenance->status)),
+                $maintenance->cost ? number_format($maintenance->cost, 2) : '0.00',
+                $partsReplaced,
+                $maintenance->user?->name ?? 'Unknown',
+                $maintenance->created_at,
+                $maintenance->updated_at,
+                $totalTasks,
+                $completedTasks,
+                $failedTasks,
+                implode(' | ', $taskNotes)
+            ];
+        }
+
+        // Convert to CSV string
+        $csvContent = '';
+        foreach ($csvData as $row) {
+            $csvContent .= implode(',', array_map(function($field) {
+                // Escape fields that contain commas, quotes, or newlines
+                if (strpos($field, ',') !== false || strpos($field, '"') !== false || strpos($field, "\n") !== false) {
+                    return '"' . str_replace('"', '""', $field) . '"';
+                }
+                return $field;
+            }, $row)) . "\n";
+        }
+
+        // Generate filename with drive name and timestamp
+        $driveName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $drive->name);
+        $filename = "maintenance_records_{$driveName}_{$drive->drive_ref}_" . date('Y-m-d_H-i-s') . '.csv';
+
+        // Return CSV response
+        return response($csvContent)
+            ->header('Content-Type', 'text/csv')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->header('Cache-Control', 'no-cache, must-revalidate')
+            ->header('Pragma', 'no-cache');
+    }
     
     /**
      * Add a checklist item to a maintenance record.
@@ -272,5 +408,152 @@ class MaintenanceController extends Controller
             'success' => true,
             'stats' => $maintenance->getChecklistStats(),
         ]);
+    }
+
+    /**
+     * Export maintenance records to CSV.
+     */
+    public function export(Request $request)
+    {
+        $user = auth()->user();
+        $isAdmin = $user->isAdmin();
+        
+        // Get maintenance records with the same filtering logic as the index method
+        $maintenances = Maintenance::with(['drive:id,name,drive_ref', 'user:id,name'])
+            ->select(['id', 'drive_id', 'title', 'description', 'maintenance_date', 'technician', 'status', 'cost', 'user_id', 'checklist_json', 'created_at', 'updated_at'])
+            ->when($request->input('search'), function($query, $search) {
+                $query->where('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('technician', 'like', "%{$search}%")
+                    ->orWhereHas('drive', function($query) use ($search) {
+                        $query->where('name', 'like', "%{$search}%")
+                            ->orWhere('drive_ref', 'like', "%{$search}%");
+                    });
+            })
+            ->when($request->input('status'), function($query, $status) {
+                $query->where('status', $status);
+            })
+            // Filter by user role - operators see maintenances they created OR are assigned to
+            ->when(!$isAdmin, function($query) use ($user) {
+                $query->where(function($q) use ($user) {
+                    $q->where('user_id', $user->id)  // Maintenances they created
+                      ->orWhere('technician', $user->name); // Maintenances they're assigned to
+                });
+            })
+            ->latest()
+            ->get();
+
+        // Generate CSV content
+        $csvData = [];
+        
+        // Add headers
+        $csvData[] = [
+            'ID',
+            'Title',
+            'Description',
+            'Drive Name',
+            'Drive Reference',
+            'Maintenance Date',
+            'Technician',
+            'Status',
+            'Cost',
+            'Parts Replaced',
+            'Created By',
+            'Created At',
+            'Updated At',
+            'Total Tasks',
+            'Completed Tasks',
+            'Failed Tasks',
+            'Task Notes'
+        ];
+
+        // Add data rows
+        foreach ($maintenances as $maintenance) {
+            // Parse checklist items to get task statistics
+            $totalTasks = 0;
+            $completedTasks = 0;
+            $failedTasks = 0;
+            $taskNotes = [];
+            
+            if ($maintenance->checklist_json) {
+                try {
+                    $checklist = is_string($maintenance->checklist_json) 
+                        ? json_decode($maintenance->checklist_json, true) 
+                        : $maintenance->checklist_json;
+                    
+                    if (is_array($checklist)) {
+                        $totalTasks = count($checklist);
+                        foreach ($checklist as $item) {
+                            if (isset($item['status'])) {
+                                if ($item['status'] === 'completed') {
+                                    $completedTasks++;
+                                } elseif ($item['status'] === 'failed') {
+                                    $failedTasks++;
+                                }
+                            } elseif (isset($item['completed']) && $item['completed']) {
+                                $completedTasks++;
+                            }
+                            
+                            // Collect notes
+                            if (isset($item['notes']) && !empty(trim($item['notes']))) {
+                                $taskNotes[] = "Task: {$item['text']} - Notes: {$item['notes']}";
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // If JSON parsing fails, keep counts at 0
+                }
+            }
+
+            // Format parts replaced
+            $partsReplaced = '';
+            if ($maintenance->parts_replaced && is_array($maintenance->parts_replaced)) {
+                $partsReplaced = implode('; ', array_map(function($part) {
+                    return is_array($part) ? ($part['name'] ?? $part['part_ref'] ?? 'Unknown Part') : $part;
+                }, $maintenance->parts_replaced));
+            }
+
+            $csvData[] = [
+                $maintenance->id,
+                $maintenance->title,
+                $maintenance->description ?? '',
+                $maintenance->drive?->name ?? 'N/A',
+                $maintenance->drive?->drive_ref ?? 'N/A',
+                $maintenance->maintenance_date,
+                $maintenance->technician ?? 'Not assigned',
+                ucfirst(str_replace('_', ' ', $maintenance->status)),
+                $maintenance->cost ? number_format($maintenance->cost, 2) : '0.00',
+                $partsReplaced,
+                $maintenance->user?->name ?? 'Unknown',
+                $maintenance->created_at,
+                $maintenance->updated_at,
+                $totalTasks,
+                $completedTasks,
+                $failedTasks,
+                implode(' | ', $taskNotes)
+            ];
+        }
+
+        // Convert to CSV string
+        $csvContent = '';
+        foreach ($csvData as $row) {
+            $csvContent .= implode(',', array_map(function($field) {
+                // Escape fields that contain commas, quotes, or newlines
+                if (strpos($field, ',') !== false || strpos($field, '"') !== false || strpos($field, "\n") !== false) {
+                    return '"' . str_replace('"', '""', $field) . '"';
+                }
+                return $field;
+            }, $row)) . "\n";
+        }
+
+        // Generate filename with timestamp
+        $filename = 'maintenance_records_' . date('Y-m-d_H-i-s') . '.csv';
+
+        // Return CSV response
+        return response($csvContent)
+            ->header('Content-Type', 'text/csv')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->header('Cache-Control', 'no-cache, must-revalidate')
+            ->header('Pragma', 'no-cache');
     }
 }

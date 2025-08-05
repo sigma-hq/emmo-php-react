@@ -70,11 +70,32 @@ class DriveController extends Controller
                 $query->with('user:id,name')->latest();
             }
         ]);
+        
+        // Get failed inspection results for this drive
+        $failedInspections = \App\Models\InspectionResult::whereHas('task', function ($query) use ($drive) {
+            $query->where('target_type', 'drive')->where('target_id', $drive->id);
+        })->where('is_passing', false)
+        ->where('created_at', '>=', now()->subDays(30)) // Only consider recent failures
+        ->with(['task', 'performer'])
+        ->latest()
+        ->get();
+        
+        // Get pending maintenances
+        $pendingMaintenances = $drive->maintenances()->where('status', 'pending')->get();
+        
+        // Determine operational status
+        $hasAlerts = $failedInspections->count() > 0 || $pendingMaintenances->count() > 0;
+        $operationalStatus = $hasAlerts ? 'needs_attention' : 'operational';
+        
         $operators = User::where('role', 'operator')->select('id', 'name')->get();
         return Inertia::render('drive/show', [
             'drive' => $drive,
             'operators' => $operators,
             'isAdmin' => $isAdmin,
+            'failedInspections' => $failedInspections,
+            'pendingMaintenances' => $pendingMaintenances,
+            'operationalStatus' => $operationalStatus,
+            'hasAlerts' => $hasAlerts,
         ]);
     }
 

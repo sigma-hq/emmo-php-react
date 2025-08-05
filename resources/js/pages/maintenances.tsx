@@ -44,6 +44,8 @@ import {
   ArrowUpDown,
   X,
   Clipboard,
+  Download,
+  MessageSquare,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -346,7 +348,21 @@ export default function Maintenances({ maintenances, statuses, filters }: Mainte
               <h1 className="text-2xl font-bold tracking-tight">Maintenance Records</h1>
             </div>
             
-            
+            {/* Export Button */}
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (searchTerm) params.append('search', searchTerm);
+                if (statusFilter) params.append('status', statusFilter);
+                window.open(`/maintenances/export?${params.toString()}`, '_blank');
+                displaySuccessMessage('CSV export initiated. Check your downloads folder.');
+              }}
+              className="border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
           </div>
           
           <p className="text-gray-500 dark:text-gray-400 max-w-2xl">
@@ -388,8 +404,22 @@ export default function Maintenances({ maintenances, statuses, filters }: Mainte
             </Select>
           </div>
           
-          {/* Related Inspections Link */}
-          <div className="ml-auto">
+          {/* Export and Related Inspections Links */}
+          <div className="ml-auto flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (searchTerm) params.append('search', searchTerm);
+                if (statusFilter) params.append('status', statusFilter);
+                window.open(`/maintenances/export?${params.toString()}`, '_blank');
+                displaySuccessMessage('CSV export initiated. Check your downloads folder.');
+              }}
+              className="border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
             <Button variant="outline" asChild className="border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
               <Link href={route('inspections')}>
                 <ClipboardList className="h-4 w-4 mr-2" />
@@ -571,26 +601,37 @@ export default function Maintenances({ maintenances, statuses, filters }: Mainte
                             </DropdownMenu>
                           </TableCell>
                           <TableCell className="text-right">
-                            {(() => {
-                              try {
-                                if (!maintenance.checklist_json) return '0 / 0';
-                                
-                                const checklist = typeof maintenance.checklist_json === 'string' 
-                                  ? JSON.parse(maintenance.checklist_json) 
-                                  : maintenance.checklist_json;
+                            <div className="flex items-center justify-end gap-1">
+                              {(() => {
+                                try {
+                                  if (!maintenance.checklist_json) return '0 / 0';
                                   
-                                if (!Array.isArray(checklist)) return '0 / 0';
-                                
-                                const total = checklist.length;
-                                const completed = checklist.filter(item => 
-                                  item.status === 'completed' || (item.completed === true && !('status' in item))
-                                ).length;
-                                
-                                return `${completed} / ${total}`;
-                              } catch (e) {
-                                return '0 / 0';
-                              }
-                            })()}
+                                  const checklist = typeof maintenance.checklist_json === 'string' 
+                                    ? JSON.parse(maintenance.checklist_json) 
+                                    : maintenance.checklist_json;
+                                    
+                                  if (!Array.isArray(checklist)) return '0 / 0';
+                                  
+                                  const total = checklist.length;
+                                  const completed = checklist.filter(item => 
+                                    item.status === 'completed' || (item.completed === true && !('status' in item))
+                                  ).length;
+                                  
+                                  const hasNotes = checklist.some(item => item.notes && item.notes.trim());
+                                  
+                                  return (
+                                    <>
+                                      <span>{completed} / {total}</span>
+                                      {hasNotes && (
+                                        <MessageSquare className="h-3 w-3 text-blue-500" title="Tasks have notes" />
+                                      )}
+                                    </>
+                                  );
+                                } catch (e) {
+                                  return '0 / 0';
+                                }
+                              })()}
+                            </div>
                           </TableCell>
                           
                         </TableRow>

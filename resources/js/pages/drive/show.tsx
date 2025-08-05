@@ -64,9 +64,13 @@ interface DriveShowProps {
     drive: Drive;
     operators: { id: number; name: string }[];
     isAdmin?: boolean;
+    failedInspections?: any[];
+    pendingMaintenances?: any[];
+    operationalStatus?: 'operational' | 'needs_attention';
+    hasAlerts?: boolean;
 }
 
-export default function DriveShow({ drive, operators, isAdmin }: DriveShowProps) {
+export default function DriveShow({ drive, operators, isAdmin, failedInspections, pendingMaintenances, operationalStatus, hasAlerts }: DriveShowProps) {
     const [activeTab, setActiveTab] = useState('overview');
     const [performanceData, setPerformanceData] = useState<DrivePerformance | null>(null);
     const [loadingPerformance, setLoadingPerformance] = useState(false);
@@ -203,7 +207,13 @@ export default function DriveShow({ drive, operators, isAdmin }: DriveShowProps)
                     
                     <div className="mt-6 flex-1">
                         <TabsContent value="overview" className="h-full">
-                            <OverviewTab drive={drive} />
+                            <OverviewTab 
+                                drive={drive} 
+                                failedInspections={failedInspections}
+                                pendingMaintenances={pendingMaintenances}
+                                operationalStatus={operationalStatus}
+                                hasAlerts={hasAlerts}
+                            />
                         </TabsContent>
                         
                         <TabsContent value="parts" className="h-full">

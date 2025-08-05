@@ -104,6 +104,7 @@ export interface InspectionSubTask {
     unit_of_measure: string | null;
     recorded_value_boolean: boolean | null;
     recorded_value_numeric: number | null;
+    notes: string | null;
     compliance: 'passing' | 'failing' | 'warning' | 'pending_action' | 'pending_result' | 'complete' | 'misconfigured' | 'unknown'; // Added
     completed_by: number | null;
     completed_at: string | null;
@@ -676,6 +677,8 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                                                             className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-8 p-0 mb-2"
                                                             value={driveComboSearchTerm}
                                                             onChange={e => setDriveComboSearchTerm(e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onKeyDown={(e) => e.stopPropagation()}
                                                             autoFocus
                                                         />
                                                     </div>
@@ -726,6 +729,8 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                                                             className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-8 p-0 mb-2"
                                                             value={partComboSearchTerm}
                                                             onChange={e => setPartComboSearchTerm(e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onKeyDown={(e) => e.stopPropagation()}
                                                             autoFocus
                                                         />
                                                     </div>

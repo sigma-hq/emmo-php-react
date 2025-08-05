@@ -65,11 +65,13 @@ Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.driv
 
     // Maintenance routes
     Route::get('maintenances', [MaintenanceController::class, 'index'])->name('maintenances');
+    Route::get('maintenances/export', [MaintenanceController::class, 'export'])->name('api.maintenances.export');
     Route::post('maintenances', [MaintenanceController::class, 'store'])->name('api.maintenances.store');
     Route::get('maintenances/{maintenance}', [MaintenanceController::class, 'show'])->name('api.maintenances.show');
     Route::put('maintenances/{maintenance}', [MaintenanceController::class, 'update'])->name('api.maintenances.update');
     Route::delete('maintenances/{maintenance}', [MaintenanceController::class, 'destroy'])->name('api.maintenances.destroy');
     Route::get('drives/{drive}/maintenances', [MaintenanceController::class, 'forDrive'])->name('api.drives.maintenances');
+    Route::get('drives/{drive}/maintenances/export', [MaintenanceController::class, 'exportForDrive'])->name('api.drives.maintenances.export');
     
     // Maintenance checklist item routes
     Route::post('maintenances/{maintenance}/checklist', [MaintenanceController::class, 'addChecklistItem'])->name('api.maintenances.checklist.add');
@@ -119,8 +121,9 @@ Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.driv
     // Operator routes - can view and record results
     Route::get('inspection-tasks/{task}', [InspectionTaskController::class, 'show'])->name('inspection-tasks.show');
     Route::post('inspection-tasks/{task}/results', [InspectionTaskController::class, 'recordResult'])->name('inspection-tasks.record-result');
-    Route::patch('inspection-sub-tasks/{subTask}/toggle-status', [InspectionSubTaskController::class, 'toggleStatus'])->name('api.inspection-sub-tasks.toggle-status');
-    Route::post('inspection-sub-tasks/{subTask}/results', [InspectionSubTaskController::class, 'recordResult'])->name('api.inspection-sub-tasks.record-result');
+            Route::patch('inspection-sub-tasks/{subTask}/toggle-status', [InspectionSubTaskController::class, 'toggleStatus'])->name('api.inspection-sub-tasks.toggle-status');
+        Route::post('inspection-sub-tasks/{subTask}/results', [InspectionSubTaskController::class, 'recordResult'])->name('api.inspection-sub-tasks.record-result');
+        Route::put('inspection-sub-tasks/{subTask}/results', [InspectionSubTaskController::class, 'updateResult'])->name('api.inspection-sub-tasks.update-result');
 });
 
 require __DIR__.'/settings.php';
