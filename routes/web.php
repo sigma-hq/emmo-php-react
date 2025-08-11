@@ -8,6 +8,7 @@ use App\Http\Controllers\InspectionTaskController;
 use App\Http\Controllers\InspectionSubTaskController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HandoutNoteController;
 
 use App\Http\Controllers\DrivePerformanceController;
 use Illuminate\Support\Facades\Route;
@@ -79,6 +80,12 @@ Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.driv
     Route::delete('maintenances/{maintenance}/checklist/{itemId}', [MaintenanceController::class, 'removeChecklistItem'])->name('api.maintenances.checklist.remove');
     Route::get('maintenances/{maintenance}/checklist-stats', [MaintenanceController::class, 'getChecklistStats'])->name('api.maintenances.checklist.stats');
 
+    // Handout Notes routes
+    Route::get('handout-notes', [HandoutNoteController::class, 'index'])->name('handout-notes');
+    Route::post('handout-notes', [HandoutNoteController::class, 'store'])->name('api.handout-notes.store');
+    Route::put('handout-notes/{handoutNote}', [HandoutNoteController::class, 'update'])->name('api.handout-notes.update');
+    Route::delete('handout-notes/{handoutNote}', [HandoutNoteController::class, 'destroy'])->name('api.handout-notes.destroy');
+
     Route::get('view-items', function () {
         return Inertia::render('view-items');
     })->name('view-items');
@@ -107,7 +114,6 @@ Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.driv
 
     // Inspection Tasks routes - Admin only for management, operators can record results
     Route::middleware(['can:manage,App\Models\User'])->group(function () {
-        Route::post('inspection-tasks', [InspectionTaskController::class, 'store'])->name('inspection-tasks.store');
         Route::put('inspection-tasks/{task}', [InspectionTaskController::class, 'update'])->name('inspection-tasks.update');
         Route::delete('inspection-tasks/{task}', [InspectionTaskController::class, 'destroy'])->name('inspection-tasks.destroy');
         
@@ -117,6 +123,9 @@ Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.driv
         Route::delete('inspection-sub-tasks/{subTask}', [InspectionSubTaskController::class, 'destroy'])->name('api.inspection-sub-tasks.destroy');
         Route::post('inspection-sub-tasks/reorder', [InspectionSubTaskController::class, 'reorder'])->name('api.inspection-sub-tasks.reorder');
     });
+    
+    // Task creation - accessible to both admins and operators
+    Route::post('inspection-tasks', [InspectionTaskController::class, 'store'])->name('inspection-tasks.store');
     
     // Operator routes - can view and record results
     Route::get('inspection-tasks/{task}', [InspectionTaskController::class, 'show'])->name('inspection-tasks.show');

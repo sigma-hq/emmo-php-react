@@ -263,6 +263,12 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
     };
     
     const openEditTaskDialog = (task: InspectionTask) => {
+        // Prevent operators from editing tasks
+        if (!isAdmin) {
+            alert('Operators can only add new tasks. They cannot edit existing tasks.');
+            return;
+        }
+        
         taskForm.reset();
         taskForm.setData({
             id: task.id.toString(),
@@ -284,12 +290,24 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
     };
     
     const openDeleteTaskDialog = (task: InspectionTask) => {
+        // Prevent operators from deleting tasks
+        if (!isAdmin) {
+            alert('Operators can only add new tasks. They cannot delete existing tasks.');
+            return;
+        }
+        
         setTaskToDelete(task);
         setShowDeleteTaskDialog(true);
     };
     
     const handleTaskSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Prevent operators from editing tasks
+        if (isEditTaskMode && !isAdmin) {
+            alert('Operators can only add new tasks. They cannot edit existing tasks.');
+            return;
+        }
         
         // Log submission for debugging
         console.log('Submitting task form with data:', taskForm.data);
@@ -318,6 +336,12 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
     };
     
     const handleTaskDelete = () => {
+        // Prevent operators from deleting tasks
+        if (!isAdmin) {
+            alert('Operators can only add new tasks. They cannot delete existing tasks.');
+            return;
+        }
+        
         if (taskToDelete) {
             router.delete(route('inspection-tasks.destroy', taskToDelete.id), {
                 onSuccess: () => {
@@ -362,6 +386,14 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
         
         // Clear previous error message
         setResultsErrorMessage(null);
+        
+        // Validate that notes are provided when result is "No"
+        if (resultForm.data.task_type === 'yes_no' && 
+            resultForm.data.value_boolean === 'false' && 
+            !resultForm.data.notes.trim()) {
+            setResultsErrorMessage('Please provide a reason/notes when recording a "No" result.');
+            return;
+        }
         
         // Log submission for debugging
         console.log('Submitting result form with data:', resultForm.data);
@@ -502,18 +534,16 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                         </div>
                         
                         <div className="flex gap-3 self-start md:self-center">
-                            {/* Optional: Add Edit/Share buttons here if needed, similar to Drive page */}
-                            {isAdmin && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={openCreateTaskDialog} // Keep Add Task accessible 
-                                    className="h-9"
-                                >
-                                    <PlusIcon className="h-4 w-4 mr-2" />
-                                    Add Task
-                                </Button>
-                            )}
+                            {/* Add Task button - accessible to both admins and operators */}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={openCreateTaskDialog}
+                                className="h-9"
+                            >
+                                <PlusIcon className="h-4 w-4 mr-2" />
+                                Add Task
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -571,9 +601,8 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                     </div>
                 </Tabs>
                 
-                {/* Task Form Dialog - Admin Only */}
-                {isAdmin && (
-                    <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
+                {/* Task Form Dialog - Accessible to both admins and operators, but operators can only create */}
+                <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
                     <DialogContent className="sm:max-w-[550px] rounded-xl p-0 overflow-hidden">
                         <form onSubmit={handleTaskSubmit} className="flex flex-col h-full">
                             {/* Header with visual treatment */}
@@ -855,7 +884,6 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                         </form>
                     </DialogContent>
                 </Dialog>
-                )}
                 
                 {/* Delete Task Confirmation */}
                 <AlertDialog open={showDeleteTaskDialog} onOpenChange={setShowDeleteTaskDialog}>
@@ -881,7 +909,17 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                 </AlertDialog>
                 
                 {/* Record Result Dialog */}
-                <Dialog open={isResultDialogOpen} onOpenChange={setIsResultDialogOpen}>
+                <Dialog open={isResultDialogOpen} onOpenChange={(open) => {
+                    // Prevent closing if validation fails for "No" results without notes
+                    if (!open && 
+                        resultForm.data.task_type === 'yes_no' && 
+                        resultForm.data.value_boolean === 'false' && 
+                        !resultForm.data.notes.trim()) {
+                        setResultsErrorMessage('Please provide a reason/notes before closing the dialog.');
+                        return;
+                    }
+                    setIsResultDialogOpen(open);
+                }}>
                     <DialogContent className="sm:max-w-[500px]">
                         <DialogHeader>
                             <DialogTitle>
@@ -912,7 +950,13 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                                         </Label>
                                         <RadioGroup
                                             value={resultForm.data.value_boolean}
-                                            onValueChange={(value) => resultForm.setData('value_boolean', value)}
+                                            onValueChange={(value) => {
+                                                resultForm.setData('value_boolean', value);
+                                                // Clear error message when user changes from "No" to "Yes"
+                                                if (value === 'true') {
+                                                    setResultsErrorMessage(null);
+                                                }
+                                            }}
                                             className="flex gap-4"
                                         >
                                             <div className="flex items-center space-x-2">
@@ -947,29 +991,84 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                                 )}
                                 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="notes">
-                                        Notes (Optional)
+                                    <Label htmlFor="notes" className={
+                                        resultForm.data.task_type === 'yes_no' && 
+                                        resultForm.data.value_boolean === 'false' 
+                                            ? "text-red-500" : ""
+                                    }>
+                                        Notes {resultForm.data.task_type === 'yes_no' && 
+                                               resultForm.data.value_boolean === 'false' 
+                                                   ? "(Required for 'No' result)" 
+                                                   : "(Optional)"}
                                     </Label>
                                     <Textarea
                                         id="notes"
                                         value={resultForm.data.notes}
-                                        onChange={(e) => resultForm.setData('notes', e.target.value)}
+                                        onChange={(e) => {
+                                            resultForm.setData('notes', e.target.value);
+                                            // Clear error message when user starts typing notes
+                                            if (resultForm.data.task_type === 'yes_no' && 
+                                                resultForm.data.value_boolean === 'false' && 
+                                                e.target.value.trim()) {
+                                                setResultsErrorMessage(null);
+                                            }
+                                        }}
                                         rows={3}
+                                        className={
+                                            resultForm.data.task_type === 'yes_no' && 
+                                            resultForm.data.value_boolean === 'false' && 
+                                            !resultForm.data.notes.trim()
+                                                ? "border-red-500 focus:ring-red-500" 
+                                                : ""
+                                        }
+                                        placeholder={
+                                            resultForm.data.task_type === 'yes_no' && 
+                                            resultForm.data.value_boolean === 'false'
+                                                ? "Please provide a reason for the 'No' result..."
+                                                : "Add any additional notes..."
+                                        }
                                     />
+                                    {resultForm.data.task_type === 'yes_no' && 
+                                     resultForm.data.value_boolean === 'false' && 
+                                     !resultForm.data.notes.trim() && (
+                                        <p className="text-sm text-red-500">
+                                            Notes are required when recording a "No" result.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                             <DialogFooter>
                                 <Button 
                                     type="button" 
                                     variant="outline" 
-                                    onClick={() => setIsResultDialogOpen(false)}
+                                    onClick={() => {
+                                        // Prevent closing if validation fails for "No" results without notes
+                                        if (resultForm.data.task_type === 'yes_no' && 
+                                            resultForm.data.value_boolean === 'false' && 
+                                            !resultForm.data.notes.trim()) {
+                                            setResultsErrorMessage('Please provide a reason/notes before closing the dialog.');
+                                            return;
+                                        }
+                                        setIsResultDialogOpen(false);
+                                    }}
                                 >
                                     Cancel
                                 </Button>
                                 <Button 
                                     type="submit" 
-                                    disabled={resultForm.processing}
-                                    className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
+                                    disabled={
+                                        resultForm.processing || 
+                                        (resultForm.data.task_type === 'yes_no' && 
+                                         resultForm.data.value_boolean === 'false' && 
+                                         !resultForm.data.notes.trim())
+                                    }
+                                    className={
+                                        resultForm.data.task_type === 'yes_no' && 
+                                        resultForm.data.value_boolean === 'false' && 
+                                        !resultForm.data.notes.trim()
+                                            ? "bg-gray-400 cursor-not-allowed hover:bg-gray-400"
+                                            : "bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]"
+                                    }
                                 >
                                     Save Result
                                 </Button>

@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarGroup, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, HardDrive, Wrench, ClipboardCheck, Hammer, Users as UsersIcon, BarChart3 } from 'lucide-react';
+import { LayoutGrid, HardDrive, Wrench, ClipboardCheck, Hammer, Users as UsersIcon, BarChart3, StickyNote } from 'lucide-react';
 import AppLogo from './app-logo';
 import { useState, useEffect } from 'react';
 
@@ -13,6 +13,7 @@ const navItems: (NavItem & { group: string; adminOnly?: boolean })[] = [
     { title: 'Drive', href: '/drive', icon: HardDrive, group: 'Operations' },
     { title: 'Inspections', href: '/inspections', icon: ClipboardCheck, group: 'Operations' },
     { title: 'Maintenances', href: '/maintenances', icon: Hammer, group: 'Operations' },
+    { title: 'Handout Notes', href: '/handout-notes', icon: StickyNote, group: 'Operations' },
     // { title: 'View Items', href: '/view-items', icon: List, group: 'Operations' },
     { title: 'Parts', href: '/parts', icon: Wrench, group: 'Resources' },
     { title: 'Users', href: '/users', icon: UsersIcon, group: 'Admin', adminOnly: true },
