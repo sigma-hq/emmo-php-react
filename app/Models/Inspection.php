@@ -92,6 +92,144 @@ class Inspection extends Model
     }
 
     /**
+     * Calculate the priority level based on expiration date
+     */
+    public function getPriorityLevel(): string
+    {
+        if (!$this->schedule_next_due_date) {
+            return 'no_urgency';
+        }
+
+        $now = now();
+        $dueDate = $this->schedule_next_due_date;
+        $daysUntilDue = $now->diffInDays($dueDate, false); // false = absolute value
+
+        if ($daysUntilDue < 0) {
+            return 'overdue';
+        } elseif ($daysUntilDue <= 1) {
+            return 'high';
+        } elseif ($daysUntilDue <= 3) {
+            return 'medium';
+        } elseif ($daysUntilDue <= 7) {
+            return 'low';
+        } else {
+            return 'no_urgency';
+        }
+    }
+
+    /**
+     * Get priority display information
+     */
+    public function getPriorityInfo(): array
+    {
+        $priority = $this->getPriorityLevel();
+        $dueDate = $this->schedule_next_due_date;
+        
+        if (!$dueDate) {
+            return [
+                'level' => 'no_urgency',
+                'label' => 'No Due Date',
+                'color' => 'gray',
+                'icon' => 'circle',
+                'urgency' => 'none'
+            ];
+        }
+
+        $now = now();
+        $daysUntilDue = $now->diffInDays($dueDate, false);
+        $isOverdue = $daysUntilDue < 0;
+
+        $priorityConfig = [
+            'overdue' => [
+                'label' => 'OVERDUE',
+                'color' => 'red',
+                'icon' => 'alert-circle',
+                'urgency' => 'critical'
+            ],
+            'high' => [
+                'label' => 'HIGH PRIORITY',
+                'color' => 'red',
+                'icon' => 'clock',
+                'urgency' => 'high'
+            ],
+            'medium' => [
+                'label' => 'MEDIUM PRIORITY',
+                'color' => 'yellow',
+                'icon' => 'clock',
+                'urgency' => 'medium'
+            ],
+            'low' => [
+                'label' => 'LOW PRIORITY',
+                'color' => 'green',
+                'icon' => 'clock',
+                'urgency' => 'low'
+            ],
+            'no_urgency' => [
+                'label' => 'NO URGENCY',
+                'color' => 'gray',
+                'icon' => 'circle',
+                'urgency' => 'none'
+            ]
+        ];
+
+        $config = $priorityConfig[$priority];
+        
+        return [
+            'level' => $priority,
+            'label' => $config['label'],
+            'color' => $config['color'],
+            'icon' => $config['icon'],
+            'urgency' => $config['urgency'],
+            'days_until_due' => $daysUntilDue,
+            'is_overdue' => $isOverdue,
+            'due_date' => $dueDate,
+            'formatted_due_date' => $dueDate->format('M j, Y'),
+            'time_remaining' => $this->getTimeRemainingText($daysUntilDue, $isOverdue)
+        ];
+    }
+
+    /**
+     * Get human-readable time remaining text
+     */
+    private function getTimeRemainingText(int $daysUntilDue, bool $isOverdue): string
+    {
+        if ($isOverdue) {
+            $overdueDays = abs($daysUntilDue);
+            if ($overdueDays === 1) {
+                return '1 day overdue';
+            }
+            return $overdueDays . ' days overdue';
+        }
+
+        if ($daysUntilDue === 0) {
+            return 'Due today';
+        } elseif ($daysUntilDue === 1) {
+            return 'Due tomorrow';
+        } elseif ($daysUntilDue <= 7) {
+            return 'Due in ' . $daysUntilDue . ' days';
+        } else {
+            return 'Due in ' . $daysUntilDue . ' days';
+        }
+    }
+
+    /**
+     * Check if inspection is urgent (high or overdue priority)
+     */
+    public function isUrgent(): bool
+    {
+        $priority = $this->getPriorityLevel();
+        return in_array($priority, ['high', 'overdue']);
+    }
+
+    /**
+     * Check if inspection is overdue
+     */
+    public function isOverdue(): bool
+    {
+        return $this->getPriorityLevel() === 'overdue';
+    }
+
+    /**
      * Get the validation rules for creating a new inspection.
      *
      * @return array<string, mixed>

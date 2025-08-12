@@ -17,6 +17,9 @@ class Kernel extends ConsoleKernel
         // Schedule the inspection creation command
         $schedule->command('inspections:create-scheduled')->daily()->withoutOverlapping(); 
         // Consider ->hourly() or more frequent if needed, withoutOverlapping() prevents duplicates if a run takes longer than the interval.
+        
+        // Schedule operator performance check - runs daily at 8 AM
+        $schedule->command('operators:check-performance')->daily()->at('08:00')->withoutOverlapping();
     }
 
     /**

@@ -38,9 +38,11 @@ import {
     Calendar,
     ChevronsUpDown,
     Check,
-    User
+    User,
+    AlertTriangle,
+    Circle
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +76,18 @@ interface Inspection {
     schedule_last_created_at?: string | null;
     tasks_count?: number;
     completed_tasks_count?: number;
+    priority_info?: {
+        level: string;
+        label: string;
+        color: string;
+        icon: string;
+        urgency: string;
+        days_until_due: number;
+        is_overdue: boolean;
+        due_date: string;
+        formatted_due_date: string;
+        time_remaining: string;
+    };
 }
 
 interface PaginationLinks {
@@ -181,9 +195,36 @@ export default function Inspections({ inspections, users, statistics, filters, f
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [typeFilter, setTypeFilter] = useState(filters.type || 'all');
     const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
+    const [priorityFilter, setPriorityFilter] = useState('all');
     const [perPage, setPerPage] = useState(filters.per_page);
     const [isOperatorComboOpen, setIsOperatorComboOpen] = useState(false);
     const [operatorSearchTerm, setOperatorSearchTerm] = useState('');
+    
+    // Apply client-side filtering for priority
+    const filteredInspections = useMemo(() => {
+        if (priorityFilter === 'all') {
+            return inspections.data;
+        }
+        
+        return inspections.data.filter(inspection => {
+            if (!inspection.priority_info) return false;
+            
+            switch (priorityFilter) {
+                case 'urgent':
+                    return inspection.priority_info.level === 'high' || inspection.priority_info.level === 'overdue';
+                case 'overdue':
+                    return inspection.priority_info.level === 'overdue';
+                case 'high':
+                    return inspection.priority_info.level === 'high';
+                case 'medium':
+                    return inspection.priority_info.level === 'medium';
+                case 'low':
+                    return inspection.priority_info.level === 'low';
+                default:
+                    return true;
+            }
+        });
+    }, [inspections.data, priorityFilter]);
     
     const { data, setData, post, put, processing, errors, reset } = useForm<InspectionFormData>({
         id: '',
@@ -494,7 +535,52 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                 </div>
                             </div>
                             <div className="h-1.5 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
-                                <div className="h-full bg-green-400 rounded-full" style={{ width: `${statusCounts.all > 0 ? (statusCounts.active / statusCounts.all) * 100 : 0}%` }}></div>
+                                <div className="h-full bg-green-400 rounded-full" style={{ width: `${statusCounts.all > 0 ? ((statusCounts.active / statusCounts.all) * 100) : 0}%` }}></div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    
+                    {/* Priority Filter Cards */}
+                    <Card className={`shadow-sm border-gray-200 hover:shadow-md transition-shadow cursor-pointer ${priorityFilter === 'urgent' ? 'ring-2 ring-red-500' : ''}`} onClick={() => setPriorityFilter(priorityFilter === 'urgent' ? 'all' : 'urgent')}>
+                        <CardHeader className="pb-2 p-4">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-600">Urgent</CardTitle>
+                                <div className="rounded-full p-1.5 bg-red-100">
+                                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="pt-0 p-4">
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold text-red-600">
+                                    {inspections.data.filter(insp => insp.priority_info?.level === 'high' || insp.priority_info?.level === 'overdue').length}
+                                </div>
+                                <div className="text-xs text-gray-500">Priority</div>
+                            </div>
+                            <div className="h-1.5 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-red-500 rounded-full" style={{ width: '100%' }}></div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    
+                    <Card className={`shadow-sm border-gray-200 hover:shadow-md transition-shadow cursor-pointer ${priorityFilter === 'overdue' ? 'ring-2 ring-red-600' : ''}`} onClick={() => setPriorityFilter(priorityFilter === 'overdue' ? 'all' : 'overdue')}>
+                        <CardHeader className="pb-2 p-4">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-medium text-gray-600">Overdue</CardTitle>
+                                <div className="rounded-full p-1.5 bg-red-100">
+                                    <Clock className="h-4 w-4 text-red-600" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="pt-0 p-4">
+                            <div className="flex justify-between items-baseline">
+                                <div className="text-2xl font-bold text-red-600">
+                                    {inspections.data.filter(insp => insp.priority_info?.level === 'overdue').length}
+                                </div>
+                                <div className="text-xs text-gray-500">Critical</div>
+                            </div>
+                            <div className="h-1.5 w-full bg-gray-100 mt-2 mb-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-red-600 rounded-full" style={{ width: '100%' }}></div>
                             </div>
                         </CardContent>
                     </Card>
@@ -640,12 +726,13 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 {/* Result Count */}
                 <div className="flex justify-between items-center mb-2">
                     <div className="text-sm text-gray-500">
-                        {inspections.total} {inspections.total === 1 ? 'inspection' : 'inspections'} found
+                        {filteredInspections.length} of {inspections.total} {inspections.total === 1 ? 'inspection' : 'inspections'} found
+                        {priorityFilter !== 'all' && ` (filtered by ${priorityFilter} priority)`}
                     </div>
                 </div>
                 
                 {/* Inspections List */}
-                {inspections.data.length > 0 ? (
+                {filteredInspections.length > 0 ? (
                     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse">
@@ -656,6 +743,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">Description</th>
                                         <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16">Tasks</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-48 hidden md:table-cell">Status</th>
+                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32 hidden lg:table-cell">Priority</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">Created</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Creator</th>
                                         <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Operator</th>
@@ -664,8 +752,13 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                    {inspections.data.map((inspection) => (
-                                        <tr key={inspection.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 border-b border-gray-100 dark:border-gray-800">
+                                    {filteredInspections.map((inspection) => (
+                                        <tr key={inspection.id} className={cn(
+                                            "hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 border-b border-gray-100 dark:border-gray-800",
+                                            inspection.priority_info?.level === 'overdue' && "bg-red-50 dark:bg-red-900/10 border-l-4 border-l-red-500",
+                                            inspection.priority_info?.level === 'high' && "bg-orange-50 dark:bg-orange-900/10 border-l-4 border-l-orange-500",
+                                            inspection.priority_info?.level === 'medium' && "bg-yellow-50 dark:bg-yellow-900/10 border-l-4 border-l-yellow-500"
+                                        )}>
                                             {/* Type indicator Icon */}
                                             <td className="px-4 py-4 text-center">
                                                 {inspection.is_template ? (
@@ -784,6 +877,45 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                                 )}
                                             </td>
                                             
+                                            {/* Priority */}
+                                            <td className="px-6 py-4 text-sm hidden lg:table-cell">
+                                                {inspection.priority_info ? (
+                                                    <div className="flex flex-col items-start">
+                                                        <Badge 
+                                                            className={`${
+                                                                inspection.priority_info.level === 'overdue' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                                                                inspection.priority_info.level === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                                                                inspection.priority_info.level === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                                                                inspection.priority_info.level === 'low' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                                                'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
+                                                            } h-6 px-2.5 text-xs font-medium`}
+                                                        >
+                                                            <span className="flex items-center gap-1">
+                                                                {inspection.priority_info.level === 'overdue' ? (
+                                                                    <AlertTriangle className="h-3 w-3" />
+                                                                ) : inspection.priority_info.level === 'high' ? (
+                                                                    <Clock className="h-3 w-3" />
+                                                                ) : inspection.priority_info.level === 'medium' ? (
+                                                                    <Clock className="h-3 w-3" />
+                                                                ) : inspection.priority_info.level === 'low' ? (
+                                                                    <Clock className="h-3 w-3" />
+                                                                ) : (
+                                                                    <Circle className="h-3 w-3" />
+                                                                )}
+                                                                <span>{inspection.priority_info.label}</span>
+                                                            </span>
+                                                        </Badge>
+                                                        {inspection.priority_info.due_date && (
+                                                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                                {inspection.priority_info.time_remaining}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400 dark:text-gray-500 italic">No due date</span>
+                                                )}
+                                            </td>
+                                            
                                             {/* Created date */}
                                             <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap hidden lg:table-cell">
                                                 <div className="flex flex-col">
@@ -890,12 +1022,12 @@ export default function Inspections({ inspections, users, statistics, filters, f
                         <ClipboardList className="h-12 w-12 mx-auto text-gray-400 dark:text-gray-600 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No inspections found</h3>
                         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-                            {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' ? 
+                            {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' || priorityFilter !== 'all' ? 
                                 `No inspections match your current filters` : 
                                 "Get started by creating your first inspection using the 'New Inspection' button above."
                             }
                         </p>
-                        {(searchTerm || statusFilter !== 'all' || typeFilter !== 'all') && (
+                        {(searchTerm || statusFilter !== 'all' || typeFilter !== 'all' || priorityFilter !== 'all') && (
                             <Button 
                                 variant="outline" 
                                 className="mt-4"
@@ -903,6 +1035,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                     setSearchTerm('');
                                     setStatusFilter('all');
                                     setTypeFilter('all');
+                                    setPriorityFilter('all');
                                 }}
                             >
                                 Clear Filters

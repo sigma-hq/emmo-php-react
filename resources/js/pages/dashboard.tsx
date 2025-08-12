@@ -376,6 +376,106 @@ export default function Dashboard({
                     </p>
                 </div>
 
+                {/* Performance Alerts Banner - Admin Only */}
+                {isAdmin && userPerformanceData && (
+                    <div className="mb-4">
+                        {(() => {
+                            // Calculate critical alerts
+                            const criticalUsers = userPerformanceData.filter(user => 
+                                (user.total_inspections > 0 && user.completion_rate < 50) ||
+                                (user.total_inspections > 0 && user.failure_rate > 30) ||
+                                (user.total_inspections === 0 && user.total_maintenances === 0)
+                            );
+                            
+                            const warningUsers = userPerformanceData.filter(user => 
+                                (user.total_inspections > 0 && user.completion_rate >= 50 && user.completion_rate < 60) ||
+                                (user.total_inspections > 0 && user.failure_rate > 20 && user.failure_rate <= 30)
+                            );
+
+                            if (criticalUsers.length > 0 || warningUsers.length > 0) {
+                                return (
+                                    <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+                                        <div className="flex items-start gap-3">
+                                            <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                                            <div className="flex-1">
+                                                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                                                    Operator Performance Alerts
+                                                </h3>
+                                                <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                                                    {criticalUsers.length > 0 && (
+                                                        <div className="mb-2">
+                                                            <span className="font-medium text-red-800 dark:text-red-200">
+                                                                🔴 Critical Issues ({criticalUsers.length}):
+                                                            </span>
+                                                            <ul className="ml-4 mt-1 space-y-1">
+                                                                {criticalUsers.slice(0, 3).map((user) => (
+                                                                    <li key={user.user_id} className="flex items-center gap-2">
+                                                                        <span className="font-medium">{user.user_name}</span>
+                                                                        <span className="text-xs">
+                                                                            {user.total_inspections === 0 
+                                                                                ? 'No activity recorded'
+                                                                                : user.completion_rate < 50
+                                                                                    ? `Completion: ${user.completion_rate}%`
+                                                                                    : `Failure rate: ${user.failure_rate}%`
+                                                                            }
+                                                                        </span>
+                                                                    </li>
+                                                                ))}
+                                                                {criticalUsers.length > 3 && (
+                                                                    <li className="text-xs text-red-600 dark:text-red-400">
+                                                                        +{criticalUsers.length - 3} more critical issues
+                                                                    </li>
+                                                                )}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {warningUsers.length > 0 && (
+                                                        <div>
+                                                            <span className="font-medium text-red-800 dark:text-red-200">
+                                                                🟡 Warnings ({warningUsers.length}):
+                                                            </span>
+                                                            <ul className="ml-4 mt-1 space-y-1">
+                                                                {warningUsers.slice(0, 2).map((user) => (
+                                                                    <li key={user.user_id} className="flex items-center gap-2">
+                                                                        <span className="font-medium">{user.user_name}</span>
+                                                                        <span className="text-xs">
+                                                                            {user.completion_rate < 60
+                                                                                ? `Completion: ${user.completion_rate}%`
+                                                                                : `Failure rate: ${user.failure_rate}%`
+                                                                            }
+                                                                        </span>
+                                                                    </li>
+                                                                ))}
+                                                                {warningUsers.length > 2 && (
+                                                                    <li className="text-xs text-red-600 dark:text-red-400">
+                                                                        +{warningUsers.length - 2} more warnings
+                                                                    </li>
+                                                                )}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="mt-3 flex items-center gap-3">
+                                                    <Link 
+                                                        href={route('admin.operator-performance')}
+                                                        className="inline-flex items-center px-3 py-2 text-xs font-medium text-red-700 bg-red-100 border border-red-300 rounded-md hover:bg-red-200 hover:text-red-800 transition-colors dark:bg-red-900/30 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/50"
+                                                    >
+                                                        View Full Performance Dashboard
+                                                    </Link>
+                                                    <span className="text-xs text-red-600 dark:text-red-400">
+                                                        Last updated: {new Date().toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
+                    </div>
+                )}
+
                 {/* Summary Statistics */}
                 <div className="grid auto-rows-min gap-4 md:grid-cols-2 lg:grid-cols-6">
                     {isAdmin ? (
@@ -970,6 +1070,39 @@ export default function Dashboard({
                                             <p className="text-sm text-gray-500">All users are performing well!</p>
                                         </div>
                                     )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Operator Performance Monitoring */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <BarChartIcon className="h-5 w-5 text-blue-500" />
+                                    Operator Performance Monitoring
+                                </CardTitle>
+                                <CardDescription>
+                                    Track operator performance and identify issues that need attention
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-center py-6">
+                                    <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+                                        <BarChartIcon className="h-8 w-8 text-blue-600" />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                                        Monitor Operator Performance
+                                    </h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                        Get detailed insights into operator activity, completion rates, and performance metrics.
+                                        Identify operators who need support or training.
+                                    </p>
+                                    <Link 
+                                        href={route('admin.operator-performance')}
+                                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                    >
+                                        View Performance Dashboard
+                                    </Link>
                                 </div>
                             </CardContent>
                         </Card>

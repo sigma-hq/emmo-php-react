@@ -99,5 +99,21 @@ class User extends Authenticatable
         return $this->hasMany(Maintenance::class, 'user_id');
     }
     
+    /**
+     * Get the performance records for this user.
+     */
+    public function performanceRecords()
+    {
+        return $this->hasMany(OperatorPerformance::class);
+    }
+    
+    /**
+     * Get the latest performance record for this user.
+     */
+    public function latestPerformance()
+    {
+        return $this->hasOne(OperatorPerformance::class)->latestOfMany('period_end');
+    }
+    
 
 }

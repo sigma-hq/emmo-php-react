@@ -9,6 +9,7 @@ use App\Http\Controllers\InspectionSubTaskController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HandoutNoteController;
+use App\Http\Controllers\OperatorPerformanceController;
 
 use App\Http\Controllers\DrivePerformanceController;
 use Illuminate\Support\Facades\Route;
@@ -100,6 +101,10 @@ Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.driv
         
         // User performance dashboard
         
+        // Operator Performance Monitoring - Admin only
+        Route::get('admin/operator-performance', [OperatorPerformanceController::class, 'index'])->name('admin.operator-performance');
+        Route::get('admin/operator-performance/{operator}', [OperatorPerformanceController::class, 'show'])->name('admin.operator-performance.show');
+        Route::post('admin/operator-performance/trigger-check', [OperatorPerformanceController::class, 'triggerCheck'])->name('admin.operator-performance.trigger');
     });
 
     // Debug route for inspection tasks

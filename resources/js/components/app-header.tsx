@@ -11,7 +11,7 @@ import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, Menu, Search, AlertTriangle } from 'lucide-react';
 import AppLogo from './app-logo';
 import AppLogoIcon from './app-logo-icon';
 
@@ -126,6 +126,23 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
 
                     <div className="ml-auto flex items-center space-x-2">
                         <div className="relative flex items-center space-x-1">
+                            {/* Performance Alerts Badge - Admin Only */}
+                            {auth.user.role === 'admin' && (
+                                <div className="relative">
+                                    <Link 
+                                        href="/admin/operator-performance"
+                                        className="group inline-flex h-9 w-9 items-center justify-center rounded-md bg-transparent p-0 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                                    >
+                                        <AlertTriangle className="h-5 w-5 text-orange-600 group-hover:text-orange-700" />
+                                        <span className="sr-only">Performance Alerts</span>
+                                    </Link>
+                                    {/* Notification dot - you can make this dynamic based on actual alerts */}
+                                    <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 border-2 border-white dark:border-gray-900">
+                                        <span className="sr-only">New alerts</span>
+                                    </div>
+                                </div>
+                            )}
+                            
                             <Button variant="ghost" size="icon" className="group h-9 w-9 cursor-pointer">
                                 <Search className="!size-5 opacity-80 group-hover:opacity-100" />
                             </Button>

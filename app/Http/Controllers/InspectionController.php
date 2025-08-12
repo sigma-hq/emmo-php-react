@@ -117,12 +117,33 @@ class InspectionController extends Controller
                     $query->where('is_passing', true);
                 });
             }])
+            // Sort by priority using Laravel's query builder for database compatibility
+            ->orderByRaw('CASE 
+                WHEN schedule_next_due_date IS NULL THEN 5
+                WHEN schedule_next_due_date < ? THEN 1
+                WHEN schedule_next_due_date <= ? THEN 2
+                WHEN schedule_next_due_date <= ? THEN 3
+                WHEN schedule_next_due_date <= ? THEN 4
+                ELSE 5
+            END', [
+                now(),
+                now()->addDay(),
+                now()->addDays(3),
+                now()->addDays(7)
+            ])
+            ->orderBy('schedule_next_due_date', 'asc')
             ->latest()
             ->paginate($perPage)
             ->withQueryString();
             
         // Get all users for the operator dropdown
         $users = \App\Models\User::select('id', 'name')->orderBy('name')->get();
+        
+        // Add priority information to each inspection
+        $inspections->getCollection()->transform(function ($inspection) {
+            $inspection->priority_info = $inspection->getPriorityInfo();
+            return $inspection;
+        });
         
         // Calculate statistics from the database (not from paginated data)
         $statistics = [
