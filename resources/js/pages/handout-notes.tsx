@@ -11,6 +11,18 @@ import { Input } from '@/components/ui/input';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
+import HandoutCommentSection from '@/components/handout-comment-section';
+
+interface Comment {
+    id: number;
+    content: string;
+    created_at: string;
+    updated_at: string;
+    user: {
+        id: number;
+        name: string;
+    };
+}
 
 interface HandoutNote {
     id: number;
@@ -23,6 +35,7 @@ interface HandoutNote {
         id: number;
         name: string;
     } | null;
+    comments?: Comment[];
 }
 
 interface Props {
@@ -49,7 +62,8 @@ const categoryLabels = {
     utilities: 'Utilities',
 };
 
-export default function HandoutNotes({ notes, currentUser }: Props) {
+export default function HandoutNotes({ notes: initialNotes, currentUser }: Props) {
+    const [notes, setNotes] = useState(initialNotes);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [editingNote, setEditingNote] = useState<HandoutNote | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -167,6 +181,68 @@ export default function HandoutNotes({ notes, currentUser }: Props) {
         }
     };
 
+    // Comment management functions
+    const handleCommentAdded = (noteId: number, comment: Comment) => {
+        console.log('handleCommentAdded called:', { noteId, comment });
+        setNotes(prevNotes => {
+            const newNotes = { ...prevNotes };
+            Object.keys(newNotes).forEach(category => {
+                const categoryNotes = [...(newNotes[category] || [])];
+                const noteIndex = categoryNotes.findIndex(note => note.id === noteId);
+                if (noteIndex !== -1) {
+                    const updatedNote = { ...categoryNotes[noteIndex] };
+                    if (!updatedNote.comments) {
+                        updatedNote.comments = [];
+                    }
+                    updatedNote.comments = [...updatedNote.comments, comment];
+                    categoryNotes[noteIndex] = updatedNote;
+                    newNotes[category] = categoryNotes;
+                    console.log('Updated note with comment:', updatedNote);
+                }
+            });
+            return newNotes;
+        });
+    };
+
+    const handleCommentUpdated = (noteId: number, commentId: number, newContent: string) => {
+        setNotes(prevNotes => {
+            const newNotes = { ...prevNotes };
+            Object.keys(newNotes).forEach(category => {
+                const categoryNotes = [...(newNotes[category] || [])];
+                const noteIndex = categoryNotes.findIndex(note => note.id === noteId);
+                if (noteIndex !== -1 && categoryNotes[noteIndex].comments) {
+                    const updatedNote = { ...categoryNotes[noteIndex] };
+                    const updatedComments = updatedNote.comments!.map(comment => 
+                        comment.id === commentId 
+                            ? { ...comment, content: newContent, updated_at: new Date().toISOString() }
+                            : comment
+                    );
+                    updatedNote.comments = updatedComments;
+                    categoryNotes[noteIndex] = updatedNote;
+                    newNotes[category] = categoryNotes;
+                }
+            });
+            return newNotes;
+        });
+    };
+
+    const handleCommentDeleted = (noteId: number, commentId: number) => {
+        setNotes(prevNotes => {
+            const newNotes = { ...prevNotes };
+            Object.keys(newNotes).forEach(category => {
+                const categoryNotes = [...(newNotes[category] || [])];
+                const noteIndex = categoryNotes.findIndex(note => note.id === noteId);
+                if (noteIndex !== -1 && categoryNotes[noteIndex].comments) {
+                    const updatedNote = { ...categoryNotes[noteIndex] };
+                    updatedNote.comments = updatedNote.comments!.filter(comment => comment.id !== commentId);
+                    categoryNotes[noteIndex] = updatedNote;
+                    newNotes[category] = categoryNotes;
+                }
+            });
+            return newNotes;
+        });
+    };
+
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
@@ -206,7 +282,7 @@ export default function HandoutNotes({ notes, currentUser }: Props) {
                     <h1 className="text-3xl font-bold tracking-tight">Handout Notes</h1>
                 </div>
                 <p className="text-muted-foreground text-lg">
-                    View and manage maintenance notes from all team members, organized by category. Keep track of important information for electrical, mechanical, hydraulic, workshop, and utilities tasks. You can only edit or delete your own notes.
+                    View and manage maintenance notes from all team members, organized by category. Keep track of important information for electrical, mechanical, hydraulic, workshop, and utilities tasks. You can only edit or delete your own notes. Add comments to share additional insights, ask questions, or mark tasks as completed.
                 </p>
             </div>
 
@@ -460,6 +536,16 @@ export default function HandoutNotes({ notes, currentUser }: Props) {
                                                                 </div>
                                                             )}
                                                         </div>
+                                                        
+                                                        {/* Comments Section */}
+                                                        <HandoutCommentSection
+                                                            noteId={note.id}
+                                                            comments={note.comments || []}
+                                                            currentUserId={currentUser.id}
+                                                            onCommentAdded={(comment) => handleCommentAdded(note.id, comment)}
+                                                            onCommentUpdated={(commentId, newContent) => handleCommentUpdated(note.id, commentId, newContent)}
+                                                            onCommentDeleted={(commentId) => handleCommentDeleted(note.id, commentId)}
+                                                        />
                                                     </div>
                                                 ))}
                                             </div>

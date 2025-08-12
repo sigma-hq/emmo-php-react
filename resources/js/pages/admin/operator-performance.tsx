@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { AlertTriangle, Users, TrendingUp, TrendingDown, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,6 +60,7 @@ interface Props {
 }
 
 export default function OperatorPerformancePage({ performances, usersNeedingAttention, summary, trends }: Props) {
+    const { csrf_token } = usePage().props as { csrf_token: string };
     const [isTriggeringCheck, setIsTriggeringCheck] = useState(false);
 
     const triggerPerformanceCheck = async () => {
@@ -69,7 +70,7 @@ export default function OperatorPerformancePage({ performances, usersNeedingAtte
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'X-CSRF-TOKEN': csrf_token,
                 },
             });
             

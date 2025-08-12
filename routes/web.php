@@ -9,6 +9,7 @@ use App\Http\Controllers\InspectionSubTaskController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HandoutNoteController;
+use App\Http\Controllers\HandoutCommentController;
 use App\Http\Controllers\OperatorPerformanceController;
 
 use App\Http\Controllers\DrivePerformanceController;
@@ -87,6 +88,11 @@ Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.driv
     Route::put('handout-notes/{handoutNote}', [HandoutNoteController::class, 'update'])->name('api.handout-notes.update');
     Route::delete('handout-notes/{handoutNote}', [HandoutNoteController::class, 'destroy'])->name('api.handout-notes.destroy');
 
+    // Handout Comments routes
+    Route::post('handout-notes/{handoutNote}/comments', [HandoutCommentController::class, 'store'])->name('api.handout-comments.store');
+    Route::put('handout-comments/{comment}', [HandoutCommentController::class, 'update'])->name('api.handout-comments.update');
+    Route::delete('handout-comments/{comment}', [HandoutCommentController::class, 'destroy'])->name('api.handout-comments.destroy');
+
     Route::get('view-items', function () {
         return Inertia::render('view-items');
     })->name('view-items');
@@ -116,6 +122,18 @@ Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.driv
             'request_data' => $request->all()
         ]);
     })->name('debug.inspection-task');
+
+    // Debug route for handout comments
+    Route::post('debug-handout-comment', function (Request $request) {
+        Log::info('Debug handout comment - request data:', $request->all());
+        return response()->json([
+            'success' => true,
+            'message' => 'Debug comment endpoint called',
+            'request_data' => $request->all(),
+            'user_id' => auth()->id(),
+            'csrf_token' => $request->header('X-CSRF-TOKEN'),
+        ]);
+    })->name('debug.handout-comment');
 
     // Inspection Tasks routes - Admin only for management, operators can record results
     Route::middleware(['can:manage,App\Models\User'])->group(function () {

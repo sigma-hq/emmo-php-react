@@ -29,6 +29,8 @@ class InspectionController extends Controller
             'schedule_interval' => ['nullable', 'required_if:is_template,true', 'integer', 'min:1'],
             'schedule_start_date' => ['nullable', 'required_if:is_template,true', 'date'],
             'schedule_end_date' => ['nullable', 'date', 'after_or_equal:schedule_start_date'],
+            // Expiry date field
+            'expiry_date' => ['nullable', 'date', 'after:now'],
         ];
     }
     
@@ -118,19 +120,24 @@ class InspectionController extends Controller
                 });
             }])
             // Sort by priority using Laravel's query builder for database compatibility
+            // First prioritize by expiry date, then by schedule due date
             ->orderByRaw('CASE 
-                WHEN schedule_next_due_date IS NULL THEN 5
-                WHEN schedule_next_due_date < ? THEN 1
-                WHEN schedule_next_due_date <= ? THEN 2
-                WHEN schedule_next_due_date <= ? THEN 3
-                WHEN schedule_next_due_date <= ? THEN 4
-                ELSE 5
+                WHEN is_expired = 1 THEN 1
+                WHEN expiry_date IS NOT NULL AND expiry_date < ? THEN 2
+                WHEN expiry_date IS NOT NULL AND expiry_date <= ? THEN 3
+                WHEN expiry_date IS NOT NULL AND expiry_date <= ? THEN 4
+                WHEN schedule_next_due_date IS NULL THEN 7
+                WHEN schedule_next_due_date < ? THEN 5
+                WHEN schedule_next_due_date <= ? THEN 6
+                ELSE 7
             END', [
                 now(),
                 now()->addDay(),
                 now()->addDays(3),
-                now()->addDays(7)
+                now(),
+                now()->addDay()
             ])
+            ->orderBy('expiry_date', 'asc')
             ->orderBy('schedule_next_due_date', 'asc')
             ->latest()
             ->paginate($perPage)

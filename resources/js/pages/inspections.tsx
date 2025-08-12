@@ -74,6 +74,11 @@ interface Inspection {
     schedule_end_date?: string | Date | null;
     schedule_next_due_date?: string | null;
     schedule_last_created_at?: string | null;
+    // New expiry and performance fields
+    expiry_date?: string | Date | null;
+    is_expired?: boolean;
+    expired_at?: string | Date | null;
+    performance_penalty?: number;
     tasks_count?: number;
     completed_tasks_count?: number;
     priority_info?: {
@@ -150,6 +155,8 @@ interface InspectionFormData {
     schedule_interval: string;
     schedule_start_date: string | null;
     schedule_end_date: string | null;
+    // New expiry date field
+    expiry_date: string | null;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -237,6 +244,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
         schedule_interval: '1',
         schedule_start_date: null,
         schedule_end_date: null,
+        expiry_date: null, // Will be set when user selects date/time
     });
     
     // Handle flash messages from the backend
@@ -295,6 +303,9 @@ export default function Inspections({ inspections, users, statistics, filters, f
             schedule_end_date: inspection.schedule_end_date 
                 ? format(new Date(inspection.schedule_end_date), 'yyyy-MM-dd') 
                 : null,
+            expiry_date: inspection.expiry_date 
+                ? format(new Date(inspection.expiry_date), "yyyy-MM-dd'T'HH:mm") 
+                : null,
         });
         setIsEditMode(true);
         setIsOpen(true);
@@ -314,6 +325,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
             schedule_frequency: data.is_template ? data.schedule_frequency : null,
             schedule_start_date: data.is_template ? data.schedule_start_date : null,
             schedule_end_date: data.is_template ? data.schedule_end_date : null,
+            expiry_date: data.expiry_date || null,
         };
 
         console.log("Submitting inspection data:", payload);
@@ -414,9 +426,33 @@ export default function Inspections({ inspections, users, statistics, filters, f
     
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Inspection Management" />
+            <Head title="Inspection Management">
+                <style>{`
+                    body { overflow-x: hidden; }
+                    .inspection-page { min-width: 0; max-width: 100vw; overflow-x: hidden; }
+                    .inspection-table { 
+                        table-layout: auto; 
+                        width: 100%; 
+                        min-width: 0;
+                    }
+                    .inspection-table th, .inspection-table td { 
+                        word-wrap: break-word; 
+                        overflow-wrap: break-word; 
+                        white-space: normal;
+                        max-width: 0;
+                    }
+                    .inspection-table td {
+                        vertical-align: top;
+                        padding: 0.75rem 0.5rem;
+                    }
+                    @media (max-width: 768px) {
+                        .inspection-table { font-size: 0.875rem; }
+                        .inspection-table td { padding: 0.5rem 0.25rem; }
+                    }
+                `}</style>
+            </Head>
             
-            <div className="flex h-full flex-1 flex-col gap-6 p-6">
+            <div className="inspection-page flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 w-full max-w-full overflow-x-hidden" style={{ minWidth: 0, maxWidth: '100vw', boxSizing: 'border-box' }}>
                 {/* Success Notification */}
                 {showSuccessNotification && (
                     <div className="fixed top-6 right-6 z-50 transform transition-all duration-500 ease-in-out">
@@ -434,14 +470,14 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 )}
                 
                 {/* Page Header */}
-                <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <ClipboardList className="h-6 w-6 text-[var(--emmo-green-primary)]" />
-                            <h1 className="text-2xl font-bold tracking-tight">Inspection Management</h1>
+                <div className="flex flex-col gap-2 w-full">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <ClipboardList className="h-6 w-6 text-[var(--emmo-green-primary)] flex-shrink-0" />
+                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Inspection Management</h1>
                         </div>
                         {isAdmin && (
-                            <Button onClick={openCreateDialog} className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]">
+                            <Button onClick={openCreateDialog} className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)] flex-shrink-0">
                                 <PlusIcon className="h-4 w-4 mr-2" />
                                 New Inspection
                             </Button>
@@ -453,7 +489,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 </div>
                 
                 {/* Statistics Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full" style={{ minWidth: 0, maxWidth: '100%' }}>
                     <Card className={`shadow-sm border-gray-200 hover:shadow-md transition-shadow cursor-pointer ${typeFilter === 'all' ? 'ring-2 ring-[var(--emmo-green-primary)]' : ''}`} onClick={() => setTypeFilter('all')}>
                         <CardHeader className="pb-2 p-4">
                             <div className="flex items-center justify-between">
@@ -587,7 +623,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 </div>
                 
                 {/* Status Pills */}
-                <div className="flex flex-wrap gap-2 -mt-2">
+                <div className="flex flex-wrap gap-2 -mt-2 w-full">
                     <Button 
                         variant={statusFilter === 'all' ? "default" : "outline"} 
                         size="sm" 
@@ -635,20 +671,20 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 </div>
                 
                 {/* Search and Filters */}
-                <div className="flex flex-col md:flex-row gap-3">
-                    <div className="relative flex-grow">
+                <div className="flex flex-col lg:flex-row gap-3 w-full">
+                    <div className="relative flex-grow min-w-0">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                         <Input
                             placeholder="Search inspections..."
-                            className="pl-9"
+                            className="pl-9 w-full"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 flex-shrink-0">
                         <Select value={typeFilter} onValueChange={setTypeFilter}>
-                            <SelectTrigger className="w-[140px] md:w-[180px]">
-                    <div className="flex items-center gap-2">
+                            <SelectTrigger className="w-[140px] md:w-[180px] min-w-0">
+                                <div className="flex items-center gap-2">
                                     <Copy className="h-4 w-4 text-gray-500" />
                                     <span className="truncate">{typeFilter === 'all' ? 'All Types' : typeFilter === 'templates' ? 'Templates' : 'Instances'}</span>
                                 </div>
@@ -661,10 +697,10 @@ export default function Inspections({ inspections, users, statistics, filters, f
                         </Select>
                         
                         <Select value={perPage.toString()} onValueChange={handlePerPageChange}>
-                            <SelectTrigger className="w-[110px]">
+                            <SelectTrigger className="w-[110px] min-w-0">
                                 <div className="flex items-center gap-1">
                                     <BarChart3 className="h-3.5 w-3.5 text-gray-500" />
-                                    <span>{perPage} per page</span>
+                                    <span className="truncate">{perPage} per page</span>
                                 </div>
                             </SelectTrigger>
                             <SelectContent>
@@ -733,22 +769,22 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 
                 {/* Inspections List */}
                 {filteredInspections.length > 0 ? (
-                    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
-                        <div className="overflow-x-auto">
-                            <table className="w-full border-collapse">
+                    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm w-full" style={{ minWidth: 0, maxWidth: '100%' }}>
+                        <div className="overflow-x-auto w-full" style={{ minWidth: 0, maxWidth: '100%' }}>
+                            <table className="inspection-table w-full border-collapse min-w-0" style={{ minWidth: 0, maxWidth: '100%' }}>
                                 <thead>
                                     <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-                                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-6"></th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inspection</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">Description</th>
-                                        <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16">Tasks</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-48 hidden md:table-cell">Status</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32 hidden lg:table-cell">Priority</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">Created</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Creator</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Operator</th>
-                                        <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Completed By</th>
-                                        <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                        <th className="text-left px-2 sm:px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16 sm:w-20"></th>
+                                        <th className="text-left px-3 sm:px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-48 sm:w-56">Inspection</th>
+                                        <th className="text-left px-3 sm:px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell w-48 sm:w-56">Description</th>
+                                        <th className="text-center px-2 sm:px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20 sm:w-24">Tasks</th>
+                                        <th className="text-left px-3 sm:px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell w-48 sm:w-56">Status</th>
+                                        <th className="text-left px-3 sm:px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell w-32 sm:w-40">Priority</th>
+                                        <th className="text-left px-3 sm:px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell w-36 sm:w-44">Created</th>
+                                        <th className="text-left px-3 sm:px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell w-32 sm:w-40">Creator</th>
+                                        <th className="text-left px-3 sm:px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell w-32 sm:w-40">Operator</th>
+                                        <th className="text-left px-3 sm:px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell w-36 sm:w-44">Completed By</th>
+                                        <th className="text-right px-3 sm:px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24 sm:w-32">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -760,7 +796,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             inspection.priority_info?.level === 'medium' && "bg-yellow-50 dark:bg-yellow-900/10 border-l-4 border-l-yellow-500"
                                         )}>
                                             {/* Type indicator Icon */}
-                                            <td className="px-4 py-4 text-center">
+                                            <td className="px-2 sm:px-4 py-4 text-center">
                                                 {inspection.is_template ? (
                                                     <span title="Template" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30">
                                                         <RefreshCcw className="h-4 w-4 text-purple-600 dark:text-purple-400" />
@@ -773,7 +809,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             </td>
                                             
                                             {/* Inspection name */}
-                                            <td className="px-6 py-4">
+                                            <td className="px-3 sm:px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <Link 
                                                         href={route('inspections.show', inspection.id)}
@@ -811,7 +847,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             </td>
                                             
                                             {/* Description */}
-                                            <td className="px-6 py-4">
+                                            <td className="px-3 sm:px-6 py-4">
                                                 {inspection.description ? (
                                                     <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 max-w-xs">{inspection.description}</p>
                                                 ) : (
@@ -820,14 +856,14 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             </td>
                                             
                                             {/* Tasks Count */}
-                                            <td className="px-6 py-4 text-center">
+                                            <td className="px-2 sm:px-6 py-4 text-center">
                                                 <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-[var(--emmo-green-light)] dark:bg-[var(--emmo-green-dark)] text-[var(--emmo-green-primary)] dark:text-[var(--emmo-green-light)] font-medium text-sm">
                                                     {inspection.tasks_count || 0}
                                                 </span>
                                             </td>
                                             
                                             {/* Status / Schedule Column */}
-                                            <td className="px-6 py-4">
+                                            <td className="px-3 sm:px-6 py-4">
                                                 {inspection.is_template ? (
                                                     // Display Schedule Info for Templates
                                                     <div className="text-sm">
@@ -878,7 +914,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             </td>
                                             
                                             {/* Priority */}
-                                            <td className="px-6 py-4 text-sm hidden lg:table-cell">
+                                            <td className="px-3 sm:px-6 py-4 text-sm hidden lg:table-cell">
                                                 {inspection.priority_info ? (
                                                     <div className="flex flex-col items-start">
                                                         <Badge 
@@ -917,7 +953,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             </td>
                                             
                                             {/* Created date */}
-                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap hidden lg:table-cell">
+                                            <td className="px-3 sm:px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap hidden lg:table-cell">
                                                 <div className="flex flex-col">
                                                     <span>{new Date(inspection.created_at).toLocaleDateString(undefined, {
                                                         month: 'short',
@@ -934,7 +970,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             </td>
                                             
                                             {/* Creator */}
-                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
+                                            <td className="px-3 sm:px-6 py-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
                                                 <div className="flex items-center">
                                                     <div className="h-8 w-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 mr-2">
                                                         {(inspection.creator?.name || 'U').charAt(0)}
@@ -944,7 +980,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             </td>
                                             
                                             {/* Operator */}
-                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
+                                            <td className="px-3 sm:px-6 py-4 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
                                                 {inspection.operator ? (
                                                     <div className="flex items-center">
                                                         <div className="h-8 w-14 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 mr-2">
@@ -958,7 +994,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             </td>
                                             
                                             {/* Completed By */}
-                                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 hidden xl:table-cell">
+                                            <td className="px-3 sm:px-6 py-4 text-sm text-gray-500 dark:text-gray-400 hidden xl:table-cell">
                                                 {inspection.completedBy ? (
                                                     <div className="flex items-center">
                                                         <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 mr-2">
@@ -979,7 +1015,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             </td>
                                             
                                             {/* Actions */}
-                                            <td className="px-6 py-4 text-right whitespace-nowrap">
+                                            <td className="px-3 sm:px-6 py-4 text-right whitespace-nowrap">
                                                 <div className="flex items-center justify-end space-x-3">
                                                     <Link 
                                                         href={route('inspections.show', inspection.id)}
@@ -1091,20 +1127,20 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 
                 {/* Create/Edit Inspection Dialog */}
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                    <DialogContent className="sm:max-w-[550px] rounded-xl p-0 overflow-hidden">
+                    <DialogContent className="w-[95vw] max-w-[700px] lg:max-w-[800px] rounded-xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
                         <form onSubmit={handleSubmit} className="flex flex-col h-full">
-                            {/* Header with visual treatment */}
-                            <div className="bg-gradient-to-r from-[var(--emmo-green-primary)] to-[var(--emmo-green-secondary)] p-6 text-white">
-                                <DialogTitle className="text-2xl font-bold mb-2">
+                            {/* Sticky Header with visual treatment */}
+                            <div className="sticky top-0 z-10 bg-gradient-to-r from-[var(--emmo-green-primary)] to-[var(--emmo-green-secondary)] p-4 sm:p-6 text-white shadow-sm">
+                                <DialogTitle className="text-xl sm:text-2xl font-bold mb-2">
                                     {isEditMode ? 'Edit Inspection' : 'Add New Inspection'}
                                 </DialogTitle>
-                                <DialogDescription className="text-white/80 max-w-sm">
+                                <DialogDescription className="text-white/80 max-w-sm text-sm sm:text-base">
                                     {isEditMode 
                                         ? 'Update information about this inspection.' 
                                         : 'Enter details for a new inspection.'}
                                 </DialogDescription>
                             </div>
-                            <div className="grid gap-4 p-6 overflow-y-auto">
+                            <div className="flex-1 grid gap-4 p-4 sm:p-6 overflow-y-auto min-w-0 max-w-full">
                                 <div className="grid gap-2">
                                     <Label htmlFor="name" className={errors.name ? "text-red-500" : ""}>
                                         Name
@@ -1271,7 +1307,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                 {data.is_template && (
                                     <div className="grid gap-4 border p-4 rounded-md mt-2 bg-gray-50/50">
                                         <h4 className="text-sm font-medium text-gray-600 mb-0">Scheduling Options</h4>
-                                        <div className="grid sm:grid-cols-[1fr_100px] gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-4">
                                             <div className="grid gap-2">
                                                 <Label htmlFor="schedule_frequency">Frequency</Label>
                                                 <Select
@@ -1308,7 +1344,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                             <p className="text-sm text-red-500 -mt-2">{errors.schedule_interval}</p>
                                         )}
 
-                                        <div className="grid sm:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="grid gap-2">
                                                 <Label htmlFor="schedule_start_date">Start Date</Label>
                                                 <Input 
@@ -1339,8 +1375,49 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Expiry Date Fields */}
+                                <div className="grid gap-2">
+                                    <Label>Expiry Date & Time (Optional)</Label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="expiry_date" className="text-sm">Date</Label>
+                                            <Input 
+                                                type="date"
+                                                id="expiry_date"
+                                                value={data.expiry_date ? data.expiry_date.split('T')[0] : ''}
+                                                onChange={(e) => {
+                                                    const currentTime = data.expiry_date ? data.expiry_date.split('T')[1] : new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+                                                    setData('expiry_date', e.target.value ? `${e.target.value}T${currentTime}` : null);
+                                                }}
+                                                min={new Date().toISOString().split('T')[0]}
+                                                className={errors.expiry_date ? "border-red-500" : ""}
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="expiry_time" className="text-sm">Time</Label>
+                                            <Input 
+                                                type="time"
+                                                id="expiry_time"
+                                                value={data.expiry_date ? data.expiry_date.split('T')[1] : new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                                onChange={(e) => {
+                                                    const currentDate = data.expiry_date ? data.expiry_date.split('T')[0] : new Date().toISOString().split('T')[0];
+                                                    setData('expiry_date', `${currentDate}T${e.target.value}`);
+                                                }}
+                                                className={errors.expiry_date ? "border-red-500" : ""}
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-gray-500">
+                                        Set an expiry date and time to prioritize this inspection and track operator performance. 
+                                        Default time is the current time.
+                                    </p>
+                                    {errors.expiry_date && (
+                                        <p className="text-sm text-red-500">{errors.expiry_date}</p>
+                                    )}
+                                </div>
                             </div>
-                            <DialogFooter className="border-t border-gray-100 dark:border-gray-800 p-4 flex justify-end gap-3 bg-gray-50 dark:bg-gray-950">
+                            <DialogFooter className="sticky bottom-0 z-10 border-t border-gray-100 dark:border-gray-800 p-4 flex justify-end gap-3 bg-gray-50 dark:bg-gray-950 shadow-lg">
                                 <Button 
                                     type="button" 
                                     variant="outline" 

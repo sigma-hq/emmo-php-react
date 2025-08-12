@@ -42,8 +42,8 @@ export default function InspectionTasksTable({
     deleteSubTask: (subTaskId: number) => void;
     isAdmin?: boolean;
 }): React.ReactNode {
-    return <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200">
+    return <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg shadow-sm">
+        <table className="w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
                 <tr>
                     <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">#</th>

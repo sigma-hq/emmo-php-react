@@ -512,7 +512,7 @@ export default function TasksTab({
     };
     
     return (
-        <div className="grid gap-4">
+        <div className="grid gap-4 w-full max-w-full overflow-x-hidden">
             {/* Tasks Filter + Actions Row */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <h2 className="text-xl font-semibold flex items-center gap-2">

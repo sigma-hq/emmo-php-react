@@ -12,8 +12,8 @@ class HandoutNoteController extends Controller
     {
         $user = auth()->user();
         
-        // Load all notes with user information, ordered by creation date
-        $notes = HandoutNote::with('user:id,name')
+        // Load all notes with user information and comments, ordered by creation date
+        $notes = HandoutNote::with(['user:id,name', 'comments.user:id,name'])
             ->orderBy('created_at', 'desc')
             ->get()
             ->groupBy('category');

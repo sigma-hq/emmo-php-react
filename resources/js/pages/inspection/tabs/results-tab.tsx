@@ -83,7 +83,7 @@ export default function ResultsTab({ inspection, resultsCount }: ResultsTabProps
     };
     
     return (
-        <div className="grid gap-4">
+        <div className="grid gap-4 w-full max-w-full overflow-x-hidden">
             <h2 className="text-xl font-semibold flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5 text-[var(--emmo-green-primary)]" />
                 Inspection Results

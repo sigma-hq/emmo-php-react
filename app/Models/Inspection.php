@@ -33,7 +33,12 @@ class Inspection extends Model
         'schedule_start_date',
         'schedule_end_date',
         'schedule_next_due_date',
-        'schedule_last_created_at'
+        'schedule_last_created_at',
+        // Expiry and performance tracking fields
+        'expiry_date',
+        'is_expired',
+        'expired_at',
+        'performance_penalty'
     ];
 
     /**
@@ -49,6 +54,10 @@ class Inspection extends Model
         'schedule_end_date' => 'datetime',
         'schedule_next_due_date' => 'datetime',
         'schedule_last_created_at' => 'datetime',
+        'expiry_date' => 'datetime',
+        'expired_at' => 'datetime',
+        'is_expired' => 'boolean',
+        'performance_penalty' => 'integer',
     ];
 
     /**
@@ -96,25 +105,48 @@ class Inspection extends Model
      */
     public function getPriorityLevel(): string
     {
-        if (!$this->schedule_next_due_date) {
-            return 'no_urgency';
+        // First check if inspection has expired
+        if ($this->is_expired) {
+            return 'expired';
         }
 
-        $now = now();
-        $dueDate = $this->schedule_next_due_date;
-        $daysUntilDue = $now->diffInDays($dueDate, false); // false = absolute value
+        // Check individual inspection expiry date first
+        if ($this->expiry_date) {
+            $now = now();
+            $expiryDate = $this->expiry_date;
+            $daysUntilExpiry = $now->diffInDays($expiryDate, false);
 
-        if ($daysUntilDue < 0) {
-            return 'overdue';
-        } elseif ($daysUntilDue <= 1) {
-            return 'high';
-        } elseif ($daysUntilDue <= 3) {
-            return 'medium';
-        } elseif ($daysUntilDue <= 7) {
-            return 'low';
-        } else {
-            return 'no_urgency';
+            if ($daysUntilExpiry < 0) {
+                return 'expired';
+            } elseif ($daysUntilExpiry <= 1) {
+                return 'critical';
+            } elseif ($daysUntilExpiry <= 3) {
+                return 'high';
+            } elseif ($daysUntilExpiry <= 7) {
+                return 'medium';
+            } else {
+                return 'low';
+            }
         }
+
+        // Fall back to schedule-based priority if no expiry date
+        if ($this->schedule_next_due_date) {
+            $now = now();
+            $dueDate = $this->schedule_next_due_date;
+            $daysUntilDue = $now->diffInDays($dueDate, false);
+
+            if ($daysUntilDue < 0) {
+                return 'overdue';
+            } elseif ($daysUntilDue <= 1) {
+                return 'high';
+            } elseif ($daysUntilDue <= 3) {
+                return 'medium';
+            } elseif ($daysUntilDue <= 7) {
+                return 'low';
+            }
+        }
+
+        return 'no_urgency';
     }
 
     /**
@@ -123,7 +155,9 @@ class Inspection extends Model
     public function getPriorityInfo(): array
     {
         $priority = $this->getPriorityLevel();
-        $dueDate = $this->schedule_next_due_date;
+        
+        // Determine which date to use for priority calculation
+        $dueDate = $this->expiry_date ?? $this->schedule_next_due_date;
         
         if (!$dueDate) {
             return [
@@ -131,7 +165,12 @@ class Inspection extends Model
                 'label' => 'No Due Date',
                 'color' => 'gray',
                 'icon' => 'circle',
-                'urgency' => 'none'
+                'urgency' => 'none',
+                'days_until_due' => null,
+                'is_overdue' => false,
+                'due_date' => null,
+                'formatted_due_date' => null,
+                'time_remaining' => 'No deadline'
             ];
         }
 
@@ -140,6 +179,18 @@ class Inspection extends Model
         $isOverdue = $daysUntilDue < 0;
 
         $priorityConfig = [
+            'expired' => [
+                'label' => 'EXPIRED',
+                'color' => 'red',
+                'icon' => 'x-circle',
+                'urgency' => 'critical'
+            ],
+            'critical' => [
+                'label' => 'CRITICAL',
+                'color' => 'red',
+                'icon' => 'alert-triangle',
+                'urgency' => 'critical'
+            ],
             'overdue' => [
                 'label' => 'OVERDUE',
                 'color' => 'red',
@@ -148,7 +199,7 @@ class Inspection extends Model
             ],
             'high' => [
                 'label' => 'HIGH PRIORITY',
-                'color' => 'red',
+                'color' => 'orange',
                 'icon' => 'clock',
                 'urgency' => 'high'
             ],
@@ -230,6 +281,85 @@ class Inspection extends Model
     }
 
     /**
+     * Check if inspection has expired
+     */
+    public function hasExpired(): bool
+    {
+        if ($this->is_expired) {
+            return true;
+        }
+        
+        if ($this->expiry_date) {
+            return now()->isAfter($this->expiry_date);
+        }
+        
+        return false;
+    }
+
+    /**
+     * Check if inspection is critical (expires within 1 day)
+     */
+    public function isCritical(): bool
+    {
+        if ($this->hasExpired()) {
+            return false; // Already expired
+        }
+        
+        if ($this->expiry_date) {
+            $daysUntilExpiry = now()->diffInDays($this->expiry_date, false);
+            return $daysUntilExpiry <= 1;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Mark inspection as expired and calculate performance penalty
+     */
+    public function markAsExpired(): void
+    {
+        if ($this->hasExpired() && !$this->is_expired) {
+            $this->is_expired = true;
+            $this->expired_at = now();
+            
+            // Calculate performance penalty based on how overdue it is
+            if ($this->expiry_date) {
+                $overdueDays = now()->diffInDays($this->expiry_date, false);
+                if ($overdueDays < 0) {
+                    // Base penalty: 10 points per day overdue, max 100 points
+                    $this->performance_penalty = min(abs($overdueDays) * 10, 100);
+                }
+            }
+            
+            $this->save();
+        }
+    }
+
+    /**
+     * Get performance impact for operator
+     */
+    public function getPerformanceImpact(): array
+    {
+        if (!$this->hasExpired()) {
+            return [
+                'penalty' => 0,
+                'status' => 'no_impact',
+                'message' => 'Inspection not expired'
+            ];
+        }
+
+        $penalty = $this->performance_penalty;
+        $status = 'penalty_applied';
+        $message = "Inspection expired. Performance penalty: {$penalty} points";
+
+        return [
+            'penalty' => $penalty,
+            'status' => $status,
+            'message' => $message
+        ];
+    }
+
+    /**
      * Get the validation rules for creating a new inspection.
      *
      * @return array<string, mixed>
@@ -240,6 +370,8 @@ class Inspection extends Model
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'required|in:draft,active,completed,archived',
+            'expiry_date' => 'nullable|date|after:now',
+            'operator_id' => 'nullable|exists:users,id',
         ];
     }
 
@@ -255,6 +387,8 @@ class Inspection extends Model
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'required|in:draft,active,completed,archived',
+            'expiry_date' => 'nullable|date',
+            'operator_id' => 'nullable|exists:users,id',
         ];
     }
 

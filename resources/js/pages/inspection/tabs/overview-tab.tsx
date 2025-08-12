@@ -191,7 +191,7 @@ export default function OverviewTab({
     // Different view for template vs inspection instance
     if (inspection.is_template) {
         return (
-            <div className="grid gap-6">
+            <div className="grid gap-6 w-full max-w-full overflow-x-hidden">
                 <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                         <CalendarDays className="h-5 w-5 text-[var(--emmo-green-primary)]" />
@@ -200,8 +200,8 @@ export default function OverviewTab({
                     <Badge variant="outline" className="px-2 py-1">Template</Badge>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Card className="md:col-span-2">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 w-full">
+                    <Card className="lg:col-span-2">
                     <CardHeader>
                         <CardTitle className="text-base font-medium flex items-center gap-2">
                                 <Repeat className="h-4 w-4 text-gray-600" />
@@ -209,7 +209,7 @@ export default function OverviewTab({
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 text-sm">
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-x-8 gap-y-4 text-sm">
                             <div>
                                 <dt className="font-medium text-gray-500 flex items-center gap-1.5">
                                     <Repeat className="h-3.5 w-3.5" /> Frequency
@@ -349,7 +349,7 @@ export default function OverviewTab({
         );
     } else {
         return (
-            <div className="grid gap-6">
+            <div className="grid gap-6 w-full max-w-full overflow-x-hidden">
                 {/* Header with inspection health status */}
                 <div className="flex flex-col md:flex-row justify-between gap-4">
                 <div className="flex items-center gap-2">
@@ -378,7 +378,7 @@ export default function OverviewTab({
                 </div>
                 
                 {/* Enhanced Stats Dashboard */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card className="shadow-sm border-gray-200 overflow-hidden">
                         <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
