@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\HandoutNote;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Carbon\Carbon;
 
 class HandoutNoteController extends Controller
 {
@@ -12,14 +13,51 @@ class HandoutNoteController extends Controller
     {
         $user = auth()->user();
         
-        // Load all notes with user information and comments, ordered by creation date
-        $notes = HandoutNote::with(['user:id,name', 'comments.user:id,name'])
-            ->orderBy('created_at', 'desc')
+        // Calculate the current week's Sunday (start of week)
+        $currentWeekStart = Carbon::now()->startOfWeek(Carbon::SUNDAY);
+        
+        // Get current week notes (from Sunday to Saturday) with comments
+        $currentNotes = HandoutNote::with(['user:id,name', 'comments.user:id,name'])
+            ->where('created_at', '>=', $currentWeekStart)
             ->get()
+            ->map(function ($note) {
+                // Calculate the most recent activity timestamp
+                $latestComment = $note->comments->sortByDesc('created_at')->first();
+                $note->most_recent_activity = $latestComment && $latestComment->created_at > $note->updated_at 
+                    ? $latestComment->created_at 
+                    : $note->updated_at;
+                return $note;
+            })
+            ->sortByDesc('most_recent_activity')
             ->groupBy('category');
+        
+        // Get archived notes (from previous weeks) with comments
+        $archivedNotes = HandoutNote::with(['user:id,name', 'comments.user:id,name'])
+            ->where('created_at', '<', $currentWeekStart)
+            ->get()
+            ->map(function ($note) {
+                // Calculate the most recent activity timestamp
+                $latestComment = $note->comments->sortByDesc('created_at')->first();
+                $note->most_recent_activity = $latestComment && $latestComment->created_at > $note->updated_at 
+                    ? $latestComment->created_at 
+                    : $note->updated_at;
+                return $note;
+            })
+            ->sortByDesc('most_recent_activity')
+            ->groupBy('category');
+        
+        // Add archive metadata
+        $archiveInfo = [
+            'current_week_start' => $currentWeekStart->format('Y-m-d'),
+            'current_week_end' => $currentWeekStart->copy()->addDays(6)->format('Y-m-d'),
+            'total_current_notes' => $currentNotes->flatten(1)->count(),
+            'total_archived_notes' => $archivedNotes->flatten(1)->count(),
+        ];
 
         return Inertia::render('handout-notes', [
-            'notes' => $notes,
+            'currentNotes' => $currentNotes,
+            'archivedNotes' => $archivedNotes,
+            'archiveInfo' => $archiveInfo,
             'currentUser' => $user,
         ]);
     }

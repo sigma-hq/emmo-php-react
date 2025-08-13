@@ -20,6 +20,9 @@ class Kernel extends ConsoleKernel
         
         // Schedule operator performance check - runs daily at 8 AM
         $schedule->command('operators:check-performance')->daily()->at('08:00')->withoutOverlapping();
+        
+        // Schedule handout notes archiving - runs every Sunday at 1 AM
+        $schedule->command('handout-notes:archive')->weekly()->sundays()->at('01:00')->withoutOverlapping();
     }
 
     /**

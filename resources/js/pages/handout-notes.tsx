@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Head, useForm } from '@inertiajs/react';
-import { PlusIcon, Pencil, Trash2, Save, X, StickyNote } from 'lucide-react';
+import { PlusIcon, Pencil, Trash2, Save, X, StickyNote, Info, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +31,7 @@ interface HandoutNote {
     category: string;
     created_at: string;
     updated_at: string;
+    most_recent_activity?: string;
     user?: {
         id: number;
         name: string;
@@ -39,7 +40,14 @@ interface HandoutNote {
 }
 
 interface Props {
-    notes: Record<string, HandoutNote[]>;
+    currentNotes: Record<string, HandoutNote[]>;
+    archivedNotes: Record<string, HandoutNote[]>;
+    archiveInfo: {
+        current_week_start: string;
+        current_week_end: string;
+        total_current_notes: number;
+        total_archived_notes: number;
+    };
     currentUser: {
         id: number;
         name: string;
@@ -62,18 +70,25 @@ const categoryLabels = {
     utilities: 'Utilities',
 };
 
-export default function HandoutNotes({ notes: initialNotes, currentUser }: Props) {
-    const [notes, setNotes] = useState(initialNotes);
+export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo, currentUser }: Props) {
+    const [currentNotesState, setCurrentNotesState] = useState(currentNotes);
+    const [archivedNotesState, setArchivedNotesState] = useState(archivedNotes);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [editingNote, setEditingNote] = useState<HandoutNote | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('electrical');
+    const [activeTab, setActiveTab] = useState('current');
+    const [activeCategory, setActiveCategory] = useState('electrical');
     const [searchTerm, setSearchTerm] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     // Helper function to check if current user can edit/delete a note
     const canManageNote = (note: HandoutNote) => {
         return note.user?.id === currentUser.id;
+    };
+
+    // Get the appropriate notes based on active tab
+    const getActiveNotes = () => {
+        return activeTab === 'current' ? currentNotesState : archivedNotesState;
     };
 
     // Filter notes based on search term
@@ -92,8 +107,9 @@ export default function HandoutNotes({ notes: initialNotes, currentUser }: Props
     const getFirstTabWithResults = () => {
         if (!searchTerm.trim()) return 'electrical';
         
+        const activeNotes = getActiveNotes();
         for (const [categoryKey] of Object.entries(categoryLabels)) {
-            const categoryNotes = notes[categoryKey] || [];
+            const categoryNotes = activeNotes[categoryKey] || [];
             if (getFilteredNotes(categoryNotes).length > 0) {
                 return categoryKey;
             }
@@ -105,11 +121,11 @@ export default function HandoutNotes({ notes: initialNotes, currentUser }: Props
     useEffect(() => {
         if (searchTerm.trim()) {
             const firstTabWithResults = getFirstTabWithResults();
-            if (firstTabWithResults !== activeTab) {
-                setActiveTab(firstTabWithResults);
+            if (firstTabWithResults !== activeCategory) {
+                setActiveCategory(firstTabWithResults);
             }
         }
-    }, [searchTerm, notes]);
+    }, [searchTerm, currentNotesState, archivedNotesState, activeTab]);
 
     // Keyboard shortcut to focus search input
     useEffect(() => {
@@ -184,7 +200,25 @@ export default function HandoutNotes({ notes: initialNotes, currentUser }: Props
     // Comment management functions
     const handleCommentAdded = (noteId: number, comment: Comment) => {
         console.log('handleCommentAdded called:', { noteId, comment });
-        setNotes(prevNotes => {
+        setCurrentNotesState(prevNotes => {
+            const newNotes = { ...prevNotes };
+            Object.keys(newNotes).forEach(category => {
+                const categoryNotes = [...(newNotes[category] || [])];
+                const noteIndex = categoryNotes.findIndex(note => note.id === noteId);
+                if (noteIndex !== -1) {
+                    const updatedNote = { ...categoryNotes[noteIndex] };
+                    if (!updatedNote.comments) {
+                        updatedNote.comments = [];
+                    }
+                    updatedNote.comments = [...updatedNote.comments, comment];
+                    categoryNotes[noteIndex] = updatedNote;
+                    newNotes[category] = categoryNotes;
+                    console.log('Updated note with comment:', updatedNote);
+                }
+            });
+            return newNotes;
+        });
+        setArchivedNotesState(prevNotes => {
             const newNotes = { ...prevNotes };
             Object.keys(newNotes).forEach(category => {
                 const categoryNotes = [...(newNotes[category] || [])];
@@ -205,7 +239,26 @@ export default function HandoutNotes({ notes: initialNotes, currentUser }: Props
     };
 
     const handleCommentUpdated = (noteId: number, commentId: number, newContent: string) => {
-        setNotes(prevNotes => {
+        setCurrentNotesState(prevNotes => {
+            const newNotes = { ...prevNotes };
+            Object.keys(newNotes).forEach(category => {
+                const categoryNotes = [...(newNotes[category] || [])];
+                const noteIndex = categoryNotes.findIndex(note => note.id === noteId);
+                if (noteIndex !== -1 && categoryNotes[noteIndex].comments) {
+                    const updatedNote = { ...categoryNotes[noteIndex] };
+                    const updatedComments = updatedNote.comments!.map(comment => 
+                        comment.id === commentId 
+                            ? { ...comment, content: newContent, updated_at: new Date().toISOString() }
+                            : comment
+                    );
+                    updatedNote.comments = updatedComments;
+                    categoryNotes[noteIndex] = updatedNote;
+                    newNotes[category] = categoryNotes;
+                }
+            });
+            return newNotes;
+        });
+        setArchivedNotesState(prevNotes => {
             const newNotes = { ...prevNotes };
             Object.keys(newNotes).forEach(category => {
                 const categoryNotes = [...(newNotes[category] || [])];
@@ -227,7 +280,21 @@ export default function HandoutNotes({ notes: initialNotes, currentUser }: Props
     };
 
     const handleCommentDeleted = (noteId: number, commentId: number) => {
-        setNotes(prevNotes => {
+        setCurrentNotesState(prevNotes => {
+            const newNotes = { ...prevNotes };
+            Object.keys(newNotes).forEach(category => {
+                const categoryNotes = [...(newNotes[category] || [])];
+                const noteIndex = categoryNotes.findIndex(note => note.id === noteId);
+                if (noteIndex !== -1 && categoryNotes[noteIndex].comments) {
+                    const updatedNote = { ...categoryNotes[noteIndex] };
+                    updatedNote.comments = updatedNote.comments!.filter(comment => comment.id !== commentId);
+                    categoryNotes[noteIndex] = updatedNote;
+                    newNotes[category] = categoryNotes;
+                }
+            });
+            return newNotes;
+        });
+        setArchivedNotesState(prevNotes => {
             const newNotes = { ...prevNotes };
             Object.keys(newNotes).forEach(category => {
                 const categoryNotes = [...(newNotes[category] || [])];
@@ -393,8 +460,10 @@ export default function HandoutNotes({ notes: initialNotes, currentUser }: Props
                     </div>
                     <p className="text-blue-700 text-sm mt-1">
                         {(() => {
-                            const totalNotes = Object.values(notes).flat().length;
-                            const totalResults = Object.values(notes).reduce((acc, categoryNotes) => {
+                            const totalNotes = Object.values(currentNotesState).flat().length + Object.values(archivedNotesState).flat().length;
+                            const totalResults = Object.values(currentNotesState).reduce((acc, categoryNotes) => {
+                                return acc + getFilteredNotes(categoryNotes).length;
+                            }, 0) + Object.values(archivedNotesState).reduce((acc, categoryNotes) => {
                                 return acc + getFilteredNotes(categoryNotes).length;
                             }, 0);
                             return `Found ${totalResults} matching notes out of ${totalNotes} total notes across all categories.`;
@@ -406,155 +475,382 @@ export default function HandoutNotes({ notes: initialNotes, currentUser }: Props
             {/* Main Content - Tabs */}
             <div className="space-y-6">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-5">
-                        {Object.entries(categoryLabels).map(([categoryKey, categoryLabel]) => {
-                            const categoryNotes = notes[categoryKey] || [];
-                            const filteredNotes = getFilteredNotes(categoryNotes);
-                            return (
-                                <TabsTrigger 
-                                    key={categoryKey} 
-                                    value={categoryKey}
-                                    className="flex items-center gap-2"
-                                >
-                                    <StickyNote className="h-4 w-4" />
-                                    {categoryLabel}
-                                    <Badge variant="secondary" className="ml-auto">
-                                        {filteredNotes.length}
-                                        {searchTerm && filteredNotes.length !== categoryNotes.length && (
-                                            <span className="text-xs text-gray-500 ml-1">
-                                                /{categoryNotes.length}
-                                            </span>
-                                        )}
-                                    </Badge>
-                                </TabsTrigger>
-                            );
-                        })}
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger 
+                            value="current"
+                            className="flex items-center gap-2"
+                        >
+                            <StickyNote className="h-4 w-4" />
+                            Current Notes
+                            <Badge variant="secondary" className="ml-auto">
+                                {Object.values(currentNotesState).flat().length}
+                            </Badge>
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            value="archived"
+                            className="flex items-center gap-2"
+                        >
+                            <StickyNote className="h-4 w-4" />
+                            Archived Notes
+                            <Badge variant="secondary" className="ml-auto">
+                                {Object.values(archivedNotesState).flat().length}
+                            </Badge>
+                        </TabsTrigger>
                     </TabsList>
 
-                    {Object.entries(categoryLabels).map(([categoryKey, categoryLabel]) => {
-                        const categoryNotes = notes[categoryKey] || [];
-                        const filteredNotes = getFilteredNotes(categoryNotes);
-                        return (
-                            <TabsContent key={categoryKey} value={categoryKey} className="mt-6">
-                                <Card className="shadow-sm border-0">
-                                    <CardHeader className="pb-4">
-                                        <CardTitle className="flex items-center gap-3 text-lg">
-                                            <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
-                                                <StickyNote className="h-4 w-4 text-gray-600" />
-                                            </div>
-                                            {categoryLabel}
-                                            <Badge variant="secondary" className="ml-auto">
-                                                {filteredNotes.length}
-                                                {searchTerm && filteredNotes.length !== categoryNotes.length && (
-                                                    <span className="text-xs text-gray-500 ml-1">
-                                                        /{categoryNotes.length}
-                                                    </span>
-                                                )}
-                                            </Badge>
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="pt-0">
-                                        {filteredNotes.length === 0 ? (
-                                            <div className="text-center py-12">
-                                                {searchTerm ? (
-                                                    <>
-                                                        <svg className="h-12 w-12 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                        </svg>
-                                                        <p className="text-muted-foreground text-sm">
-                                                            No notes found matching "{searchTerm}".
-                                                        </p>
-                                                        <p className="text-muted-foreground text-xs mt-1">
-                                                            Try adjusting your search terms.
-                                                        </p>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <StickyNote className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                                                        <p className="text-muted-foreground text-sm">
-                                                            No notes in this category yet.
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground mt-1">
-                                                            Create your first note to get started.
-                                                        </p>
-                                                    </>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                {filteredNotes.map((note) => (
-                                                    <div
-                                                        key={note.id}
-                                                        className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 transition-colors"
-                                                    >
-                                                        <div className="flex items-start justify-between">
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-3 mb-3">
-                                                                    <h4 className="font-semibold text-base text-gray-900" 
-                                                                        dangerouslySetInnerHTML={{ 
-                                                                            __html: highlightSearchTerms(note.title) 
-                                                                        }} 
-                                                                    />
-                                                                    <Badge 
-                                                                        variant={canManageNote(note) ? "default" : "outline"} 
-                                                                        className={`text-xs ${canManageNote(note) ? 'bg-blue-100 text-blue-800 border-blue-200' : ''}`}
-                                                                    >
-                                                                        {note.user?.name || 'Unknown User'}
-                                                                        {canManageNote(note) && ' (You)'}
-                                                                    </Badge>
-                                                                </div>
-                                                                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed mb-3"
-                                                                    dangerouslySetInnerHTML={{ 
-                                                                        __html: highlightSearchTerms(note.content) 
-                                                                    }}
-                                                                />
-                                                                <div className="flex items-center gap-4 text-xs text-gray-500">
-                                                                    <span>Created: {formatDate(note.created_at)}</span>
-                                                                    {note.updated_at !== note.created_at && (
-                                                                        <span>• Updated: {formatDate(note.updated_at)}</span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            {canManageNote(note) && (
-                                                                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        onClick={() => handleEdit(note)}
-                                                                        className="h-8 w-8 p-0 hover:bg-gray-100"
-                                                                    >
-                                                                        <Pencil className="h-4 w-4" />
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        onClick={() => handleDelete(note.id)}
-                                                                        className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                                                                    >
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                    </Button>
-                                                                </div>
+                    <TabsContent value="current" className="mt-6">
+                        <div className="space-y-6">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div className="flex items-center gap-2">
+                                    <Info className="h-5 w-5 text-blue-600" />
+                                    <span className="text-blue-800 font-medium">
+                                        Current Week: {archiveInfo.current_week_start} to {archiveInfo.current_week_end}
+                                    </span>
+                                </div>
+                                <p className="text-blue-700 text-sm mt-1">
+                                    Notes from this week are shown here. Notes from previous weeks are automatically archived.
+                                </p>
+                            </div>
+                            
+                            <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full">
+                                <TabsList className="grid w-full grid-cols-5">
+                                    {Object.entries(categoryLabels).map(([categoryKey, categoryLabel]) => {
+                                        const categoryNotes = currentNotesState[categoryKey] || [];
+                                        const filteredNotes = getFilteredNotes(categoryNotes);
+                                        return (
+                                            <TabsTrigger 
+                                                key={categoryKey} 
+                                                value={categoryKey}
+                                                className="flex items-center gap-2"
+                                            >
+                                                <StickyNote className="h-4 w-4" />
+                                                {categoryLabel}
+                                                <Badge variant="secondary" className="ml-auto">
+                                                    {filteredNotes.length}
+                                                    {searchTerm && filteredNotes.length !== categoryNotes.length && (
+                                                        <span className="text-xs text-gray-500 ml-1">
+                                                            /{categoryNotes.length}
+                                                        </span>
+                                                    )}
+                                                </Badge>
+                                            </TabsTrigger>
+                                        );
+                                    })}
+                                </TabsList>
+
+                                {Object.entries(categoryLabels).map(([categoryKey, categoryLabel]) => {
+                                    const categoryNotes = currentNotesState[categoryKey] || [];
+                                    const filteredNotes = getFilteredNotes(categoryNotes);
+                                    return (
+                                        <TabsContent key={categoryKey} value={categoryKey} className="mt-6">
+                                            <Card className="shadow-sm border-0">
+                                                <CardHeader className="pb-4">
+                                                    <CardTitle className="flex items-center gap-3 text-lg">
+                                                        <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                                            <StickyNote className="h-4 w-4 text-gray-600" />
+                                                        </div>
+                                                        {categoryLabel}
+                                                        <Badge variant="secondary" className="ml-auto">
+                                                            {filteredNotes.length}
+                                                            {searchTerm && filteredNotes.length !== categoryNotes.length && (
+                                                                <span className="text-xs text-gray-500 ml-1">
+                                                                    /{categoryNotes.length}
+                                                                </span>
+                                                            )}
+                                                        </Badge>
+                                                    </CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="pt-0">
+                                                    {filteredNotes.length === 0 ? (
+                                                        <div className="text-center py-12">
+                                                            {searchTerm ? (
+                                                                <>
+                                                                    <svg className="h-12 w-12 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                                    </svg>
+                                                                    <p className="text-muted-foreground text-sm">
+                                                                        No notes found matching "{searchTerm}".
+                                                                    </p>
+                                                                    <p className="text-muted-foreground text-xs mt-1">
+                                                                        Try adjusting your search terms.
+                                                                    </p>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <StickyNote className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                                                                    <p className="text-muted-foreground text-sm">
+                                                                        No notes in this category yet.
+                                                                    </p>
+                                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                                        Create your first note to get started.
+                                                                    </p>
+                                                                </>
                                                             )}
                                                         </div>
-                                                        
-                                                        {/* Comments Section */}
-                                                        <HandoutCommentSection
-                                                            noteId={note.id}
-                                                            comments={note.comments || []}
-                                                            currentUserId={currentUser.id}
-                                                            onCommentAdded={(comment) => handleCommentAdded(note.id, comment)}
-                                                            onCommentUpdated={(commentId, newContent) => handleCommentUpdated(note.id, commentId, newContent)}
-                                                            onCommentDeleted={(commentId) => handleCommentDeleted(note.id, commentId)}
-                                                        />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
-                        );
-                    })}
+                                                    ) : (
+                                                        <div className="space-y-4">
+                                                            {filteredNotes.map((note) => (
+                                                                <div
+                                                                    key={note.id}
+                                                                    className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 transition-colors"
+                                                                >
+                                                                    <div className="flex items-start justify-between">
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="flex items-center gap-3 mb-3">
+                                                                                <h4 className="font-semibold text-base text-gray-900" 
+                                                                                    dangerouslySetInnerHTML={{ 
+                                                                                        __html: highlightSearchTerms(note.title) 
+                                                                                    }} 
+                                                                                />
+                                                                                <Badge 
+                                                                                    variant={canManageNote(note) ? "default" : "outline"} 
+                                                                                    className={`text-xs ${canManageNote(note) ? 'bg-blue-100 text-blue-800 border-blue-200' : ''}`}
+                                                                                >
+                                                                                    {note.user?.name || 'Unknown User'}
+                                                                                    {canManageNote(note) && ' (You)'}
+                                                                                </Badge>
+                                                                                {note.most_recent_activity && note.most_recent_activity !== note.updated_at && (
+                                                                                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 border-green-200">
+                                                                                        Recent Activity
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed mb-3"
+                                                                                dangerouslySetInnerHTML={{ 
+                                                                                    __html: highlightSearchTerms(note.content) 
+                                                                                }}
+                                                                            />
+                                                                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                                                                                <span>Created: {formatDate(note.created_at)}</span>
+                                                                                {note.updated_at !== note.created_at && (
+                                                                                    <span>• Updated: {formatDate(note.updated_at)}</span>
+                                                                                )}
+                                                                                {note.most_recent_activity && note.most_recent_activity !== note.updated_at && (
+                                                                                    <span>• Last Activity: {formatDate(note.most_recent_activity)}</span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                        {canManageNote(note) && (
+                                                                            <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleEdit(note)}
+                                                                                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                                                                                >
+                                                                                    <Pencil className="h-4 w-4" />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleDelete(note.id)}
+                                                                                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                                                                >
+                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    {/* Comments Section */}
+                                                                    <HandoutCommentSection
+                                                                        noteId={note.id}
+                                                                        comments={note.comments || []}
+                                                                        currentUserId={currentUser.id}
+                                                                        onCommentAdded={(comment) => handleCommentAdded(note.id, comment)}
+                                                                        onCommentUpdated={(commentId, newContent) => handleCommentUpdated(note.id, commentId, newContent)}
+                                                                        onCommentDeleted={(commentId) => handleCommentDeleted(note.id, commentId)}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </CardContent>
+                                            </Card>
+                                        </TabsContent>
+                                    );
+                                })}
+                            </Tabs>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="archived" className="mt-6">
+                        <div className="space-y-6">
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                <div className="flex items-center gap-2">
+                                    <Archive className="h-5 w-5 text-amber-600" />
+                                    <span className="text-amber-800 font-medium">
+                                        Archived Notes
+                                    </span>
+                                </div>
+                                <p className="text-amber-700 text-sm mt-1">
+                                    Notes from previous weeks are automatically archived here for reference. You can still view and comment on archived notes.
+                                </p>
+                            </div>
+                            
+                            <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full">
+                                <TabsList className="grid w-full grid-cols-5">
+                                    {Object.entries(categoryLabels).map(([categoryKey, categoryLabel]) => {
+                                        const categoryNotes = archivedNotesState[categoryKey] || [];
+                                        const filteredNotes = getFilteredNotes(categoryNotes);
+                                        return (
+                                            <TabsTrigger 
+                                                key={categoryKey} 
+                                                value={categoryKey}
+                                                className="flex items-center gap-2"
+                                            >
+                                                <StickyNote className="h-4 w-4" />
+                                                {categoryLabel}
+                                                <Badge variant="secondary" className="ml-auto">
+                                                    {filteredNotes.length}
+                                                    {searchTerm && filteredNotes.length !== categoryNotes.length && (
+                                                        <span className="text-xs text-gray-500 ml-1">
+                                                            /{categoryNotes.length}
+                                                        </span>
+                                                    )}
+                                                </Badge>
+                                            </TabsTrigger>
+                                        );
+                                    })}
+                                </TabsList>
+
+                                {Object.entries(categoryLabels).map(([categoryKey, categoryLabel]) => {
+                                    const categoryNotes = archivedNotesState[categoryKey] || [];
+                                    const filteredNotes = getFilteredNotes(categoryNotes);
+                                    return (
+                                        <TabsContent key={categoryKey} value={categoryKey} className="mt-6">
+                                            <Card className="shadow-sm border-0">
+                                                <CardHeader className="pb-4">
+                                                    <CardTitle className="flex items-center gap-3 text-lg">
+                                                        <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                                            <StickyNote className="h-4 w-4 text-gray-600" />
+                                                        </div>
+                                                        {categoryLabel}
+                                                        <Badge variant="secondary" className="ml-auto">
+                                                            {filteredNotes.length}
+                                                            {searchTerm && filteredNotes.length !== categoryNotes.length && (
+                                                                <span className="text-xs text-gray-500 ml-1">
+                                                                    /{categoryNotes.length}
+                                                                </span>
+                                                            )}
+                                                        </Badge>
+                                                    </CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="pt-0">
+                                                    {filteredNotes.length === 0 ? (
+                                                        <div className="text-center py-12">
+                                                            {searchTerm ? (
+                                                                <>
+                                                                    <svg className="h-12 w-12 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                                    </svg>
+                                                                    <p className="text-muted-foreground text-sm">
+                                                                        No notes found matching "{searchTerm}".
+                                                                    </p>
+                                                                    <p className="text-muted-foreground text-xs mt-1">
+                                                                        Try adjusting your search terms.
+                                                                    </p>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <StickyNote className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                                                                    <p className="text-muted-foreground text-sm">
+                                                                        No archived notes in this category yet.
+                                                                    </p>
+                                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                                        Notes are automatically archived at the end of each week.
+                                                                    </p>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-4">
+                                                            {filteredNotes.map((note) => (
+                                                                <div
+                                                                    key={note.id}
+                                                                    className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 transition-colors bg-gray-50"
+                                                                >
+                                                                    <div className="flex items-start justify-between">
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="flex items-center gap-3 mb-3">
+                                                                                <h4 className="font-semibold text-base text-gray-900" 
+                                                                                    dangerouslySetInnerHTML={{ 
+                                                                                        __html: highlightSearchTerms(note.title) 
+                                                                                    }} 
+                                                                                />
+                                                                                <Badge 
+                                                                                    variant="outline"
+                                                                                    className="text-xs bg-amber-100 text-amber-800 border-amber-200"
+                                                                                >
+                                                                                    {note.user?.name || 'Unknown User'}
+                                                                                </Badge>
+                                                                                <Badge variant="secondary" className="text-xs">
+                                                                                    Archived
+                                                                                </Badge>
+                                                                                {note.most_recent_activity && note.most_recent_activity !== note.updated_at && (
+                                                                                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 border-green-200">
+                                                                                        Recent Activity
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed mb-3"
+                                                                                dangerouslySetInnerHTML={{ 
+                                                                                    __html: highlightSearchTerms(note.content) 
+                                                                                }}
+                                                                            />
+                                                                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                                                                                <span>Created: {formatDate(note.created_at)}</span>
+                                                                                {note.updated_at !== note.created_at && (
+                                                                                    <span>• Updated: {formatDate(note.updated_at)}</span>
+                                                                                )}
+                                                                                {note.most_recent_activity && note.most_recent_activity !== note.updated_at && (
+                                                                                    <span>• Last Activity: {formatDate(note.most_recent_activity)}</span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                        {canManageNote(note) && (
+                                                                            <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleEdit(note)}
+                                                                                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                                                                                >
+                                                                                    <Pencil className="h-4 w-4" />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleDelete(note.id)}
+                                                                                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                                                                >
+                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    {/* Comments Section */}
+                                                                    <HandoutCommentSection
+                                                                        noteId={note.id}
+                                                                        comments={note.comments || []}
+                                                                        currentUserId={currentUser.id}
+                                                                        onCommentAdded={(comment) => handleCommentAdded(note.id, comment)}
+                                                                        onCommentUpdated={(commentId, newContent) => handleCommentUpdated(note.id, commentId, newContent)}
+                                                                        onCommentDeleted={(commentId) => handleCommentDeleted(note.id, commentId)}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </CardContent>
+                                            </Card>
+                                        </TabsContent>
+                                    );
+                                })}
+                            </Tabs>
+                        </div>
+                    </TabsContent>
                 </Tabs>
             </div>
             </div>

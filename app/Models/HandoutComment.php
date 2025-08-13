@@ -25,6 +25,14 @@ class HandoutComment extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * Scope to order comments by most recent first
+     */
+    public function scopeLatest($query)
+    {
+        return $query->orderBy('created_at', 'desc');
+    }
 }
 
 
