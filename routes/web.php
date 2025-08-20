@@ -62,6 +62,11 @@ Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.driv
         Route::post('inspections', [InspectionController::class, 'store'])->name('api.inspections.store');
         Route::put('inspections/{inspection}', [InspectionController::class, 'update'])->name('api.inspections.update');
         Route::delete('inspections/{inspection}', [InspectionController::class, 'destroy'])->name('api.inspections.destroy');
+        
+        // Template management routes
+        Route::post('inspections/templates', [InspectionController::class, 'createTemplate'])->name('api.inspections.templates.create');
+        Route::post('inspections/templates/upload-csv', [InspectionController::class, 'uploadTemplateCsv'])->name('api.inspections.templates.upload-csv');
+        Route::get('inspections/templates/download-template', [InspectionController::class, 'downloadTemplateCsv'])->name('api.inspections.templates.download-template');
     });
     
     Route::get('inspections/{inspection}', [InspectionController::class, 'show'])->name('inspections.show');

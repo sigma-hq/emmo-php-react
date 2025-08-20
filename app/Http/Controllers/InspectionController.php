@@ -143,8 +143,8 @@ class InspectionController extends Controller
             ->paginate($perPage)
             ->withQueryString();
             
-        // Get all users for the operator dropdown
-        $users = \App\Models\User::select('id', 'name')->orderBy('name')->get();
+        // Get only operators for the operator dropdown
+        $users = \App\Models\User::where('role', 'operator')->select('id', 'name')->orderBy('name')->get();
         
         // Add priority information to each inspection
         $inspections->getCollection()->transform(function ($inspection) {
@@ -498,5 +498,328 @@ class InspectionController extends Controller
             'drive_id' => $targetId,
             'drive_name' => $drive->name
         ]);
+    }
+
+    /**
+     * Create a new inspection template with tasks and sub-tasks.
+     */
+    public function createTemplate(Request $request)
+    {
+        $user = auth()->user();
+        
+        // Check if user can manage inspections
+        if (!$user->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'operator_id' => 'nullable|exists:users,id',
+            'schedule_frequency' => 'required|in:daily,weekly,monthly,yearly',
+            'schedule_interval' => 'required|integer|min:1',
+            'schedule_start_date' => 'required|date',
+            'schedule_end_date' => 'nullable|date|after_or_equal:schedule_start_date',
+            'tasks' => 'required|array|min:1',
+            'tasks.*.name' => 'required|string|max:255',
+            'tasks.*.description' => 'nullable|string',
+            'tasks.*.type' => 'required|in:yes_no,numeric',
+            'tasks.*.sub_tasks' => 'nullable|array',
+            'tasks.*.sub_tasks.*.name' => 'required_with:tasks.*.sub_tasks|string|max:255',
+            'tasks.*.sub_tasks.*.description' => 'nullable|string',
+            'tasks.*.sub_tasks.*.sort_order' => 'nullable|integer|min:0',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Calculate expiry date based on frequency and interval
+            $expiryDate = $this->calculateExpiryDate(
+                $request->schedule_frequency,
+                $request->schedule_interval,
+                $request->schedule_start_date
+            );
+
+            // Create the inspection template
+            $inspection = Inspection::create([
+                'name' => $request->name,
+                'description' => $request->description,
+                'status' => 'draft',
+                'created_by' => $user->id,
+                'operator_id' => $request->operator_id,
+                'is_template' => true,
+                'schedule_frequency' => $request->schedule_frequency,
+                'schedule_interval' => $request->schedule_interval,
+                'schedule_start_date' => $request->schedule_start_date,
+                'schedule_end_date' => $request->schedule_end_date,
+                'schedule_next_due_date' => $this->calculateNextDueDate(
+                    $request->schedule_frequency,
+                    $request->schedule_interval,
+                    $request->schedule_start_date
+                ),
+                'expiry_date' => $expiryDate,
+            ]);
+
+            // Create tasks and sub-tasks
+            foreach ($request->tasks as $taskData) {
+                $task = $inspection->tasks()->create([
+                    'name' => $taskData['name'],
+                    'description' => $taskData['description'],
+                    'type' => $taskData['type'],
+                    'expected_value_boolean' => $taskData['type'] === 'yes_no' ? ($taskData['expected_value_boolean'] ?? true) : null,
+                ]);
+
+                // Create sub-tasks if they exist, otherwise create a default one
+                if (!empty($taskData['sub_tasks']) && is_array($taskData['sub_tasks'])) {
+                    foreach ($taskData['sub_tasks'] as $subTaskData) {
+                        $task->subTasks()->create([
+                            'name' => $subTaskData['name'],
+                            'description' => $subTaskData['description'] ?? '',
+                            'sort_order' => $subTaskData['sort_order'] ?? 0,
+                        ]);
+                    }
+                } else {
+                    // Create a default sub-task if none provided
+                    $task->subTasks()->create([
+                        'name' => 'Default sub-task for ' . $taskData['name'],
+                        'description' => 'Auto-generated sub-task',
+                        'sort_order' => 0,
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            return redirect()->route('inspections')->with('success', 'Template created successfully');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('inspections')->withErrors(['error' => 'Failed to create template: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Upload CSV file to create inspection template.
+     */
+    public function uploadTemplateCsv(Request $request)
+    {
+        $user = auth()->user();
+        
+        // Check if user can manage inspections
+        if (!$user->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt|max:10240', // 10MB max
+            'operator_id' => 'nullable|exists:users,id',
+        ]);
+
+        try {
+            $file = $request->file('csv_file');
+            $csvData = array_map('str_getcsv', file($file->getPathname()));
+            
+            if (count($csvData) < 2) {
+                return redirect()->route('inspections')->withErrors(['error' => 'CSV file must contain at least a header row and one data row']);
+            }
+
+            $headers = $csvData[0];
+            $dataRows = array_slice($csvData, 1);
+
+            // Process CSV data and create template
+            $templateData = $this->parseCsvToTemplateData($headers, $dataRows);
+            
+            // Add operator_id if provided
+            if ($request->has('operator_id') && $request->operator_id) {
+                $templateData['operator_id'] = $request->operator_id;
+            }
+            
+            // Create template using the existing method
+            $request->merge($templateData);
+            $result = $this->createTemplate($request);
+            
+            // If it's a redirect response, return it
+            if ($result instanceof \Illuminate\Http\RedirectResponse) {
+                return $result;
+            }
+            
+            // Otherwise, redirect with success message
+            return redirect()->route('inspections')->with('success', 'Template uploaded and created successfully');
+
+        } catch (\Exception $e) {
+            return redirect()->route('inspections')->withErrors(['error' => 'Failed to process CSV: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Download CSV template for inspection templates.
+     */
+    public function downloadTemplateCsv()
+    {
+        $user = auth()->user();
+        
+        // Check if user can manage inspections
+        if (!$user->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="inspection_template.csv"',
+        ];
+
+        $callback = function() {
+            $file = fopen('php://output', 'w');
+            
+            // CSV headers
+            fputcsv($file, [
+                'Template Name',
+                'Description',
+                'Schedule Frequency',
+                'Schedule Interval',
+                'Schedule End Date',
+                'Task Name',
+                'Task Description',
+                'Task Type',
+                'Expected Value (Yes/No)',
+                'Sub Task Name',
+                'Sub Task Description',
+                'Sort Order'
+            ]);
+            
+            // Note: Start Date and Operator fields are intentionally excluded from CSV
+            // Start date will be filled during upload, operator will be assigned during upload
+
+            // Example row
+            fputcsv($file, [
+                'Daily Drive Inspection',
+                'Daily inspection checklist for drives',
+                'daily',
+                '1',
+                '',
+                'Check Drive Condition',
+                'Inspect the overall condition of the drive',
+                'yes_no',
+                'true',
+                'Check for visible damage',
+                'Look for any signs of wear or damage',
+                '0'
+            ]);
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Calculate expiry date based on schedule frequency and interval.
+     */
+    private function calculateExpiryDate(string $frequency, int $interval, string $startDate): string
+    {
+        $start = \Carbon\Carbon::parse($startDate);
+        
+        switch ($frequency) {
+            case 'daily':
+                return $start->addDays($interval)->format('Y-m-d H:i:s');
+            case 'weekly':
+                return $start->addWeeks($interval)->format('Y-m-d H:i:s');
+            case 'monthly':
+                return $start->addMonths($interval)->format('Y-m-d H:i:s');
+            case 'yearly':
+                return $start->addYears($interval)->format('Y-m-d H:i:s');
+            default:
+                return $start->addDays($interval)->format('Y-m-d H:i:s');
+        }
+    }
+
+    /**
+     * Parse CSV data into template format.
+     */
+    private function parseCsvToTemplateData(array $headers, array $dataRows): array
+    {
+        // This is a simplified parser - you may want to enhance this based on your CSV structure
+        $templateData = [
+            'name' => '',
+            'description' => '',
+            'schedule_frequency' => 'weekly',
+            'schedule_interval' => 1,
+            'schedule_start_date' => now()->format('Y-m-d'), // Default to today
+            'schedule_end_date' => null,
+            'tasks' => []
+        ];
+
+        $tasks = [];
+        $currentTask = null;
+
+        foreach ($dataRows as $row) {
+            if (!empty($row[0])) { // Template name
+                $templateData['name'] = $row[0];
+            }
+            if (!empty($row[1])) { // Description
+                $templateData['description'] = $row[1];
+            }
+            if (!empty($row[2])) { // Schedule frequency
+                $templateData['schedule_frequency'] = $row[2];
+            }
+            if (!empty($row[3])) { // Schedule interval
+                $templateData['schedule_interval'] = (int) $row[3];
+            }
+            if (!empty($row[4])) { // Schedule end date
+                $templateData['schedule_end_date'] = $row[4];
+            }
+
+            // Process task data
+            if (!empty($row[5])) { // Task name (adjusted index)
+                if ($currentTask && !empty($currentTask['name'])) {
+                    // Ensure the previous task has at least one sub-task
+                    if (empty($currentTask['sub_tasks'])) {
+                        $currentTask['sub_tasks'] = [
+                            [
+                                'name' => 'Default sub-task for ' . $currentTask['name'],
+                                'description' => 'Auto-generated sub-task',
+                                'sort_order' => 0
+                            ]
+                        ];
+                    }
+                    $tasks[] = $currentTask;
+                }
+                $currentTask = [
+                    'name' => $row[5],
+                    'description' => $row[6] ?? '',
+                    'type' => $row[7] ?? 'yes_no',
+                    'expected_value_boolean' => ($row[8] ?? 'true') === 'true',
+                    'sub_tasks' => []
+                ];
+            }
+
+            // Process sub-task data
+            if ($currentTask && !empty($row[9])) { // Sub task name (adjusted index)
+                $currentTask['sub_tasks'][] = [
+                    'name' => $row[9],
+                    'description' => $row[10] ?? '',
+                    'sort_order' => (int) ($row[11] ?? 0)
+                ];
+            }
+        }
+
+        // Add the last task if exists
+        if ($currentTask && !empty($currentTask['name'])) {
+            // Ensure the last task has at least one sub-task
+            if (empty($currentTask['sub_tasks'])) {
+                $currentTask['sub_tasks'] = [
+                    [
+                        'name' => 'Default sub-task for ' . $currentTask['name'],
+                        'description' => 'Auto-generated sub-task',
+                        'sort_order' => 0
+                    ]
+                ];
+            }
+            $tasks[] = $currentTask;
+        }
+
+        $templateData['tasks'] = $tasks;
+
+        return $templateData;
     }
 }

@@ -40,7 +40,9 @@ import {
     Check,
     User,
     AlertTriangle,
-    Circle
+    Circle,
+    Upload,
+    Download
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -206,6 +208,12 @@ export default function Inspections({ inspections, users, statistics, filters, f
     const [perPage, setPerPage] = useState(filters.per_page);
     const [isOperatorComboOpen, setIsOperatorComboOpen] = useState(false);
     const [operatorSearchTerm, setOperatorSearchTerm] = useState('');
+    const [showCreateTemplateDialog, setShowCreateTemplateDialog] = useState(false);
+    const [showUploadTemplateDialog, setShowUploadTemplateDialog] = useState(false);
+    const [selectedCsvFile, setSelectedCsvFile] = useState<File | null>(null);
+    const [showCsvGeneratedMessage, setShowCsvGeneratedMessage] = useState(false);
+    const [showCsvUploadedMessage, setShowCsvUploadedMessage] = useState(false);
+    const [csvUploadOperatorId, setCsvUploadOperatorId] = useState<string>('');
     
     // Apply client-side filtering for priority
     const filteredInspections = useMemo(() => {
@@ -245,6 +253,30 @@ export default function Inspections({ inspections, users, statistics, filters, f
         schedule_start_date: null,
         schedule_end_date: null,
         expiry_date: null, // Will be set when user selects date/time
+    });
+
+    const { data: templateFormData, setData: setTemplateFormData, post: postTemplate, processing: templateProcessing, errors: templateErrors, reset: resetTemplate } = useForm({
+        name: '',
+        description: '',
+        schedule_frequency: 'weekly',
+        schedule_interval: '1',
+        schedule_start_date: null,
+        schedule_end_date: null,
+        tasks: [
+            {
+                name: '',
+                description: '',
+                type: 'yes_no',
+                expected_value_boolean: true,
+                sub_tasks: [
+                    {
+                        name: 'Default sub-task',
+                        description: 'Auto-generated sub-task',
+                        sort_order: 0
+                    }
+                ]
+            }
+        ]
     });
     
     // Handle flash messages from the backend
@@ -377,6 +409,111 @@ export default function Inspections({ inspections, users, statistics, filters, f
             );
         }
     };
+
+    const generateTemplateCsv = (templateData: any) => {
+        // CSV headers - Note: Start Date and Operator fields are intentionally excluded
+        // Start date will be filled during upload, operator will be assigned during upload
+        const headers = [
+            'Template Name',
+            'Description',
+            'Schedule Frequency',
+            'Schedule Interval',
+            'Schedule End Date',
+            'Task Name',
+            'Task Description',
+            'Task Type',
+            'Expected Value (Yes/No)',
+            'Sub Task Name',
+            'Sub Task Description',
+            'Sort Order'
+        ];
+
+        // Generate CSV rows
+        const csvRows = [];
+        
+        // Add template info row
+        const templateRow = [
+            templateData.name || '',
+            templateData.description || '',
+            templateData.schedule_frequency || '',
+            templateData.schedule_interval || '',
+            templateData.schedule_end_date || '',
+            '', // Task Name (empty for template row)
+            '', // Task Description (empty for template row)
+            '', // Task Type (empty for template row)
+            '', // Expected Value (empty for template row)
+            '', // Sub Task Name (empty for template row)
+            '', // Sub Task Description (empty for template row)
+            ''  // Sort Order (empty for template row)
+        ];
+        csvRows.push(templateRow);
+
+        // Add task and sub-task rows
+        templateData.tasks.forEach((task: any, taskIndex: number) => {
+            // Ensure each task has at least one sub-task
+            if (task.sub_tasks && task.sub_tasks.length > 0) {
+                task.sub_tasks.forEach((subTask: any, subTaskIndex: number) => {
+                                    const row = [
+                    '', // Template Name (empty for task rows)
+                    '', // Description (empty for task rows)
+                    '', // Schedule Frequency (empty for task rows)
+                    '', // Schedule Interval (empty for task rows)
+                    '', // Schedule End Date (empty for task rows)
+                    task.name || '',
+                    task.description || '',
+                    task.type || '',
+                    task.type === 'yes_no' ? (task.expected_value_boolean ? 'true' : 'false') : '',
+                    subTask.name || '',
+                    subTask.description || '',
+                    subTask.sort_order || subTaskIndex
+                ];
+                    csvRows.push(row);
+                });
+            } else {
+                // If no sub-tasks, create a default one
+                const row = [
+                    '', // Template Name (empty for task rows)
+                    '', // Description (empty for task rows)
+                    '', // Schedule Frequency (empty for task rows)
+                    '', // Schedule Interval (empty for task rows)
+                    '', // Schedule End Date (empty for task rows)
+                    task.name || '',
+                    task.description || '',
+                    task.type || '',
+                    task.type === 'yes_no' ? (task.expected_value_boolean ? 'true' : 'false') : '',
+                    'Default sub-task for ' + (task.name || 'Task'),
+                    'Auto-generated sub-task',
+                    0
+                ];
+                csvRows.push(row);
+            }
+        });
+
+        // Convert to CSV string
+        const csvContent = [
+            headers.join(','),
+            ...csvRows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        // Create and download the file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${templateData.name || 'inspection_template'}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Close the dialog and reset form
+        setShowCreateTemplateDialog(false);
+        resetTemplate();
+        
+        // Show success message
+        setShowCsvGeneratedMessage(true);
+        setTimeout(() => setShowCsvGeneratedMessage(false), 5000);
+    };
     
     const getStatusBadgeClasses = (status: string) => {
         switch (status) {
@@ -477,16 +614,66 @@ export default function Inspections({ inspections, users, statistics, filters, f
                             <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Inspection Management</h1>
                         </div>
                         {isAdmin && (
-                            <Button onClick={openCreateDialog} className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)] flex-shrink-0">
-                                <PlusIcon className="h-4 w-4 mr-2" />
-                                New Inspection
-                            </Button>
+                            <div className="flex gap-2 flex-shrink-0">
+                                <Button onClick={openCreateDialog} className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]">
+                                    <PlusIcon className="h-4 w-4 mr-2" />
+                                    New Inspection
+                                </Button>
+                                <Button onClick={() => {
+                                    setShowCreateTemplateDialog(true);
+                                    resetTemplate();
+                                }} variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/20">
+                                    <ClipboardList className="h-4 w-4 mr-2" />
+                                    Generate Template CSV
+                                </Button>
+                                <Button onClick={() => {
+                                    console.log('Opening upload dialog, users:', users);
+                                    setShowUploadTemplateDialog(true);
+                                    setSelectedCsvFile(null);
+                                    setCsvUploadOperatorId('');
+                                }} variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/20">
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    Upload Template CSV
+                                </Button>
+                            </div>
                         )}
                     </div>
                     <p className="text-sm text-gray-500">
                         Create and manage inspection procedures for drives and parts.
                     </p>
                 </div>
+
+                {/* CSV Generated Success Message */}
+                {showCsvGeneratedMessage && (
+                    <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5" />
+                        <span>CSV file generated successfully! Check your downloads folder.</span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowCsvGeneratedMessage(false)}
+                            className="text-white hover:text-white/80 ml-2"
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
+
+                {/* CSV Uploaded Success Message */}
+                {showCsvUploadedMessage && (
+                    <div className="fixed top-4 right-4 z-50 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5" />
+                        <span>CSV template uploaded and created successfully!</span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowCsvUploadedMessage(false)}
+                            className="text-white hover:text-white/80 ml-2"
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
                 
                 {/* Statistics Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full" style={{ minWidth: 0, maxWidth: '100%' }}>
@@ -1434,6 +1621,484 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                 </Button>
                             </DialogFooter>
                         </form>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Create Template Dialog */}
+                <Dialog open={showCreateTemplateDialog} onOpenChange={setShowCreateTemplateDialog}>
+                    <DialogContent className="w-[95vw] max-w-[800px] lg:max-w-[900px] rounded-xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            // Generate CSV from template form data
+                            generateTemplateCsv(templateFormData);
+                        }} className="flex flex-col h-full">
+                            {/* Sticky Header */}
+                            <div className="sticky top-0 z-10 bg-gradient-to-r from-purple-600 to-purple-700 p-4 sm:p-6 text-white shadow-sm">
+                                <DialogTitle className="text-xl sm:text-2xl font-bold mb-2">
+                                    Create Inspection Template
+                                </DialogTitle>
+                                <DialogDescription className="text-white/80 max-w-sm text-sm sm:text-base">
+                                    Create a reusable inspection template and generate a CSV file for upload. The CSV will contain all your template data, tasks, and sub-tasks.
+                                </DialogDescription>
+                            </div>
+                            
+                            <div className="flex-1 grid gap-4 p-4 sm:p-6 overflow-y-auto min-w-0 max-w-full">
+                                {/* Basic Template Info */}
+                                <div className="grid gap-4 border p-4 rounded-md bg-gray-50/50">
+                                    <h4 className="text-sm font-medium text-gray-600 mb-0">Template Information</h4>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="template_name">Template Name</Label>
+                                        <Input
+                                            id="template_name"
+                                            value={templateFormData.name}
+                                            onChange={(e) => setTemplateFormData('name', e.target.value)}
+                                            placeholder="Enter template name"
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="template_description">Description (Optional)</Label>
+                                        <Textarea
+                                            id="template_description"
+                                            value={templateFormData.description}
+                                            onChange={(e) => setTemplateFormData('description', e.target.value)}
+                                            rows={2}
+                                            placeholder="Describe what this template is for"
+                                        />
+                                    </div>
+                                    
+                                    {/* Workflow Note */}
+                                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                                        <p className="text-sm text-blue-800">
+                                            <strong>Workflow:</strong> This form generates a CSV file for download. 
+                                            The start date and operator fields are intentionally excluded from the CSV - 
+                                            start date will be set during upload, and operator will be assigned during upload. 
+                                            Upload the generated CSV using the "Upload Template CSV" button.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Scheduling Options */}
+                                <div className="grid gap-4 border p-4 rounded-md bg-gray-50/50">
+                                    <h4 className="text-sm font-medium text-gray-600 mb-0">Scheduling Options</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="template_schedule_frequency">Frequency</Label>
+                                            <Select
+                                                value={templateFormData.schedule_frequency}
+                                                onValueChange={(value) => setTemplateFormData('schedule_frequency', value)}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select frequency" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="daily">Daily</SelectItem>
+                                                    <SelectItem value="weekly">Weekly</SelectItem>
+                                                    <SelectItem value="monthly">Monthly</SelectItem>
+                                                    <SelectItem value="yearly">Yearly</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="template_schedule_interval">Every</Label>
+                                            <Input
+                                                id="template_schedule_interval"
+                                                type="number"
+                                                min="1"
+                                                value={templateFormData.schedule_interval}
+                                                onChange={(e) => setTemplateFormData('schedule_interval', e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="template_schedule_start_date">Start Date</Label>
+                                            <Input 
+                                                type="date"
+                                                id="template_schedule_start_date"
+                                                value={templateFormData.schedule_start_date || ''}
+                                                onChange={(e) => setTemplateFormData('schedule_start_date', e.target.value || null)}
+                                                disabled
+                                                className="bg-gray-100 cursor-not-allowed"
+                                            />
+                                            <p className="text-xs text-gray-500">
+                                                Start date will be set when uploading the template
+                                            </p>
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="template_schedule_end_date">End Date (Optional)</Label>
+                                            <Input 
+                                                type="date"
+                                                id="template_schedule_end_date"
+                                                value={templateFormData.schedule_end_date || ''}
+                                                onChange={(e) => setTemplateFormData('schedule_end_date', e.target.value || null)}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Info Note */}
+                                <div className="border rounded-md p-4 bg-blue-50 dark:bg-blue-900/20">
+                                    <div className="flex items-start gap-2">
+                                        <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                        <div className="text-sm text-blue-700 dark:text-blue-300">
+                                            <p className="font-medium mb-1">How it works:</p>
+                                            <ol className="list-decimal list-inside space-y-1 text-xs">
+                                                <li>Fill out the template information and add your tasks</li>
+                                                <li>Click "Generate CSV" to create a downloadable CSV file</li>
+                                                <li>Use the "Upload Template CSV" button to upload and create the template</li>
+                                            </ol>
+                                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                                                📝 <strong>Note:</strong> The operator field is intentionally left empty in the CSV. You'll assign operators when uploading the template.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Tasks Section */}
+                                <div className="grid gap-4 border p-4 rounded-md bg-gray-50/50">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-sm font-medium text-gray-600 mb-0">Inspection Tasks</h4>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                const newTask = {
+                                                    name: '',
+                                                    description: '',
+                                                    type: 'yes_no',
+                                                    expected_value_boolean: true,
+                                                    sub_tasks: [
+                                                        {
+                                                            name: 'Default sub-task',
+                                                            description: 'Auto-generated sub-task',
+                                                            sort_order: 0
+                                                        }
+                                                    ]
+                                                };
+                                                setTemplateFormData('tasks', [...templateFormData.tasks, newTask]);
+                                            }}
+                                        >
+                                            <PlusIcon className="h-4 w-4 mr-2" />
+                                            Add Task
+                                        </Button>
+                                    </div>
+                                    
+                                    {templateFormData.tasks.map((task, taskIndex) => (
+                                        <div key={taskIndex} className="border rounded-md p-4 bg-white dark:bg-gray-900">
+                                            <div className="grid gap-3">
+                                                <div className="grid gap-2">
+                                                    <Label>Task {taskIndex + 1}</Label>
+                                                    <Input
+                                                        value={task.name}
+                                                        onChange={(e) => {
+                                                            const newTasks = [...templateFormData.tasks];
+                                                            newTasks[taskIndex].name = e.target.value;
+                                                            setTemplateFormData('tasks', newTasks);
+                                                        }}
+                                                        placeholder="Enter task name"
+                                                    />
+                                                </div>
+                                                <div className="grid gap-2">
+                                                    <Label>Description (Optional)</Label>
+                                                    <Textarea
+                                                        value={task.description}
+                                                        onChange={(e) => {
+                                                            const newTasks = [...templateFormData.tasks];
+                                                            newTasks[taskIndex].description = e.target.value;
+                                                            setTemplateFormData('tasks', newTasks);
+                                                        }}
+                                                        rows={2}
+                                                        placeholder="Describe what needs to be checked"
+                                                    />
+                                                </div>
+                                                <div className="grid gap-2">
+                                                    <Label>Task Type</Label>
+                                                    <Select
+                                                        value={task.type}
+                                                        onValueChange={(value) => {
+                                                            const newTasks = [...templateFormData.tasks];
+                                                            newTasks[taskIndex].type = value;
+                                                            setTemplateFormData('tasks', newTasks);
+                                                        }}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="yes_no">Yes/No</SelectItem>
+                                                            <SelectItem value="numeric">Numeric</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                
+                                                {/* Sub-tasks */}
+                                                <div className="grid gap-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label>Sub-tasks</Label>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                                                                        onClick={() => {
+                                                const newTasks = [...templateFormData.tasks];
+                                                const newSubTask = {
+                                                    name: 'New sub-task',
+                                                    description: 'Sub-task description',
+                                                    sort_order: newTasks[taskIndex].sub_tasks.length
+                                                };
+                                                newTasks[taskIndex].sub_tasks.push(newSubTask);
+                                                setTemplateFormData('tasks', newTasks);
+                                            }}
+                                                        >
+                                                            <PlusIcon className="h-4 w-4 mr-2" />
+                                                            Add Sub-task
+                                                        </Button>
+                                                    </div>
+                                                    
+                                                    {task.sub_tasks.map((subTask, subTaskIndex) => (
+                                                        <div key={subTaskIndex} className="border rounded-md p-3 bg-gray-50 dark:bg-gray-800">
+                                                            <div className="grid gap-2">
+                                                                <Input
+                                                                    value={subTask.name}
+                                                                    onChange={(e) => {
+                                                                        const newTasks = [...templateFormData.tasks];
+                                                                        newTasks[taskIndex].sub_tasks[subTaskIndex].name = e.target.value;
+                                                                        setTemplateFormData('tasks', newTasks);
+                                                                    }}
+                                                                    placeholder="Enter sub-task name"
+                                                                />
+                                                                <Textarea
+                                                                    value={subTask.description}
+                                                                    onChange={(e) => {
+                                                                        const newTasks = [...templateFormData.tasks];
+                                                                        newTasks[taskIndex].sub_tasks[subTaskIndex].description = e.target.value;
+                                                                        setTemplateFormData('tasks', newTasks);
+                                                                    }}
+                                                                    rows={1}
+                                                                    placeholder="Description (optional)"
+                                                                />
+                                                            </div>
+                                                            <div className="flex justify-end mt-2">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        const newTasks = [...templateFormData.tasks];
+                                                                        newTasks[taskIndex].sub_tasks.splice(subTaskIndex, 1);
+                                                                        setTemplateFormData('tasks', newTasks);
+                                                                    }}
+                                                                    className="text-red-600 hover:text-red-700"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                
+                                                {/* Remove Task Button */}
+                                                <div className="flex justify-end">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            const newTasks = templateFormData.tasks.filter((_, index) => index !== taskIndex);
+                                                            setTemplateFormData('tasks', newTasks);
+                                                        }}
+                                                        className="text-red-600 hover:text-red-700"
+                                                    >
+                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                        Remove Task
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <DialogFooter className="sticky bottom-0 z-10 border-t border-gray-100 dark:border-gray-800 p-4 flex justify-end gap-3 bg-gray-50 dark:bg-gray-950 shadow-lg">
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={() => {
+                                        setShowCreateTemplateDialog(false);
+                                        resetTemplate();
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button 
+                                    type="submit" 
+                                    disabled={templateProcessing}
+                                    className="bg-purple-600 hover:bg-purple-700"
+                                >
+                                    Generate CSV
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Upload Template CSV Dialog */}
+                <Dialog 
+                    open={showUploadTemplateDialog} 
+                    onOpenChange={(open) => {
+                        console.log('Dialog open state changing to:', open);
+                        setShowUploadTemplateDialog(open);
+                    }}
+                >
+                    <DialogContent className="w-[95vw] max-w-[600px] rounded-xl p-0 overflow-hidden">
+                        <div className="flex flex-col h-full">
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 sm:p-6 text-white">
+                                <DialogTitle className="text-xl sm:text-2xl font-bold mb-2">
+                                    Upload Template CSV
+                                </DialogTitle>
+                                <DialogDescription className="text-white/80 max-w-sm text-sm sm:text-base">
+                                    Upload a CSV file to create an inspection template.
+                                </DialogDescription>
+                            </div>
+                            
+
+                            
+                            <div className="p-4 sm:p-6">
+                                <div className="grid gap-4">
+                                    <div className="text-center">
+                                        <Upload className="h-16 w-16 text-blue-500 mx-auto mb-4" />
+                                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                            Upload a CSV file containing your inspection template data.
+                                        </p>
+                                        
+
+                                        
+                                        {/* File upload */}
+                                        <div className="space-y-2">
+                                            <input
+                                                type="file"
+                                                accept=".csv,.txt"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        setSelectedCsvFile(file);
+                                                    }
+                                                }}
+                                                className="hidden"
+                                                id="csv-file-input"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    document.getElementById('csv-file-input')?.click();
+                                                }}
+                                                className="w-full"
+                                            >
+                                                <Upload className="h-4 w-4 mr-2" />
+                                                Choose CSV File
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    
+                                    {selectedCsvFile && (
+                                        <div className="border rounded-md p-3 bg-green-50 dark:bg-green-900/20">
+                                            <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                                                <CheckCircle className="h-4 w-4" />
+                                                <span className="font-medium">Selected file:</span>
+                                                <span>{selectedCsvFile.name}</span>
+                                            </div>
+                                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                                File size: {(selectedCsvFile.size / 1024 / 1024).toFixed(2)} MB
+                                            </p>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Operator Selection */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="operator-select" className="text-sm font-medium">
+                                            Assign Operator
+                                        </Label>
+                                        <Select 
+                                            value={csvUploadOperatorId} 
+                                            onValueChange={setCsvUploadOperatorId}
+                                            disabled={!users || users.length === 0}
+                                        >
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder={!users || users.length === 0 ? "No operators available" : "Select an operator to assign"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {users && users.length > 0 ? (
+                                                    users.map((user) => (
+                                                        <SelectItem key={user.id} value={user.id.toString()}>
+                                                            {user.name}
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <SelectItem value="" disabled>
+                                                        No operators available
+                                                    </SelectItem>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            Choose an operator who will be responsible for this inspection template.
+                                        </p>
+                                        {selectedCsvFile && !csvUploadOperatorId && (
+                                            <p className="text-xs text-red-500 dark:text-red-400">
+                                                Please select an operator to continue.
+                                            </p>
+                                        )}
+                                        {(!users || users.length === 0) && (
+                                            <p className="text-xs text-red-500 dark:text-red-400">
+                                                No operators available in the system. Please create operator accounts first.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="border-t border-gray-100 dark:border-gray-800 p-4 flex justify-end gap-3">
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={() => {
+                                        setShowUploadTemplateDialog(false);
+                                        setSelectedCsvFile(null);
+                                        setCsvUploadOperatorId('');
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button 
+                                    type="button"
+                                    disabled={!selectedCsvFile || !csvUploadOperatorId || !users || users.length === 0}
+                                    onClick={() => {
+                                        if (selectedCsvFile && csvUploadOperatorId) {
+                                            const formData = new FormData();
+                                            formData.append('csv_file', selectedCsvFile);
+                                            formData.append('operator_id', csvUploadOperatorId);
+                                            
+                                            router.post(route('api.inspections.templates.upload-csv'), formData, {
+                                                preserveScroll: true,
+                                                onSuccess: () => { 
+                                                    setShowUploadTemplateDialog(false);
+                                                    setSelectedCsvFile(null);
+                                                    setCsvUploadOperatorId('');
+                                                    // The backend will redirect, so we don't need to show a message here
+                                                },
+                                                onError: (err) => { console.error("CSV Upload Error:", err); }
+                                            });
+                                        }
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {!users || users.length === 0 ? 'No Operators Available' : !selectedCsvFile ? 'Select CSV File' : !csvUploadOperatorId ? 'Select Operator' : 'Upload Template'}
+                                </Button>
+                            </div>
+                        </div>
                     </DialogContent>
                 </Dialog>
                 
