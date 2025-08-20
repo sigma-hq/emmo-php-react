@@ -8,12 +8,12 @@ import AppLogo from './app-logo';
 import { useState, useEffect } from 'react';
 
 // Define navigation items with potential grouping info and role requirements
-const navItems: (NavItem & { group: string; adminOnly?: boolean })[] = [
+const navItems: (NavItem & { group: string; adminOnly?: boolean; disabled?: boolean })[] = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, group: 'Overview' },
     { title: 'Drive', href: '/drive', icon: HardDrive, group: 'Operations' },
     { title: 'Inspections', href: '/inspections', icon: ClipboardCheck, group: 'Operations' },
     { title: 'Maintenances', href: '/maintenances', icon: Hammer, group: 'Operations' },
-    { title: 'Handout Notes', href: '/handout-notes', icon: StickyNote, group: 'Operations' },
+    { title: 'Handout Notes', href: '/handout-notes', icon: StickyNote, group: 'Operations', disabled: true },
     // { title: 'View Items', href: '/view-items', icon: List, group: 'Operations' },
     { title: 'Parts', href: '/parts', icon: Wrench, group: 'Resources' },
     { title: 'Users', href: '/users', icon: UsersIcon, group: 'Admin', adminOnly: true },
@@ -92,14 +92,16 @@ export function AppSidebar() {
                         <SidebarMenu>
                             {items.map((item) => (
                                 <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton
-                                        asChild isActive={item.href === page.url}
-                                        tooltip={{ children: item.title }}
-                                    >
-                                        <Link href={item.href} prefetch>
+                                    {item.disabled ? (
+                                        <SidebarMenuButton
+                                            isActive={false}
+                                            aria-disabled
+                                            disabled
+                                            tooltip={{ children: item.title }}
+                                            onClick={(e) => e.preventDefault()}
+                                        >
                                             <div className="relative">
                                                 {item.icon && <item.icon />}
-                                                {/* Show red dot for drive alerts */}
                                                 {item.title === 'Drive' && isAdmin && driveAlerts > 0 && (
                                                     <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full flex items-center justify-center">
                                                         <span className="text-xs text-white font-bold">
@@ -109,8 +111,29 @@ export function AppSidebar() {
                                                 )}
                                             </div>
                                             <span>{item.title}</span>
-                                        </Link>
-                                    </SidebarMenuButton>
+                                        </SidebarMenuButton>
+                                    ) : (
+                                        <SidebarMenuButton
+                                            asChild
+                                            isActive={item.href === page.url}
+                                            tooltip={{ children: item.title }}
+                                        >
+                                            <Link href={item.href} prefetch>
+                                                <div className="relative">
+                                                    {item.icon && <item.icon />}
+                                                    {/* Show red dot for drive alerts */}
+                                                    {item.title === 'Drive' && isAdmin && driveAlerts > 0 && (
+                                                        <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full flex items-center justify-center">
+                                                            <span className="text-xs text-white font-bold">
+                                                                {driveAlerts > 9 ? '9+' : driveAlerts}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    )}
                                 </SidebarMenuItem>
                             ))}
                         </SidebarMenu>
