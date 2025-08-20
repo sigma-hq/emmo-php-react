@@ -267,14 +267,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 name: '',
                 description: '',
                 type: 'yes_no',
-                expected_value_boolean: true,
-                sub_tasks: [
-                    {
-                        name: 'Default sub-task',
-                        description: 'Auto-generated sub-task',
-                        sort_order: 0
-                    }
-                ]
+                expected_value_boolean: true
             }
         ]
     });
@@ -422,10 +415,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
             'Task Name',
             'Task Description',
             'Task Type',
-            'Expected Value (Yes/No)',
-            'Sub Task Name',
-            'Sub Task Description',
-            'Sort Order'
+            'Expected Value (Yes/No)'
         ];
 
         // Generate CSV rows
@@ -441,52 +431,24 @@ export default function Inspections({ inspections, users, statistics, filters, f
             '', // Task Name (empty for template row)
             '', // Task Description (empty for template row)
             '', // Task Type (empty for template row)
-            '', // Expected Value (empty for template row)
-            '', // Sub Task Name (empty for template row)
-            '', // Sub Task Description (empty for template row)
-            ''  // Sort Order (empty for template row)
+            ''  // Expected Value (empty for template row)
         ];
         csvRows.push(templateRow);
 
-        // Add task and sub-task rows
-        templateData.tasks.forEach((task: any, taskIndex: number) => {
-            // Ensure each task has at least one sub-task
-            if (task.sub_tasks && task.sub_tasks.length > 0) {
-                task.sub_tasks.forEach((subTask: any, subTaskIndex: number) => {
-                                    const row = [
-                    '', // Template Name (empty for task rows)
-                    '', // Description (empty for task rows)
-                    '', // Schedule Frequency (empty for task rows)
-                    '', // Schedule Interval (empty for task rows)
-                    '', // Schedule End Date (empty for task rows)
-                    task.name || '',
-                    task.description || '',
-                    task.type || '',
-                    task.type === 'yes_no' ? (task.expected_value_boolean ? 'true' : 'false') : '',
-                    subTask.name || '',
-                    subTask.description || '',
-                    subTask.sort_order || subTaskIndex
-                ];
-                    csvRows.push(row);
-                });
-            } else {
-                // If no sub-tasks, create a default one
-                const row = [
-                    '', // Template Name (empty for task rows)
-                    '', // Description (empty for task rows)
-                    '', // Schedule Frequency (empty for task rows)
-                    '', // Schedule Interval (empty for task rows)
-                    '', // Schedule End Date (empty for task rows)
-                    task.name || '',
-                    task.description || '',
-                    task.type || '',
-                    task.type === 'yes_no' ? (task.expected_value_boolean ? 'true' : 'false') : '',
-                    'Default sub-task for ' + (task.name || 'Task'),
-                    'Auto-generated sub-task',
-                    0
-                ];
-                csvRows.push(row);
-            }
+        // Add task rows (no sub-tasks)
+        templateData.tasks.forEach((task: any) => {
+            const row = [
+                '', // Template Name (empty for task rows)
+                '', // Description (empty for task rows)
+                '', // Schedule Frequency (empty for task rows)
+                '', // Schedule Interval (empty for task rows)
+                '', // Schedule End Date (empty for task rows)
+                task.name || '',
+                task.description || '',
+                task.type || '',
+                task.type === 'yes_no' ? (task.expected_value_boolean ? 'true' : 'false') : ''
+            ];
+            csvRows.push(row);
         });
 
         // Convert to CSV string
@@ -1638,7 +1600,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                     Create Inspection Template
                                 </DialogTitle>
                                 <DialogDescription className="text-white/80 max-w-sm text-sm sm:text-base">
-                                    Create a reusable inspection template and generate a CSV file for upload. The CSV will contain all your template data, tasks, and sub-tasks.
+                                    Create a reusable inspection template and generate a CSV file for upload. The CSV will contain your template data and tasks.
                                 </DialogDescription>
                             </div>
                             
@@ -1716,7 +1678,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                                 type="date"
                                                 id="template_schedule_start_date"
                                                 value={templateFormData.schedule_start_date || ''}
-                                                onChange={(e) => setTemplateFormData('schedule_start_date', e.target.value || null)}
+                                                onChange={(e) => setTemplateFormData('schedule_start_date', (e.target.value as unknown as null))}
                                                 disabled
                                                 className="bg-gray-100 cursor-not-allowed"
                                             />
@@ -1730,7 +1692,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                                 type="date"
                                                 id="template_schedule_end_date"
                                                 value={templateFormData.schedule_end_date || ''}
-                                                onChange={(e) => setTemplateFormData('schedule_end_date', e.target.value || null)}
+                                                onChange={(e) => setTemplateFormData('schedule_end_date', (e.target.value as unknown as null))}
                                             />
                                         </div>
                                     </div>
@@ -1767,14 +1729,8 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                                     name: '',
                                                     description: '',
                                                     type: 'yes_no',
-                                                    expected_value_boolean: true,
-                                                    sub_tasks: [
-                                                        {
-                                                            name: 'Default sub-task',
-                                                            description: 'Auto-generated sub-task',
-                                                            sort_order: 0
-                                                        }
-                                                    ]
+                                                    expected_value_boolean: true as const,
+                                                    
                                                 };
                                                 setTemplateFormData('tasks', [...templateFormData.tasks, newTask]);
                                             }}
@@ -1832,71 +1788,6 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                                     </Select>
                                                 </div>
                                                 
-                                                {/* Sub-tasks */}
-                                                <div className="grid gap-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label>Sub-tasks</Label>
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            size="sm"
-                                                                                                        onClick={() => {
-                                                const newTasks = [...templateFormData.tasks];
-                                                const newSubTask = {
-                                                    name: 'New sub-task',
-                                                    description: 'Sub-task description',
-                                                    sort_order: newTasks[taskIndex].sub_tasks.length
-                                                };
-                                                newTasks[taskIndex].sub_tasks.push(newSubTask);
-                                                setTemplateFormData('tasks', newTasks);
-                                            }}
-                                                        >
-                                                            <PlusIcon className="h-4 w-4 mr-2" />
-                                                            Add Sub-task
-                                                        </Button>
-                                                    </div>
-                                                    
-                                                    {task.sub_tasks.map((subTask, subTaskIndex) => (
-                                                        <div key={subTaskIndex} className="border rounded-md p-3 bg-gray-50 dark:bg-gray-800">
-                                                            <div className="grid gap-2">
-                                                                <Input
-                                                                    value={subTask.name}
-                                                                    onChange={(e) => {
-                                                                        const newTasks = [...templateFormData.tasks];
-                                                                        newTasks[taskIndex].sub_tasks[subTaskIndex].name = e.target.value;
-                                                                        setTemplateFormData('tasks', newTasks);
-                                                                    }}
-                                                                    placeholder="Enter sub-task name"
-                                                                />
-                                                                <Textarea
-                                                                    value={subTask.description}
-                                                                    onChange={(e) => {
-                                                                        const newTasks = [...templateFormData.tasks];
-                                                                        newTasks[taskIndex].sub_tasks[subTaskIndex].description = e.target.value;
-                                                                        setTemplateFormData('tasks', newTasks);
-                                                                    }}
-                                                                    rows={1}
-                                                                    placeholder="Description (optional)"
-                                                                />
-                                                            </div>
-                                                            <div className="flex justify-end mt-2">
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => {
-                                                                        const newTasks = [...templateFormData.tasks];
-                                                                        newTasks[taskIndex].sub_tasks.splice(subTaskIndex, 1);
-                                                                        setTemplateFormData('tasks', newTasks);
-                                                                    }}
-                                                                    className="text-red-600 hover:text-red-700"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
                                                 
                                                 {/* Remove Task Button */}
                                                 <div className="flex justify-end">

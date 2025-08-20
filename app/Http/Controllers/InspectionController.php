@@ -560,7 +560,7 @@ class InspectionController extends Controller
                 'expiry_date' => $expiryDate,
             ]);
 
-            // Create tasks and sub-tasks
+            // Create tasks (sub-tasks removed from template creation)
             foreach ($request->tasks as $taskData) {
                 $task = $inspection->tasks()->create([
                     'name' => $taskData['name'],
@@ -568,24 +568,6 @@ class InspectionController extends Controller
                     'type' => $taskData['type'],
                     'expected_value_boolean' => $taskData['type'] === 'yes_no' ? ($taskData['expected_value_boolean'] ?? true) : null,
                 ]);
-
-                // Create sub-tasks if they exist, otherwise create a default one
-                if (!empty($taskData['sub_tasks']) && is_array($taskData['sub_tasks'])) {
-                    foreach ($taskData['sub_tasks'] as $subTaskData) {
-                        $task->subTasks()->create([
-                            'name' => $subTaskData['name'],
-                            'description' => $subTaskData['description'] ?? '',
-                            'sort_order' => $subTaskData['sort_order'] ?? 0,
-                        ]);
-                    }
-                } else {
-                    // Create a default sub-task if none provided
-                    $task->subTasks()->create([
-                        'name' => 'Default sub-task for ' . $taskData['name'],
-                        'description' => 'Auto-generated sub-task',
-                        'sort_order' => 0,
-                    ]);
-                }
             }
 
             DB::commit();
@@ -671,7 +653,7 @@ class InspectionController extends Controller
         $callback = function() {
             $file = fopen('php://output', 'w');
             
-            // CSV headers
+            // CSV headers (sub-tasks removed)
             fputcsv($file, [
                 'Template Name',
                 'Description',
@@ -681,10 +663,7 @@ class InspectionController extends Controller
                 'Task Name',
                 'Task Description',
                 'Task Type',
-                'Expected Value (Yes/No)',
-                'Sub Task Name',
-                'Sub Task Description',
-                'Sort Order'
+                'Expected Value (Yes/No)'
             ]);
             
             // Note: Start Date and Operator fields are intentionally excluded from CSV
@@ -700,10 +679,7 @@ class InspectionController extends Controller
                 'Check Drive Condition',
                 'Inspect the overall condition of the drive',
                 'yes_no',
-                'true',
-                'Check for visible damage',
-                'Look for any signs of wear or damage',
-                '0'
+                'true'
             ]);
 
             fclose($file);
@@ -750,7 +726,6 @@ class InspectionController extends Controller
         ];
 
         $tasks = [];
-        $currentTask = null;
 
         foreach ($dataRows as $row) {
             if (!empty($row[0])) { // Template name
@@ -769,53 +744,15 @@ class InspectionController extends Controller
                 $templateData['schedule_end_date'] = $row[4];
             }
 
-            // Process task data
-            if (!empty($row[5])) { // Task name (adjusted index)
-                if ($currentTask && !empty($currentTask['name'])) {
-                    // Ensure the previous task has at least one sub-task
-                    if (empty($currentTask['sub_tasks'])) {
-                        $currentTask['sub_tasks'] = [
-                            [
-                                'name' => 'Default sub-task for ' . $currentTask['name'],
-                                'description' => 'Auto-generated sub-task',
-                                'sort_order' => 0
-                            ]
-                        ];
-                    }
-                    $tasks[] = $currentTask;
-                }
-                $currentTask = [
+            // Process task data (no sub-tasks in CSV)
+            if (!empty($row[5])) { // Task name
+                $tasks[] = [
                     'name' => $row[5],
                     'description' => $row[6] ?? '',
                     'type' => $row[7] ?? 'yes_no',
-                    'expected_value_boolean' => ($row[8] ?? 'true') === 'true',
-                    'sub_tasks' => []
+                    'expected_value_boolean' => ($row[8] ?? 'true') === 'true'
                 ];
             }
-
-            // Process sub-task data
-            if ($currentTask && !empty($row[9])) { // Sub task name (adjusted index)
-                $currentTask['sub_tasks'][] = [
-                    'name' => $row[9],
-                    'description' => $row[10] ?? '',
-                    'sort_order' => (int) ($row[11] ?? 0)
-                ];
-            }
-        }
-
-        // Add the last task if exists
-        if ($currentTask && !empty($currentTask['name'])) {
-            // Ensure the last task has at least one sub-task
-            if (empty($currentTask['sub_tasks'])) {
-                $currentTask['sub_tasks'] = [
-                    [
-                        'name' => 'Default sub-task for ' . $currentTask['name'],
-                        'description' => 'Auto-generated sub-task',
-                        'sort_order' => 0
-                    ]
-                ];
-            }
-            $tasks[] = $currentTask;
         }
 
         $templateData['tasks'] = $tasks;
