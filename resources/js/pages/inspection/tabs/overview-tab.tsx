@@ -51,6 +51,7 @@ const formatFrequency = (freq: string | null | undefined, interval: number | nul
     if (!freq || !interval) return 'Non-repeating';
     const intervalText = interval > 1 ? `Every ${interval}` : 'Every';
     switch (freq) {
+        case 'minute': return `${intervalText} ${interval > 1 ? 'minutes' : 'minute'}`;
         case 'daily': return `${intervalText} ${interval > 1 ? 'days' : 'day'}`;
         case 'weekly': return `${intervalText} ${interval > 1 ? 'weeks' : 'week'}`;
         case 'monthly': return `${intervalText} ${interval > 1 ? 'months' : 'month'}`;

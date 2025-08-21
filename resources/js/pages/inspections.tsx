@@ -70,7 +70,7 @@ interface Inspection {
     completedBy?: User;
     is_template: boolean;
     parent_inspection_id?: number | null;
-    schedule_frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
+    schedule_frequency?: 'minute' | 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
     schedule_interval?: number | null;
     schedule_start_date?: string | Date | null;
     schedule_end_date?: string | Date | null;
@@ -153,7 +153,7 @@ interface InspectionFormData {
     status: 'draft' | 'active' | 'completed' | 'archived' | 'failed';
     operator_id: string | null;
     is_template: boolean;
-    schedule_frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    schedule_frequency: 'minute' | 'daily' | 'weekly' | 'monthly' | 'yearly';
     schedule_interval: string;
     schedule_start_date: string | null;
     schedule_end_date: string | null;
@@ -177,6 +177,7 @@ const formatFrequency = (freq: string | null | undefined, interval: number | nul
     if (!freq || !interval) return 'Non-repeating';
     const intervalText = interval > 1 ? `Every ${interval}` : 'Every';
     switch (freq) {
+        case 'minute': return `${intervalText} ${interval > 1 ? 'minutes' : 'minute'}`;
         case 'daily': return `${intervalText} ${interval > 1 ? 'days' : 'day'}`;
         case 'weekly': return `${intervalText} ${interval > 1 ? 'weeks' : 'week'}`;
         case 'monthly': return `${intervalText} ${interval > 1 ? 'months' : 'month'}`;
@@ -248,7 +249,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
         status: 'draft',
         operator_id: null,
         is_template: false,
-        schedule_frequency: 'weekly',
+        schedule_frequency: 'daily',
         schedule_interval: '1',
         schedule_start_date: null,
         schedule_end_date: null,
@@ -258,7 +259,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
     const { data: templateFormData, setData: setTemplateFormData, post: postTemplate, processing: templateProcessing, errors: templateErrors, reset: resetTemplate } = useForm({
         name: '',
         description: '',
-        schedule_frequency: 'weekly',
+        schedule_frequency: 'daily',
         schedule_interval: '1',
         schedule_start_date: null,
         schedule_end_date: null,
@@ -320,7 +321,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
             status: inspection.status,
             operator_id: inspection.operator?.id?.toString() || null,
             is_template: inspection.is_template,
-            schedule_frequency: inspection.schedule_frequency || 'weekly',
+            schedule_frequency: inspection.schedule_frequency || 'daily',
             schedule_interval: inspection.schedule_interval ? inspection.schedule_interval.toString() : '1',
             schedule_start_date: inspection.schedule_start_date 
                 ? format(new Date(inspection.schedule_start_date), 'yyyy-MM-dd') 
@@ -1467,6 +1468,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                                         <SelectValue placeholder="Select frequency" />
                                                     </SelectTrigger>
                                                     <SelectContent>
+                                                        <SelectItem value="minute">By Minute</SelectItem>
                                                         <SelectItem value="daily">Daily</SelectItem>
                                                         <SelectItem value="weekly">Weekly</SelectItem>
                                                         <SelectItem value="monthly">Monthly</SelectItem>
@@ -1653,6 +1655,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                                     <SelectValue placeholder="Select frequency" />
                                                 </SelectTrigger>
                                                 <SelectContent>
+                                                    <SelectItem value="minute">By Minute</SelectItem>
                                                     <SelectItem value="daily">Daily</SelectItem>
                                                     <SelectItem value="weekly">Weekly</SelectItem>
                                                     <SelectItem value="monthly">Monthly</SelectItem>

@@ -25,7 +25,7 @@ class InspectionController extends Controller
             'operator_id' => ['nullable', 'exists:users,id'],
             // Scheduling fields (conditional validation)
             'is_template' => ['sometimes', 'boolean'],
-            'schedule_frequency' => ['nullable', 'required_if:is_template,true', Rule::in(['daily', 'weekly', 'monthly', 'yearly'])],
+            'schedule_frequency' => ['nullable', 'required_if:is_template,true', Rule::in(['minute', 'daily', 'weekly', 'monthly', 'yearly'])],
             'schedule_interval' => ['nullable', 'required_if:is_template,true', 'integer', 'min:1'],
             'schedule_start_date' => ['nullable', 'required_if:is_template,true', 'date'],
             'schedule_end_date' => ['nullable', 'date', 'after_or_equal:schedule_start_date'],
@@ -43,25 +43,20 @@ class InspectionController extends Controller
             return null;
         }
 
-        $current = $lastCreated ? Carbon::parse($lastCreated) : Carbon::parse($startDate);
         $startDateCarbon = Carbon::parse($startDate);
-
-        // Ensure the starting point is at least the schedule_start_date
-        if ($current->lt($startDateCarbon)) {
-            $current = $startDateCarbon;
-        }
         
-        // If it's the first run (no lastCreated) and start date is in the future, schedule for the start date
-        if (!$lastCreated && $current->isFuture()) {
-            return $current; 
-        }
-
-        // If it's the first run and start date is in the past/today, calculate the next occurrence *from* the start date
-        // that is >= today
+        // If it's the first run (no lastCreated), start from the start date
         if (!$lastCreated) {
-            $nextDate = $startDateCarbon;
+            // If start date is in the future, schedule for the start date
+            if ($startDateCarbon->isFuture()) {
+                return $startDateCarbon;
+            }
+            
+            // If start date is in the past/today, calculate the next occurrence from start date that is >= today
+            $nextDate = $startDateCarbon->copy();
             while ($nextDate->isPast()) {
                 switch ($frequency) {
+                    case 'minute': $nextDate->addMinutes($interval); break;
                     case 'daily': $nextDate->addDays($interval); break;
                     case 'weekly': $nextDate->addWeeks($interval); break;
                     case 'monthly': $nextDate->addMonths($interval); break;
@@ -72,8 +67,11 @@ class InspectionController extends Controller
         }
         
         // If it's not the first run, calculate based on the last creation date
-        $nextDate = $current;
+        $lastCreatedCarbon = Carbon::parse($lastCreated);
+        $nextDate = $lastCreatedCarbon->copy();
+        
         switch ($frequency) {
+            case 'minute': $nextDate->addMinutes($interval); break;
             case 'daily': $nextDate->addDays($interval); break;
             case 'weekly': $nextDate->addWeeks($interval); break;
             case 'monthly': $nextDate->addMonths($interval); break;
@@ -516,7 +514,7 @@ class InspectionController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'operator_id' => 'nullable|exists:users,id',
-            'schedule_frequency' => 'required|in:daily,weekly,monthly,yearly',
+            'schedule_frequency' => 'required|in:minute,daily,weekly,monthly,yearly',
             'schedule_interval' => 'required|integer|min:1',
             'schedule_start_date' => 'required|date',
             'schedule_end_date' => 'nullable|date|after_or_equal:schedule_start_date',
@@ -718,7 +716,7 @@ class InspectionController extends Controller
         $templateData = [
             'name' => '',
             'description' => '',
-            'schedule_frequency' => 'weekly',
+            'schedule_frequency' => 'daily',
             'schedule_interval' => 1,
             'schedule_start_date' => now()->format('Y-m-d'), // Default to today
             'schedule_end_date' => null,

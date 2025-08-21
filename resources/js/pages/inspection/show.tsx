@@ -147,7 +147,7 @@ export interface Inspection {
     tasks?: InspectionTask[];
     is_template: boolean;
     parent_inspection_id?: number | null;
-    schedule_frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
+    schedule_frequency?: 'minute' | 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
     schedule_interval?: number | null;
     schedule_start_date?: string | Date | null;
     schedule_end_date?: string | Date | null;
