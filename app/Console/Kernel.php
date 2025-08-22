@@ -14,9 +14,12 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('inspire')->hourly();
         
-        // Schedule the inspection creation command - run every 5 minutes for better testing
-        $schedule->command('inspections:create-scheduled')->everyFiveMinutes()->withoutOverlapping(); 
-        // This allows for testing minute-based templates and ensures timely instance creation
+        // Dynamic scheduler for inspections - runs every minute to support all frequencies
+        $schedule->command('inspections:create-scheduled')->everyMinute()->withoutOverlapping();
+        // This supports minute, daily, weekly, monthly, and yearly frequencies efficiently
+        
+        // Check for expired inspection instances - runs every 5 minutes
+        $schedule->command('inspections:check-expired-instances')->everyFiveMinutes()->withoutOverlapping();
         
         // Schedule operator performance check - runs daily at 8 AM
         $schedule->command('operators:check-performance')->daily()->at('08:00')->withoutOverlapping();
