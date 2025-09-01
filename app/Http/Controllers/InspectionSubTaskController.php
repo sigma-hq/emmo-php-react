@@ -312,14 +312,29 @@ class InspectionSubTaskController extends Controller
                 return false;
             }
             
-            // Only create maintenance for drive targets (since maintenance table only supports drive_id)
-            if ($task->target_type !== 'drive') {
-                Log::info('Skipping maintenance creation for non-drive target', [
-                    'task_id' => $task->id,
-                    'target_type' => $task->target_type,
-                    'target_id' => $task->target_id
-                ]);
-                return false;
+            // Get drive information - we need a drive_id since it's required
+            $drive = null;
+            if ($task->target_type === 'drive') {
+                $drive = \App\Models\Drive::find($task->target_id);
+            } elseif ($task->target_type === 'part') {
+                $part = \App\Models\Part::find($task->target_id);
+                if ($part) {
+                    $drive = $part->drive;
+                }
+            }
+
+            // If no drive found, use a default drive
+            if (!$drive) {
+                $defaultDrive = \App\Models\Drive::first();
+                if (!$defaultDrive) {
+                    Log::error('Cannot create maintenance: no drives available in system', [
+                        'sub_task_id' => $subTask->id,
+                        'task_id' => $task->id,
+                        'inspection_id' => $inspection->id
+                    ]);
+                    return false;
+                }
+                $drive = $defaultDrive;
             }
             
             // Check if maintenance already exists for this failed sub-task
@@ -338,7 +353,7 @@ class InspectionSubTaskController extends Controller
             
             // Create maintenance record
             $maintenance = \App\Models\Maintenance::create([
-                'drive_id' => $task->target_id,
+                'drive_id' => $drive->id,
                 'title' => "Maintenance Required - {$subTask->name}",
                 'description' => "Automatic maintenance created due to failed inspection sub-task: {$subTask->name}. " .
                                 "Task: {$task->name}. Inspection: {$inspection->name}. " .

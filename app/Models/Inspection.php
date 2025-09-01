@@ -475,8 +475,8 @@ class Inspection extends Model
                     'inspection_id' => $this->id
                 ]);
                 
-                // Create maintenance record for failed inspection
-                $this->createMaintenanceFromFailedInspection();
+                // Note: Maintenance records are created by individual task failures in the controllers
+                // This prevents duplicate maintenance records
             }
         } elseif ($allTasksCompleted) {
             if ($this->status !== 'completed') {

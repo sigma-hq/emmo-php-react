@@ -421,7 +421,11 @@ export default function InspectionShow({ inspection, drives, parts, flash, isAdm
                 // Convert string to boolean for yes/no tasks
                 value_boolean: resultForm.data.task_type === 'yes_no' 
                     ? (resultForm.data.value_boolean === 'true') 
-                    : undefined
+                    : null,
+                // Convert string to number for numeric tasks
+                value_numeric: resultForm.data.task_type === 'numeric' && resultForm.data.value_numeric
+                    ? parseFloat(resultForm.data.value_numeric)
+                    : null
             }, {
                 onSuccess: () => {
                     setIsResultDialogOpen(false);

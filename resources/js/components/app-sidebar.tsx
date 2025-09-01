@@ -13,7 +13,7 @@ const navItems: (NavItem & { group: string; adminOnly?: boolean; disabled?: bool
     { title: 'Drive', href: '/drive', icon: HardDrive, group: 'Operations' },
     { title: 'Inspections', href: '/inspections', icon: ClipboardCheck, group: 'Operations' },
     { title: 'Maintenances', href: '/maintenances', icon: Hammer, group: 'Operations' },
-    { title: 'Handout Notes', href: '/handout-notes', icon: StickyNote, group: 'Operations' },
+    { title: 'Handover Notes', href: '/handout-notes', icon: StickyNote, group: 'Operations' },
     // { title: 'View Items', href: '/view-items', icon: List, group: 'Operations' },
     { title: 'Parts', href: '/parts', icon: Wrench, group: 'Resources' },
     { title: 'Users', href: '/users', icon: UsersIcon, group: 'Admin', adminOnly: true },

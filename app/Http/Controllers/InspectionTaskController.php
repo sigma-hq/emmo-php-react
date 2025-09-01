@@ -207,12 +207,20 @@ class InspectionTaskController extends Controller
     public function recordResult(Request $request, InspectionTask $task)
     {
         try {
-            $validated = $request->validate([
-                'value_boolean' => 'nullable|boolean|required_if:task_type,yes_no',
-                'value_numeric' => 'nullable|numeric|required_if:task_type,numeric',
-                'notes' => 'nullable|string',
-                'task_type' => 'required|in:yes_no,numeric',
-            ]);
+            // Get validation rules based on task type
+            $validationRules = [
+                'notes' => 'nullable|string'
+            ];
+
+            if ($task->type === 'yes_no') {
+                $validationRules['value_boolean'] = 'required|boolean';
+                $validationRules['value_numeric'] = 'nullable';
+            } else if ($task->type === 'numeric') {
+                $validationRules['value_numeric'] = 'required|numeric';
+                $validationRules['value_boolean'] = 'nullable';
+            }
+
+            $validated = $request->validate($validationRules);
             
             // Check if all subtasks are completed
             $subtasks = $task->subTasks;
@@ -254,6 +262,13 @@ class InspectionTaskController extends Controller
             
             // If the result failed, automatically create a maintenance record
             if (!$isPassing) {
+                \Log::info('Task failed, creating maintenance record', [
+                    'task_id' => $task->id,
+                    'task_name' => $task->name,
+                    'inspection_id' => $task->inspection_id,
+                    'result_id' => $result->id,
+                    'is_passing' => $isPassing
+                ]);
                 $this->createMaintenanceFromFailedInspection($task, $result);
             }
             
@@ -344,9 +359,23 @@ class InspectionTaskController extends Controller
                 }
             }
 
-            // Create maintenance record even if no drive is found
-            $maintenance = \App\Models\Maintenance::create([
-                'drive_id' => $drive ? $drive->id : null,
+            // Create maintenance record - we need a drive_id, so use a default if none found
+            if (!$drive) {
+                // Get the first available drive as a fallback
+                $defaultDrive = \App\Models\Drive::first();
+                if (!$defaultDrive) {
+                    \Log::error('Cannot create maintenance: no drives available in system', [
+                        'task_id' => $task->id,
+                        'inspection_id' => $inspection->id
+                    ]);
+                    return;
+                }
+                $drive = $defaultDrive;
+                $targetDescription = "Default Drive: {$drive->name} (No specific drive associated with task)";
+            }
+
+            $maintenanceData = [
+                'drive_id' => $drive->id, // Always set a drive_id since it's required
                 'title' => "Maintenance Required: {$task->name}",
                 'description' => "Automatic maintenance created due to failed inspection task: {$task->name}. " .
                                 ($targetDescription ? $targetDescription . ". " : "") .
@@ -362,7 +391,11 @@ class InspectionTaskController extends Controller
                 'inspection_id' => $inspection->id,
                 'inspection_task_id' => $task->id,
                 'inspection_result_id' => $result->id,
-            ]);
+            ];
+
+            \Log::info('Attempting to create maintenance record with data:', $maintenanceData);
+
+            $maintenance = \App\Models\Maintenance::create($maintenanceData);
             
             \Log::info('Maintenance created from failed inspection', [
                 'maintenance_id' => $maintenance->id,
