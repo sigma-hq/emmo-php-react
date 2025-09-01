@@ -369,7 +369,7 @@ class Inspection extends Model
         return [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => 'required|in:draft,active,completed,archived',
+            'status' => 'required|in:draft,active,completed,archived,failed',
             'expiry_date' => 'nullable|date|after:now',
             'operator_id' => 'nullable|exists:users,id',
         ];
@@ -386,7 +386,7 @@ class Inspection extends Model
         return [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => 'required|in:draft,active,completed,archived',
+            'status' => 'required|in:draft,active,completed,archived,failed',
             'expiry_date' => 'nullable|date',
             'operator_id' => 'nullable|exists:users,id',
         ];
@@ -474,6 +474,9 @@ class Inspection extends Model
                 \Log::info('Updated inspection status to failed due to failed tasks/sub-tasks', [
                     'inspection_id' => $this->id
                 ]);
+                
+                // Create maintenance record for failed inspection
+                $this->createMaintenanceFromFailedInspection();
             }
         } elseif ($allTasksCompleted) {
             if ($this->status !== 'completed') {
@@ -509,6 +512,153 @@ class Inspection extends Model
             \Log::info('Updated maintenance status to completed due to inspection completion', [
                 'inspection_id' => $this->id,
                 'maintenance_id' => $maintenance->id
+            ]);
+        }
+    }
+
+    /**
+     * Create a maintenance record when an inspection fails
+     */
+    private function createMaintenanceFromFailedInspection(): void
+    {
+        try {
+            // Find the failed task(s)
+            $failedTasks = $this->tasks()->with(['results' => function($query) {
+                $query->latest();
+            }])->get()->filter(function($task) {
+                return $task->results->isNotEmpty() && !$task->results->first()->is_passing;
+            });
+
+            if ($failedTasks->isEmpty()) {
+                \Log::warning("No failed tasks found for inspection - checking for failed subtasks", [
+                    'inspection_id' => $this->id
+                ]);
+                
+                // Check for failed subtasks
+                $tasksWithFailedSubtasks = $this->tasks()->with(['subTasks'])->get()->filter(function($task) {
+                    return $task->subTasks->contains(function($subTask) {
+                        return $subTask->type === 'yes_no' && $subTask->recorded_value_boolean !== null && !$subTask->isPassing($subTask->recorded_value_boolean, null)
+                            || $subTask->type === 'numeric' && $subTask->recorded_value_numeric !== null && !$subTask->isPassing(null, $subTask->recorded_value_numeric);
+                    });
+                });
+
+                if ($tasksWithFailedSubtasks->isEmpty()) {
+                    \Log::warning("No failed tasks or subtasks found - creating generic maintenance", [
+                        'inspection_id' => $this->id
+                    ]);
+                    
+                    // Create a generic maintenance record
+                    $maintenance = \App\Models\Maintenance::create([
+                        'title' => "Maintenance Required - {$this->name}",
+                        'description' => "Automatic maintenance created due to failed inspection: {$this->name}.",
+                        'maintenance_date' => now(),
+                        'status' => 'pending',
+                        'user_id' => auth()->id(),
+                        'created_from_inspection' => true,
+                        'inspection_id' => $this->id,
+                    ]);
+                    
+                    \Log::info("Created generic maintenance from failed inspection", [
+                        'inspection_id' => $this->id,
+                        'maintenance_id' => $maintenance->id
+                    ]);
+                    return;
+                }
+                
+                $failedTasks = $tasksWithFailedSubtasks;
+            }
+
+            // Process each failed task
+            foreach ($failedTasks as $task) {
+                // Get drive information based on target type
+                $drive = null;
+                $targetDescription = '';
+                $failureDetails = '';
+
+                if ($task->target_type === 'drive') {
+                    $drive = \App\Models\Drive::find($task->target_id);
+                    if ($drive) {
+                        $targetDescription = "Drive: {$drive->name}";
+                    }
+                } elseif ($task->target_type === 'part') {
+                    $part = \App\Models\Part::find($task->target_id);
+                    if ($part) {
+                        $drive = $part->drive;
+                        $targetDescription = "Part: {$part->name}" . ($drive ? " (Drive: {$drive->name})" : "");
+                    }
+                }
+
+                // Get failure details
+                if ($task->results->isNotEmpty()) {
+                    $latestResult = $task->results->first();
+                    $failureDetails = "Failed Task: {$task->name}. Result: " . 
+                        ($latestResult->value_boolean !== null ? 
+                            ($latestResult->value_boolean ? 'Yes' : 'No') : 
+                            $latestResult->value_numeric) .
+                        ($latestResult->notes ? " Notes: {$latestResult->notes}" : '');
+                } else {
+                    // Check for failed subtasks
+                    $failedSubtasks = $task->subTasks->filter(function($subTask) {
+                        return $subTask->type === 'yes_no' && $subTask->recorded_value_boolean !== null && !$subTask->isPassing($subTask->recorded_value_boolean, null)
+                            || $subTask->type === 'numeric' && $subTask->recorded_value_numeric !== null && !$subTask->isPassing(null, $subTask->recorded_value_numeric);
+                    });
+                    
+                    if ($failedSubtasks->isNotEmpty()) {
+                        $failureDetails = "Failed Task: {$task->name} with failed subtasks: " . 
+                            $failedSubtasks->pluck('name')->join(', ');
+                    }
+                }
+
+                // Create maintenance record for this failed task
+                $maintenance = \App\Models\Maintenance::create([
+                    'drive_id' => $drive ? $drive->id : null,
+                    'title' => "Maintenance Required: {$task->name}",
+                    'description' => "Automatic maintenance created due to failed inspection task. " .
+                                   ($targetDescription ? $targetDescription . ". " : "") .
+                                   $failureDetails,
+                    'maintenance_date' => now(),
+                    'status' => 'pending',
+                    'user_id' => auth()->id(),
+                    'created_from_inspection' => true,
+                    'inspection_id' => $this->id,
+                    'inspection_task_id' => $task->id,
+                    'checklist_json' => [
+                        [
+                            'id' => 1,
+                            'task' => "Fix issue: {$task->name}",
+                            'completed' => false,
+                            'notes' => ''
+                        ],
+                        [
+                            'id' => 2,
+                            'task' => 'Verify fix resolves the issue',
+                            'completed' => false,
+                            'notes' => ''
+                        ],
+                        [
+                            'id' => 3,
+                            'task' => 'Schedule follow-up inspection',
+                            'completed' => false,
+                            'notes' => ''
+                        ]
+                    ]
+                ]);
+
+                \Log::info("Created maintenance from failed task", [
+                    'inspection_id' => $this->id,
+                    'maintenance_id' => $maintenance->id,
+                    'task_id' => $task->id,
+                    'target_type' => $task->target_type,
+                    'target_id' => $task->target_id,
+                    'drive_id' => $drive ? $drive->id : null,
+                    'drive_name' => $drive ? $drive->name : 'N/A'
+                ]);
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('Failed to create maintenance from inspection failure', [
+                'error' => $e->getMessage(),
+                'inspection_id' => $this->id
             ]);
         }
     }

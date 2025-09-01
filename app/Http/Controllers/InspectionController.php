@@ -21,7 +21,7 @@ class InspectionController extends Controller
         return [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'status' => ['nullable', Rule::in(['draft', 'active', 'completed', 'archived', 'failed'])],
+            'status' => ['required', Rule::in(['draft', 'active', 'completed', 'archived', 'failed'])],
             'operator_id' => ['nullable', 'exists:users,id'],
             // Scheduling fields (conditional validation)
             'is_template' => ['sometimes', 'boolean'],
@@ -52,9 +52,18 @@ class InspectionController extends Controller
                 return $startDateCarbon;
             }
             
-            // If start date is in the past/today, calculate the next occurrence from start date that is >= today
+            // For date-based frequencies, compare dates rather than exact timestamps
+            $today = Carbon::today();
+            $startDate = $startDateCarbon->copy()->startOfDay();
+            
+            // If start date is today or future, use the start date
+            if ($startDate->greaterThanOrEqualTo($today)) {
+                return $startDateCarbon;
+            }
+            
+            // If start date is in the past, calculate the next occurrence from start date
             $nextDate = $startDateCarbon->copy();
-            while ($nextDate->isPast()) {
+            while ($nextDate->startOfDay()->lessThan($today)) {
                 switch ($frequency) {
                     case 'minute': $nextDate->addMinutes($interval); break;
                     case 'daily': $nextDate->addDays($interval); break;
@@ -432,37 +441,39 @@ class InspectionController extends Controller
             'target_id' => $targetId
         ]);
         
-        // Only create maintenance for drives (since maintenance table only has drive_id)
-        if ($targetType !== 'drive') {
-            \Log::info("Skipping maintenance creation for non-drive target", [
-                'inspection_id' => $inspection->id,
-                'target_type' => $targetType,
-                'target_id' => $targetId
-            ]);
-            return;
-        }
-        
-        // Get the drive name
-        $drive = \App\Models\Drive::find($targetId);
-        if (!$drive) {
-            \Log::warning("Drive not found for maintenance creation", [
-                'inspection_id' => $inspection->id,
-                'target_id' => $targetId
-            ]);
-            return;
+        // Get drive information based on target type
+        $drive = null;
+        $targetDescription = '';
+
+        if ($targetType === 'drive') {
+            $drive = \App\Models\Drive::find($targetId);
+            if ($drive) {
+                $targetDescription = "Drive: {$drive->name}";
+            }
+        } elseif ($targetType === 'part') {
+            $part = \App\Models\Part::find($targetId);
+            if ($part) {
+                $drive = $part->drive;
+                $targetDescription = "Part: {$part->name}" . ($drive ? " (Drive: {$drive->name})" : "");
+            }
         }
 
+        // Log maintenance creation attempt
         \Log::info("Creating maintenance record", [
             'inspection_id' => $inspection->id,
-            'drive_id' => $targetId,
-            'drive_name' => $drive->name
+            'target_type' => $targetType,
+            'target_id' => $targetId,
+            'drive_id' => $drive ? $drive->id : null,
+            'drive_name' => $drive ? $drive->name : 'N/A'
         ]);
         
         // Create maintenance record
         $maintenance = \App\Models\Maintenance::create([
-            'drive_id' => $targetId,
+            'drive_id' => $drive ? $drive->id : null,
             'title' => "Maintenance Required - {$inspection->name}",
-            'description' => "Automatic maintenance created due to failed inspection: {$inspection->name}. Drive: {$drive->name}",
+            'description' => "Automatic maintenance created due to failed inspection: {$inspection->name}. " .
+                           ($targetDescription ? $targetDescription . ". " : "") .
+                           "Please review and address all failed tasks.",
             'maintenance_date' => now(),
             'status' => 'pending',
             'user_id' => auth()->id(),
@@ -493,8 +504,10 @@ class InspectionController extends Controller
         \Log::info("Created maintenance from failed inspection", [
             'inspection_id' => $inspection->id,
             'maintenance_id' => $maintenance->id,
-            'drive_id' => $targetId,
-            'drive_name' => $drive->name
+            'target_type' => $targetType,
+            'target_id' => $targetId,
+            'drive_id' => $drive ? $drive->id : null,
+            'drive_name' => $drive ? $drive->name : 'N/A'
         ]);
     }
 

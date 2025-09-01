@@ -120,25 +120,31 @@ class CreateScheduledInspections extends Command
      */
     protected function getDueTemplates(Carbon $now): \Illuminate\Database\Eloquent\Collection
     {
-        $query = Inspection::where('is_template', true)
+        $baseQuery = Inspection::where('is_template', true)
+            ->where('status', 'active') // Only process active templates
             ->whereNotNull('schedule_next_due_date')
-            ->where('schedule_next_due_date', '<=', $now)
             ->where(function ($query) use ($now) {
                 $query->whereNull('schedule_end_date')
                       ->orWhere('schedule_end_date', '>', $now);
             });
 
-        // For minute-based templates, always check (runs every minute)
-        $minuteTemplates = $query->clone()
+        // For minute-based templates, use exact time matching (runs every minute)
+        $minuteTemplates = $baseQuery->clone()
             ->where('schedule_frequency', 'minute')
+            ->where('schedule_next_due_date', '<=', $now)
             ->get();
 
-        // For other frequencies, only check at appropriate intervals to avoid unnecessary processing
+        // For other frequencies, be more flexible with timing to handle date-based scheduling
         $otherTemplates = collect();
         
         if ($this->shouldCheckOtherFrequencies($now)) {
-            $otherTemplates = $query->clone()
+            // For date-based templates, use a more flexible time window
+            // Allow processing if we're within 2 hours of the due time to handle scheduling flexibility
+            $flexibleTime = $now->copy()->addHours(2);
+            
+            $otherTemplates = $baseQuery->clone()
                 ->whereIn('schedule_frequency', ['daily', 'weekly', 'monthly', 'yearly'])
+                ->where('schedule_next_due_date', '<=', $flexibleTime)
                 ->get();
         }
 
@@ -146,6 +152,7 @@ class CreateScheduledInspections extends Command
         $overdueTemplates = collect();
         if ($this->shouldCheckOtherFrequencies($now)) {
             $overdueQuery = Inspection::where('is_template', true)
+                ->where('status', 'active') // Only process active templates
                 ->whereNotNull('schedule_start_date')
                 ->where('schedule_start_date', '<=', $now->subDay()) // Started more than a day ago
                 ->where(function ($query) use ($now) {
@@ -153,7 +160,7 @@ class CreateScheduledInspections extends Command
                           ->orWhere('schedule_end_date', '>', $now);
                 })
                 ->whereIn('schedule_frequency', ['daily', 'weekly', 'monthly', 'yearly'])
-                ->where(function ($query) {
+                ->where(function ($query) use ($now) {
                     $query->whereNull('schedule_next_due_date')
                           ->orWhere('schedule_next_due_date', '<', $now->subDay()); // Due more than a day ago
                 });
@@ -180,17 +187,10 @@ class CreateScheduledInspections extends Command
      */
     protected function shouldCheckOtherFrequencies(Carbon $now): bool
     {
-        // Check daily templates every 5 minutes for better responsiveness
-        if ($now->minute % 5 === 0) {
-            return true;
-        }
-
-        // Check weekly/monthly/yearly templates every hour (at minute 0)
-        if ($now->minute === 0) {
-            return true;
-        }
-
-        return false;
+        // Always check for daily, weekly, monthly, and yearly templates
+        // This ensures templates are processed regardless of cronjob timing
+        // The individual template due date checks will handle the actual scheduling logic
+        return true;
     }
 
     /**
@@ -198,35 +198,32 @@ class CreateScheduledInspections extends Command
      */
     protected function calculateInstanceExpiryDate(Inspection $template): ?Carbon
     {
-        $dueDate = $template->schedule_next_due_date;
-        
-        if (!$dueDate) {
-            return null;
-        }
+        // Use current time for expiry calculation, not the original template due date
+        $now = Carbon::now();
         
         switch ($template->schedule_frequency) {
             case 'minute':
-                // Minute-based: expire in 1 hour
-                return $dueDate->copy()->addHour();
+                // Minute-based: expire in 1 hour from now
+                return $now->copy()->addHour();
                 
             case 'daily':
-                // Daily: expire at end of day
-                return $dueDate->copy()->endOfDay();
+                // Daily: give 24 hours to complete from creation time
+                return $now->copy()->addDay();
                 
             case 'weekly':
-                // Weekly: expire at end of week
-                return $dueDate->copy()->endOfWeek();
+                // Weekly: give 7 days to complete from creation time
+                return $now->copy()->addWeek();
                 
             case 'monthly':
-                // Monthly: expire at end of month
-                return $dueDate->copy()->endOfMonth();
+                // Monthly: give 30 days to complete from creation time
+                return $now->copy()->addDays(30);
                 
             case 'yearly':
-                // Yearly: expire at end of year
-                return $dueDate->copy()->endOfYear();
+                // Yearly: give 90 days to complete from creation time
+                return $now->copy()->addDays(90);
                 
             default:
-                return $dueDate->copy()->addDay();
+                return $now->copy()->addDay();
         }
     }
 
@@ -239,8 +236,10 @@ class CreateScheduledInspections extends Command
             return false; // Minute templates are handled differently
         }
         
+        // Consider a template overdue if it's more than 1 week past due
+        // This gives reasonable time for processing and avoids constant rescheduling
         return $template->schedule_next_due_date && 
-               $template->schedule_next_due_date->lt($now->subDay());
+               $template->schedule_next_due_date->lt($now->subWeek());
     }
 
     /**

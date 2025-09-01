@@ -81,12 +81,8 @@ class TestScheduler extends Command
             return true;
         }
         
-        // Other frequencies are checked at specific intervals
-        if ($template->schedule_frequency === 'daily' && $now->minute % 15 === 0) {
-            return true;
-        }
-        
-        if (in_array($template->schedule_frequency, ['weekly', 'monthly', 'yearly']) && $now->minute === 0) {
+        // Other frequencies are now always checked (fixed scheduling issue)
+        if (in_array($template->schedule_frequency, ['daily', 'weekly', 'monthly', 'yearly'])) {
             return true;
         }
         

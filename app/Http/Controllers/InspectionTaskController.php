@@ -318,29 +318,38 @@ class InspectionTaskController extends Controller
     private function createMaintenanceFromFailedInspection(InspectionTask $task, InspectionResult $result): void
     {
         try {
-            // Get the inspection and drive information
+            // Get the inspection
             $inspection = $task->inspection;
+            if (!$inspection) {
+                \Log::error('Cannot create maintenance: no inspection found for task', [
+                    'task_id' => $task->id
+                ]);
+                return;
+            }
+
+            // Get drive information based on target type
             $drive = null;
-            
-            // Determine the drive from the task target or inspection context
+            $targetDescription = '';
+
             if ($task->target_type === 'drive') {
                 $drive = \App\Models\Drive::find($task->target_id);
+                if ($drive) {
+                    $targetDescription = "Drive: {$drive->name}";
+                }
             } elseif ($task->target_type === 'part') {
                 $part = \App\Models\Part::find($task->target_id);
-                $drive = $part ? $part->drive : null;
+                if ($part) {
+                    $drive = $part->drive;
+                    $targetDescription = "Part: {$part->name}" . ($drive ? " (Drive: {$drive->name})" : "");
+                }
             }
-            
-            // If no drive found, try to get from inspection context
-            if (!$drive && $inspection) {
-                // You might need to add a drive_id field to inspections table
-                // For now, we'll create maintenance without drive association
-            }
-            
-            // Create maintenance record
+
+            // Create maintenance record even if no drive is found
             $maintenance = \App\Models\Maintenance::create([
                 'drive_id' => $drive ? $drive->id : null,
                 'title' => "Maintenance Required: {$task->name}",
                 'description' => "Automatic maintenance created due to failed inspection task: {$task->name}. " .
+                                ($targetDescription ? $targetDescription . ". " : "") .
                                 "Task: {$task->description}. " .
                                 "Result: " . ($result->value_boolean !== null ? 
                                     ($result->value_boolean ? 'Yes' : 'No') : 
@@ -361,6 +370,8 @@ class InspectionTaskController extends Controller
                 'task_id' => $task->id,
                 'result_id' => $result->id,
                 'drive_id' => $drive ? $drive->id : null,
+                'target_type' => $task->target_type,
+                'target_id' => $task->target_id
             ]);
             
         } catch (\Exception $e) {
@@ -368,6 +379,8 @@ class InspectionTaskController extends Controller
                 'error' => $e->getMessage(),
                 'task_id' => $task->id,
                 'result_id' => $result->id,
+                'target_type' => $task->target_type,
+                'target_id' => $task->target_id
             ]);
         }
     }
