@@ -268,7 +268,10 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 name: '',
                 description: '',
                 type: 'yes_no',
-                expected_value_boolean: true
+                expected_value_boolean: true,
+                expected_value_min: '',
+                expected_value_max: '',
+                unit_of_measure: ''
             }
         ]
     });
@@ -416,7 +419,10 @@ export default function Inspections({ inspections, users, statistics, filters, f
             'Task Name',
             'Task Description',
             'Task Type',
-            'Expected Value (Yes/No)'
+            'Expected Value (Yes/No)',
+            'Minimum Value',
+            'Maximum Value',
+            'Unit of Measure'
         ];
 
         // Generate CSV rows
@@ -432,7 +438,10 @@ export default function Inspections({ inspections, users, statistics, filters, f
             '', // Task Name (empty for template row)
             '', // Task Description (empty for template row)
             '', // Task Type (empty for template row)
-            ''  // Expected Value (empty for template row)
+            '', // Expected Value (empty for template row)
+            '', // Minimum Value (empty for template row)
+            '', // Maximum Value (empty for template row)
+            ''  // Unit of Measure (empty for template row)
         ];
         csvRows.push(templateRow);
 
@@ -447,7 +456,10 @@ export default function Inspections({ inspections, users, statistics, filters, f
                 task.name || '',
                 task.description || '',
                 task.type || '',
-                task.type === 'yes_no' ? (task.expected_value_boolean ? 'true' : 'false') : ''
+                task.type === 'yes_no' ? (task.expected_value_boolean ? 'true' : 'false') : '',
+                task.type === 'numeric' ? (task.expected_value_min || '') : '',
+                task.type === 'numeric' ? (task.expected_value_max || '') : '',
+                task.type === 'numeric' ? (task.unit_of_measure || '') : ''
             ];
             csvRows.push(row);
         });
@@ -1733,7 +1745,9 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                                     description: '',
                                                     type: 'yes_no',
                                                     expected_value_boolean: true as const,
-                                                    
+                                                    expected_value_min: '',
+                                                    expected_value_max: '',
+                                                    unit_of_measure: ''
                                                 };
                                                 setTemplateFormData('tasks', [...templateFormData.tasks, newTask]);
                                             }}
@@ -1790,6 +1804,54 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
+                                                
+                                                {/* Numeric Value Fields - Only show when type is numeric */}
+                                                {task.type === 'numeric' && (
+                                                    <div className="grid gap-4">
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div className="grid gap-2">
+                                                                <Label>Minimum Value</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    step="any"
+                                                                    value={task.expected_value_min}
+                                                                    onChange={(e) => {
+                                                                        const newTasks = [...templateFormData.tasks];
+                                                                        newTasks[taskIndex].expected_value_min = e.target.value;
+                                                                        setTemplateFormData('tasks', newTasks);
+                                                                    }}
+                                                                    placeholder="e.g., 0"
+                                                                />
+                                                            </div>
+                                                            <div className="grid gap-2">
+                                                                <Label>Maximum Value</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    step="any"
+                                                                    value={task.expected_value_max}
+                                                                    onChange={(e) => {
+                                                                        const newTasks = [...templateFormData.tasks];
+                                                                        newTasks[taskIndex].expected_value_max = e.target.value;
+                                                                        setTemplateFormData('tasks', newTasks);
+                                                                    }}
+                                                                    placeholder="e.g., 100"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid gap-2">
+                                                            <Label>Unit of Measure (Optional)</Label>
+                                                            <Input
+                                                                value={task.unit_of_measure}
+                                                                onChange={(e) => {
+                                                                    const newTasks = [...templateFormData.tasks];
+                                                                    newTasks[taskIndex].unit_of_measure = e.target.value;
+                                                                    setTemplateFormData('tasks', newTasks);
+                                                                }}
+                                                                placeholder="e.g., mm, kg, °C"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 
                                                 
                                                 {/* Remove Task Button */}

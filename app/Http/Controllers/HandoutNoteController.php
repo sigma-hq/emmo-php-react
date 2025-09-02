@@ -77,7 +77,10 @@ class HandoutNoteController extends Controller
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->back()->with('success', 'Note created successfully.');
+        return redirect()->back()->with([
+            'success' => 'Note created successfully.',
+            'note_id' => $note->id
+        ]);
     }
 
     public function update(Request $request, HandoutNote $handoutNote)
@@ -102,8 +105,10 @@ class HandoutNoteController extends Controller
         return redirect()->back()->with('success', 'Note updated successfully.');
     }
 
-    public function destroy(HandoutNote $handoutNote)
+    public function destroy($id)
     {
+        $handoutNote = HandoutNote::findOrFail($id);
+        
         // Ensure user can only delete their own notes
         if ($handoutNote->user_id !== auth()->id()) {
             abort(403);

@@ -578,6 +578,9 @@ class InspectionController extends Controller
                     'description' => $taskData['description'],
                     'type' => $taskData['type'],
                     'expected_value_boolean' => $taskData['type'] === 'yes_no' ? ($taskData['expected_value_boolean'] ?? true) : null,
+                    'expected_value_min' => $taskData['type'] === 'numeric' ? ($taskData['expected_value_min'] ?? null) : null,
+                    'expected_value_max' => $taskData['type'] === 'numeric' ? ($taskData['expected_value_max'] ?? null) : null,
+                    'unit_of_measure' => $taskData['type'] === 'numeric' ? ($taskData['unit_of_measure'] ?? null) : null,
                 ]);
             }
 
@@ -674,7 +677,10 @@ class InspectionController extends Controller
                 'Task Name',
                 'Task Description',
                 'Task Type',
-                'Expected Value (Yes/No)'
+                'Expected Value (Yes/No)',
+                'Minimum Value',
+                'Maximum Value',
+                'Unit of Measure'
             ]);
             
             // Note: Start Date and Operator fields are intentionally excluded from CSV
@@ -690,7 +696,10 @@ class InspectionController extends Controller
                 'Check Drive Condition',
                 'Inspect the overall condition of the drive',
                 'yes_no',
-                'true'
+                'true',
+                '',
+                '',
+                ''
             ]);
 
             fclose($file);
@@ -757,12 +766,25 @@ class InspectionController extends Controller
 
             // Process task data (no sub-tasks in CSV)
             if (!empty($row[5])) { // Task name
-                $tasks[] = [
+                $taskData = [
                     'name' => $row[5],
                     'description' => $row[6] ?? '',
                     'type' => $row[7] ?? 'yes_no',
                     'expected_value_boolean' => ($row[8] ?? 'true') === 'true'
                 ];
+                
+                // Add numeric values if they exist in the CSV
+                if (isset($row[9]) && !empty($row[9])) { // Minimum Value
+                    $taskData['expected_value_min'] = is_numeric($row[9]) ? (float) $row[9] : $row[9];
+                }
+                if (isset($row[10]) && !empty($row[10])) { // Maximum Value
+                    $taskData['expected_value_max'] = is_numeric($row[10]) ? (float) $row[10] : $row[10];
+                }
+                if (isset($row[11]) && !empty($row[11])) { // Unit of Measure
+                    $taskData['unit_of_measure'] = $row[11];
+                }
+                
+                $tasks[] = $taskData;
             }
         }
 

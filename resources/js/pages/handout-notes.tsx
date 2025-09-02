@@ -76,9 +76,12 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [editingNote, setEditingNote] = useState<HandoutNote | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [noteToDelete, setNoteToDelete] = useState<HandoutNote | null>(null);
     const [activeTab, setActiveTab] = useState('current');
     const [activeCategory, setActiveCategory] = useState('electrical');
     const [searchTerm, setSearchTerm] = useState('');
+    const [newlyCreatedNoteId, setNewlyCreatedNoteId] = useState<number | null>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     // Helper function to check if current user can edit/delete a note
@@ -140,6 +143,16 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, []);
 
+    // Clear newly created note highlight after 3 seconds
+    useEffect(() => {
+        if (newlyCreatedNoteId) {
+            const timer = setTimeout(() => {
+                setNewlyCreatedNoteId(null);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [newlyCreatedNoteId]);
+
     // Highlight search terms in text
     const highlightSearchTerms = (text: string) => {
         if (!searchTerm.trim()) return text;
@@ -162,9 +175,63 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
 
     const handleCreate = () => {
         createForm.post('/handout-notes', {
-            onSuccess: () => {
+            onSuccess: (page) => {
+                // Get the newly created note ID from the response
+                let newNoteId = null;
+                if (page.props.flash && typeof page.props.flash === 'object' && page.props.flash !== null && 'note_id' in page.props.flash) {
+                    newNoteId = (page.props.flash as any).note_id;
+                }
+                
+                // Create the new note object to add to state
+                const newNote: HandoutNote = {
+                    id: newNoteId || Date.now(), // fallback ID if not provided
+                    title: createForm.data.title,
+                    content: createForm.data.content,
+                    category: createForm.data.category,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    user: {
+                        id: currentUser.id,
+                        name: currentUser.name,
+                    },
+                    comments: [],
+                };
+                
+                // Add the new note to the current notes state
+                setCurrentNotesState(prevNotes => {
+                    const newNotes = { ...prevNotes };
+                    const category = createForm.data.category;
+                    if (newNotes[category]) {
+                        newNotes[category] = [newNote, ...newNotes[category]];
+                    } else {
+                        newNotes[category] = [newNote];
+                    }
+                    return newNotes;
+                });
+                
+                // Switch to the category where the note was created
+                if (createForm.data.category) {
+                    setActiveCategory(createForm.data.category);
+                }
+                
+                // Switch to current notes tab if not already there
+                setActiveTab('current');
+                
+                // Set the newly created note ID for highlighting
+                if (newNoteId) {
+                    setNewlyCreatedNoteId(newNoteId);
+                }
+                
                 createForm.reset();
                 setIsCreateDialogOpen(false);
+                
+                // Scroll to the top of the notes section after a brief delay
+                setTimeout(() => {
+                    const notesSection = document.querySelector('[data-notes-section]');
+                    if (notesSection) {
+                        notesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
             },
         });
     };
@@ -191,9 +258,39 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
         }
     };
 
-    const handleDelete = (noteId: number) => {
-        if (confirm('Are you sure you want to delete this note?')) {
-            useForm().delete(`/handout-notes/${noteId}`);
+    const handleDeleteClick = (note: HandoutNote) => {
+        setNoteToDelete(note);
+        setIsDeleteDialogOpen(true);
+    };
+
+    const deleteForm = useForm();
+
+    const handleDeleteConfirm = () => {
+        if (noteToDelete) {
+            deleteForm.delete(`/handout-notes/${noteToDelete.id}`, {
+                onSuccess: () => {
+                    // Remove note from current notes state
+                    setCurrentNotesState(prevNotes => {
+                        const newNotes = { ...prevNotes };
+                        Object.keys(newNotes).forEach(category => {
+                            newNotes[category] = newNotes[category].filter(note => note.id !== noteToDelete.id);
+                        });
+                        return newNotes;
+                    });
+                    
+                    // Remove note from archived notes state
+                    setArchivedNotesState(prevNotes => {
+                        const newNotes = { ...prevNotes };
+                        Object.keys(newNotes).forEach(category => {
+                            newNotes[category] = newNotes[category].filter(note => note.id !== noteToDelete.id);
+                        });
+                        return newNotes;
+                    });
+                    
+                    setNoteToDelete(null);
+                    setIsDeleteDialogOpen(false);
+                },
+            });
         }
     };
 
@@ -322,7 +419,7 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
 
     return (
         <AppLayout>
-            <Head title="Handout Notes" />
+            <Head title="Handover Notes" />
             
             <div className="flex h-full flex-1 flex-col gap-6 p-6">
                 {/* Breadcrumbs */}
@@ -473,7 +570,7 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
             )}
 
             {/* Main Content - Tabs */}
-            <div className="space-y-6">
+            <div className="space-y-6" data-notes-section>
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger 
@@ -592,7 +689,11 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
                                                             {filteredNotes.map((note) => (
                                                                 <div
                                                                     key={note.id}
-                                                                    className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 transition-colors"
+                                                                    className={`border rounded-lg p-5 transition-all duration-500 ${
+                                                                        newlyCreatedNoteId === note.id 
+                                                                            ? 'border-green-300 bg-green-50 shadow-md ring-2 ring-green-200' 
+                                                                            : 'border-gray-200 hover:border-gray-300'
+                                                                    }`}
                                                                 >
                                                                     <div className="flex items-start justify-between">
                                                                         <div className="flex-1 min-w-0">
@@ -643,7 +744,7 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
                                                                                 <Button
                                                                                     variant="ghost"
                                                                                     size="sm"
-                                                                                    onClick={() => handleDelete(note.id)}
+                                                                                    onClick={() => handleDeleteClick(note)}
                                                                                     className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
                                                                                 >
                                                                                     <Trash2 className="h-4 w-4" />
@@ -768,7 +869,11 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
                                                             {filteredNotes.map((note) => (
                                                                 <div
                                                                     key={note.id}
-                                                                    className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 transition-colors bg-gray-50"
+                                                                    className={`border rounded-lg p-5 transition-all duration-500 bg-gray-50 ${
+                                                                        newlyCreatedNoteId === note.id 
+                                                                            ? 'border-green-300 bg-green-50 shadow-md ring-2 ring-green-200' 
+                                                                            : 'border-gray-200 hover:border-gray-300'
+                                                                    }`}
                                                                 >
                                                                     <div className="flex items-start justify-between">
                                                                         <div className="flex-1 min-w-0">
@@ -821,7 +926,7 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
                                                                                 <Button
                                                                                     variant="ghost"
                                                                                     size="sm"
-                                                                                    onClick={() => handleDelete(note.id)}
+                                                                                    onClick={() => handleDeleteClick(note)}
                                                                                     className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
                                                                                 >
                                                                                     <Trash2 className="h-4 w-4" />
@@ -909,6 +1014,38 @@ export default function HandoutNotes({ currentNotes, archivedNotes, archiveInfo,
                                 disabled={editForm.processing}
                             >
                                 {editForm.processing ? 'Updating...' : 'Update Note'}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Note</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                            Are you sure you want to delete the note "{noteToDelete?.title}"? This action cannot be undone.
+                        </p>
+                        <div className="flex justify-end space-x-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setNoteToDelete(null);
+                                    setIsDeleteDialogOpen(false);
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={handleDeleteConfirm}
+                                disabled={deleteForm.processing}
+                            >
+                                {deleteForm.processing ? 'Deleting...' : 'Delete Note'}
                             </Button>
                         </div>
                     </div>

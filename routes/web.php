@@ -91,7 +91,7 @@ Route::put('drives/{drive}', [DriveController::class, 'update'])->name('api.driv
     Route::get('handout-notes', [HandoutNoteController::class, 'index'])->name('handout-notes');
     Route::post('handout-notes', [HandoutNoteController::class, 'store'])->name('api.handout-notes.store');
     Route::put('handout-notes/{handoutNote}', [HandoutNoteController::class, 'update'])->name('api.handout-notes.update');
-    Route::delete('handout-notes/{handoutNote}', [HandoutNoteController::class, 'destroy'])->name('api.handout-notes.destroy');
+    Route::delete('handout-notes/{id}', [HandoutNoteController::class, 'destroy'])->name('api.handout-notes.destroy');
 
     // Handout Comments routes
     Route::post('handout-notes/{handoutNote}/comments', [HandoutCommentController::class, 'store'])->name('api.handout-comments.store');

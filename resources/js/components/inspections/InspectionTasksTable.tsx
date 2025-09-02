@@ -153,9 +153,9 @@ export default function InspectionTasksTable({
                                                 <Hash className="h-3 w-3 text-gray-400" />
                                                 <span className="font-medium">Range:</span>
                                                 <span>
-                                                    {task.expected_value_min} - {task.expected_value_max}
+                                                    {task.expected_value_min ?? 'Any'} - {task.expected_value_max ?? 'Any'}
                                                     {task.unit_of_measure ? (
-                                                        <span className="text-gray-600">{task.unit_of_measure}</span>
+                                                        <span className="text-gray-600"> {task.unit_of_measure}</span>
                                                     ) : ''}
                                                 </span>
                                             </div>
