@@ -138,6 +138,7 @@ interface InspectionsPageProps {
         type: string;
         status: string;
         per_page: number;
+        sort?: string;
     };
     flash?: {
         success?: string;
@@ -207,6 +208,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
     const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [perPage, setPerPage] = useState(filters.per_page);
+    const [sort, setSort] = useState(filters.sort || 'created_at_desc');
     const [isOperatorComboOpen, setIsOperatorComboOpen] = useState(false);
     const [operatorSearchTerm, setOperatorSearchTerm] = useState('');
     const [showCreateTemplateDialog, setShowCreateTemplateDialog] = useState(false);
@@ -300,14 +302,15 @@ export default function Inspections({ inspections, users, statistics, filters, f
                     search: searchTerm, 
                     status: statusFilter !== 'all' ? statusFilter : undefined,
                     type: typeFilter !== 'all' ? typeFilter : undefined,
-                    per_page: perPage
+                    per_page: perPage,
+                    sort
                 },
                 { preserveState: true, preserveScroll: true }
             );
         }, 300);
         
         return () => clearTimeout(timeoutId);
-    }, [searchTerm, statusFilter, typeFilter, perPage]);
+    }, [searchTerm, statusFilter, typeFilter, perPage, sort]);
     
     const openCreateDialog = () => {
         reset();
@@ -400,6 +403,7 @@ export default function Inspections({ inspections, users, statistics, filters, f
                     status: statusFilter !== 'all' ? statusFilter : undefined,
                     type: typeFilter !== 'all' ? typeFilter : undefined,
                     per_page: perPage,
+                    sort,
                     page: page
                 },
                 { preserveState: true, preserveScroll: true }
@@ -870,6 +874,19 @@ export default function Inspections({ inspections, users, statistics, filters, f
                                 <SelectItem value="25">25 per page</SelectItem>
                                 <SelectItem value="50">50 per page</SelectItem>
                                 <SelectItem value="100">100 per page</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={sort} onValueChange={setSort}>
+                            <SelectTrigger className="w-[160px] md:w-[200px] min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4 text-gray-500" />
+                                    <span className="truncate">{sort === 'created_at_asc' ? 'Oldest first' : 'Newest first'}</span>
+                                </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="created_at_desc">Newest first</SelectItem>
+                                <SelectItem value="created_at_asc">Oldest first</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

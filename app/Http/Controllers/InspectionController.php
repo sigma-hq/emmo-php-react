@@ -125,28 +125,43 @@ class InspectionController extends Controller
                 $query->whereHas('results', function($query) {
                     $query->where('is_passing', true);
                 });
-            }])
+            }]);
+
+        // Apply sorting: default to created_at (newest first) across all views, with optional 'priority'
+        $sort = $request->input('sort', 'created_at_desc');
+
+        if (in_array($sort, ['created_at_desc', 'created_at_asc', 'oldest'], true)) {
+            $direction = in_array($sort, ['created_at_asc', 'oldest'], true) ? 'asc' : 'desc';
+            $inspections = $inspections->reorder()->orderBy('created_at', $direction);
+        } elseif ($sort === 'priority') {
             // Sort by priority using Laravel's query builder for database compatibility
-            // First prioritize by expiry date, then by schedule due date
-            ->orderByRaw('CASE 
-                WHEN is_expired = 1 THEN 1
-                WHEN expiry_date IS NOT NULL AND expiry_date < ? THEN 2
-                WHEN expiry_date IS NOT NULL AND expiry_date <= ? THEN 3
-                WHEN expiry_date IS NOT NULL AND expiry_date <= ? THEN 4
-                WHEN schedule_next_due_date IS NULL THEN 7
-                WHEN schedule_next_due_date < ? THEN 5
-                WHEN schedule_next_due_date <= ? THEN 6
-                ELSE 7
-            END', [
-                now(),
-                now()->addDay(),
-                now()->addDays(3),
-                now(),
-                now()->addDay()
-            ])
-            ->orderBy('expiry_date', 'asc')
-            ->orderBy('schedule_next_due_date', 'asc')
-            ->latest()
+            // First prioritize by expiry date, then by schedule due date, then newest
+            $inspections = $inspections
+                ->orderByRaw('CASE 
+                    WHEN is_expired = 1 THEN 1
+                    WHEN expiry_date IS NOT NULL AND expiry_date < ? THEN 2
+                    WHEN expiry_date IS NOT NULL AND expiry_date <= ? THEN 3
+                    WHEN expiry_date IS NOT NULL AND expiry_date <= ? THEN 4
+                    WHEN schedule_next_due_date IS NULL THEN 7
+                    WHEN schedule_next_due_date < ? THEN 5
+                    WHEN schedule_next_due_date <= ? THEN 6
+                    ELSE 7
+                END', [
+                    now(),
+                    now()->addDay(),
+                    now()->addDays(3),
+                    now(),
+                    now()->addDay()
+                ])
+                ->orderBy('expiry_date', 'asc')
+                ->orderBy('schedule_next_due_date', 'asc')
+                ->latest();
+        } else {
+            // Fallback to newest
+            $inspections = $inspections->reorder()->orderBy('created_at', 'desc');
+        }
+
+        $inspections = $inspections
             ->paginate($perPage)
             ->withQueryString();
             
@@ -179,7 +194,8 @@ class InspectionController extends Controller
                 'search' => $request->input('search', ''),
                 'type' => $request->input('type', 'all'),
                 'status' => $request->input('status', 'all'),
-                'per_page' => $perPage
+                'per_page' => $perPage,
+                'sort' => $sort
             ],
             'isAdmin' => $isAdmin
         ]);
