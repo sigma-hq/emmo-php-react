@@ -46,10 +46,13 @@ import {
   Clipboard,
   Download,
   MessageSquare,
+  Camera,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 import MaintenanceChecklist from '@/components/ui/maintenance-checklist';
+import BarcodeScanner from '@/components/ui/barcode-scanner';
+import { useDriveBarcodeSearch } from '@/hooks/useBarcodeScanner';
 
 interface Drive {
   id: number;
@@ -163,6 +166,15 @@ export default function Maintenances({ maintenances, statuses, filters }: Mainte
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  
+  // Barcode scanner functionality
+  const { handleBarcodeScan } = useDriveBarcodeSearch({
+    targetRoute: 'maintenances',
+    queryParamName: 'search',
+    inertiaOptions: { preserveState: true, preserveScroll: true },
+    onApplied: (code) => setSearchTerm(code),
+  });
 
   // Get flash messages from Inertia
   const { flash } = usePage<{ flash: { success?: string } }>().props;
@@ -348,21 +360,32 @@ export default function Maintenances({ maintenances, statuses, filters }: Mainte
               <h1 className="text-2xl font-bold tracking-tight">Maintenance Records</h1>
             </div>
             
-            {/* Export Button */}
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                const params = new URLSearchParams();
-                if (searchTerm) params.append('search', searchTerm);
-                if (statusFilter) params.append('status', statusFilter);
-                window.open(`/maintenances/export?${params.toString()}`, '_blank');
-                displaySuccessMessage('CSV export initiated. Check your downloads folder.');
-              }}
-              className="border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsScannerOpen(true)}
+                className="border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Scan Barcode
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  if (searchTerm) params.append('search', searchTerm);
+                  if (statusFilter) params.append('status', statusFilter);
+                  window.open(`/maintenances/export?${params.toString()}`, '_blank');
+                  displaySuccessMessage('CSV export initiated. Check your downloads folder.');
+                }}
+                className="border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
           </div>
           
           <p className="text-gray-500 dark:text-gray-400 max-w-2xl">
@@ -709,6 +732,15 @@ export default function Maintenances({ maintenances, statuses, filters }: Mainte
           </div>
         )}
             </div>
+            
+            {/* Barcode Scanner Dialog */}
+            <BarcodeScanner 
+              isOpen={isScannerOpen}
+              onClose={() => setIsScannerOpen(false)}
+              onScan={handleBarcodeScan}
+              title="Scan Drive Barcode"
+              description="Position the drive's barcode within the camera view to find maintenance records for that drive."
+            />
         </AppLayout>
     );
 } 

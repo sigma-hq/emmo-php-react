@@ -42,7 +42,8 @@ import {
     AlertTriangle,
     Circle,
     Upload,
-    Download
+    Download,
+    Camera
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -51,6 +52,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import BarcodeScanner from '@/components/ui/barcode-scanner';
+import { useDriveBarcodeSearch } from '@/hooks/useBarcodeScanner';
 
 interface User {
     id: number;
@@ -217,6 +220,15 @@ export default function Inspections({ inspections, users, statistics, filters, f
     const [showCsvGeneratedMessage, setShowCsvGeneratedMessage] = useState(false);
     const [showCsvUploadedMessage, setShowCsvUploadedMessage] = useState(false);
     const [csvUploadOperatorId, setCsvUploadOperatorId] = useState<string>('');
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
+    
+    // Barcode scanner functionality
+    const { handleBarcodeScan } = useDriveBarcodeSearch({
+        targetRoute: 'inspections',
+        queryParamName: 'search',
+        inertiaOptions: { preserveState: true, preserveScroll: true },
+        onApplied: (code) => setSearchTerm(code),
+    });
     
     // Apply client-side filtering for priority
     const filteredInspections = useMemo(() => {
@@ -592,30 +604,41 @@ export default function Inspections({ inspections, users, statistics, filters, f
                             <ClipboardList className="h-6 w-6 text-[var(--emmo-green-primary)] flex-shrink-0" />
                             <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Inspection Management</h1>
                         </div>
-                        {isAdmin && (
-                            <div className="flex gap-2 flex-shrink-0">
-                                <Button onClick={openCreateDialog} className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]">
-                                    <PlusIcon className="h-4 w-4 mr-2" />
-                                    New Inspection
-                                </Button>
-                                <Button onClick={() => {
-                                    setShowCreateTemplateDialog(true);
-                                    resetTemplate();
-                                }} variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/20">
-                                    <ClipboardList className="h-4 w-4 mr-2" />
-                                    Generate Template CSV
-                                </Button>
-                                <Button onClick={() => {
-                                    console.log('Opening upload dialog, users:', users);
-                                    setShowUploadTemplateDialog(true);
-                                    setSelectedCsvFile(null);
-                                    setCsvUploadOperatorId('');
-                                }} variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/20">
-                                    <Upload className="h-4 w-4 mr-2" />
-                                    Upload Template CSV
-                                </Button>
-                            </div>
-                        )}
+                        <div className="flex gap-2 flex-shrink-0">
+                            <Button 
+                                onClick={() => setIsScannerOpen(true)} 
+                                variant="outline" 
+                                className="border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                            >
+                                <Camera className="h-4 w-4 mr-2" />
+                                Scan Barcode
+                            </Button>
+                            
+                            {isAdmin && (
+                                <>
+                                    <Button onClick={openCreateDialog} className="bg-[var(--emmo-green-primary)] hover:bg-[var(--emmo-green-secondary)]">
+                                        <PlusIcon className="h-4 w-4 mr-2" />
+                                        New Inspection
+                                    </Button>
+                                    <Button onClick={() => {
+                                        setShowCreateTemplateDialog(true);
+                                        resetTemplate();
+                                    }} variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/20">
+                                        <ClipboardList className="h-4 w-4 mr-2" />
+                                        Generate Template CSV
+                                    </Button>
+                                    <Button onClick={() => {
+                                        console.log('Opening upload dialog, users:', users);
+                                        setShowUploadTemplateDialog(true);
+                                        setSelectedCsvFile(null);
+                                        setCsvUploadOperatorId('');
+                                    }} variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/20">
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        Upload Template CSV
+                                    </Button>
+                                </>
+                            )}
+                        </div>
                     </div>
                     <p className="text-sm text-gray-500">
                         Create and manage inspection procedures for drives and parts.
@@ -2097,6 +2120,15 @@ export default function Inspections({ inspections, users, statistics, filters, f
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+                
+                {/* Barcode Scanner Dialog */}
+                <BarcodeScanner 
+                    isOpen={isScannerOpen}
+                    onClose={() => setIsScannerOpen(false)}
+                    onScan={handleBarcodeScan}
+                    title="Scan Drive Barcode"
+                    description="Position the drive's barcode within the camera view to find inspection records for that drive."
+                />
             </div>
         </AppLayout>
     );

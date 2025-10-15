@@ -105,7 +105,21 @@ class InspectionController extends Controller
             ->when($request->input('search'), function($query, $search) {
                 $query->where(function($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%");
+                      ->orWhere('description', 'like', "%{$search}%")
+                      // Also search by associated drive reference/name via inspection tasks
+                      ->orWhereExists(function($sub) use ($search) {
+                          $sub->select(DB::raw(1))
+                              ->from('inspection_tasks as it')
+                              ->join('drives as d', function($join) {
+                                  $join->on('d.id', '=', 'it.target_id');
+                              })
+                              ->whereColumn('it.inspection_id', 'inspections.id')
+                              ->where('it.target_type', 'drive')
+                              ->where(function($w) use ($search) {
+                                  $w->where('d.drive_ref', 'like', "%{$search}%")
+                                    ->orWhere('d.name', 'like', "%{$search}%");
+                              });
+                      });
                 });
             })
             // Add filtering for templates/instances via request param
